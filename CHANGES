@@ -8,6 +8,10 @@
   * page: https://github.com/jrh13/hol-light/commits/master         *
   * *****************************************************************
 
+Wed 4th May 2016
+
+  No changes yet.
+
 Sat 23rd Apr 2016       Library/products.ml
 
 Added two obvious theorems about the sizes of cartesian products:
@@ -13692,3 +13696,4 @@ STVs, but issue a warning.
 Sun 29th Oct 95         subgoal.ml
 
 Inserted a warning into "expand" if the tactic does not change the goal state.
+
