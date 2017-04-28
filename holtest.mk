@@ -11,6 +11,7 @@ STANDALONE_EXAMPLES:=\
 	Examples/cong \
 	Examples/cooper \
 	Examples/dickson \
+	Examples/division_algebras \
 	Examples/dlo \
 	Library/floor \
 	Examples/forster \
@@ -78,6 +79,7 @@ EXTENDED_EXAMPLES:=\
 	Multivariate/flyspeck \
 	Multivariate/gamma \
 	Multivariate/geom \
+	Multivariate/lpspaces \
 	Multivariate/tarski \
 	RichterHilbertAxiomGeometry/Topology \
 	RichterHilbertAxiomGeometry/TarskiAxiomGeometry_read \

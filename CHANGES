@@ -8,9 +8,1124 @@
   * page: https://github.com/jrh13/hol-light/commits/master         *
   * *****************************************************************
 
-Wed 4th May 2016
+Wed 11th Apr 2017       pair.ml, sets.ml, cart.ml
 
-  No changes yet.
+Added a few more trivial but nice-to-have rewrites:
+
+  EXISTS_PAIR_FUN_THM =
+    |- !P. (?f. P f) <=> (?g h. P (\a. g a,h a))
+
+  FORALL_PAIR_FUN_THM =
+    |- !P. (!f. P f) <=> (!g h. P (\a. g a,h a))
+
+  CROSS_SING =
+    |- !x y. {x} CROSS {y} = {(x,y)}
+
+  PCROSS_SING =
+     |- !x y. {x} PCROSS {y} = {pastecart x y}
+
+Sat  8th Apr 2017       cart.ml
+
+Type-generalized PASTECART_INJ which had a pointless restriction to ":real".
+
+Sat  8th Apr 2017       sets.ml
+
+Added a number of new theorems from Andrea Gabrielli and Marco Maggesi, giving
+some additional properties of sup and inf and using useful relational versions
+"has_sup" and "has_inf" to express some properties more nicely:
+
+  has_inf =
+    |- !s b. s has_inf b <=> (!c. (!x. x IN s ==> c <= x) <=> c <= b)
+
+  has_sup =
+    |- !s b. s has_sup b <=> (!c. (!x. x IN s ==> x <= c) <=> b <= c)
+
+  HAS_INF =
+    |- !s l.
+           s has_inf l <=>
+           ~(s = {}) /\
+           (!x. x IN s ==> l <= x) /\
+           (!c. l < c ==> (?x. x IN s /\ x < c))
+
+  HAS_INF_APPROACH =
+    |- !s l c. s has_inf l /\ l < c ==> (?x. x IN s /\ x < c)
+
+  HAS_INF_INF =
+    |- !s l.
+           s has_inf l <=>
+           ~(s = {}) /\ (?b. !x. x IN s ==> b <= x) /\ inf s = l
+
+  HAS_INF_LBOUND =
+    |- !s b x. s has_inf b /\ x IN s ==> b <= x
+
+  HAS_INF_LE =
+    |- !s t l m.
+           s has_inf l /\
+           t has_inf m /\
+           (!y. y IN t ==> (?x. x IN s /\ x <= y))
+           ==> l <= m
+
+  HAS_SUP =
+    |- !s l.
+           s has_sup l <=>
+           ~(s = {}) /\
+           (!x. x IN s ==> x <= l) /\
+           (!c. c < l ==> (?x. x IN s /\ c < x))
+
+  HAS_SUP_APPROACH =
+    |- !s l c. s has_sup l /\ c < l ==> (?x. x IN s /\ c < x)
+
+  HAS_SUP_LE =
+    |- !s t l m.
+           s has_sup l /\
+           t has_sup m /\
+           (!y. y IN t ==> (?x. x IN s /\ y <= x))
+           ==> m <= l
+
+  HAS_SUP_SUP =
+    |- !s l.
+           s has_sup l <=>
+           ~(s = {}) /\ (?b. !x. x IN s ==> x <= b) /\ sup s = l
+
+  HAS_SUP_UBOUND =
+    |- !s b x. s has_sup b /\ x IN s ==> x <= b
+
+  INF_APPROACH =
+    |- !s c.
+           ~(s = {}) /\ (?b. !x. x IN s ==> b <= x) /\ inf s < c
+           ==> (?x. x IN s /\ x < c)
+
+  INF_EXISTS =
+    |- !s. (?l. s has_inf l) <=> ~(s = {}) /\ (?b. !x. x IN s ==> b <= x)
+
+  SUP_APPROACH =
+    |- !s c.
+           ~(s = {}) /\ (?b. !x. x IN s ==> x <= b) /\ c < sup s
+           ==> (?x. x IN s /\ c < x)
+
+  SUP_EXISTS =
+    |- !s. (?l. s has_sup l) <=> ~(s = {}) /\ (?b. !x. x IN s ==> x <= b)
+
+Wed 29th Mar 2017       arith.ml
+
+Added some natural theorems that were missing:
+
+  DIV_EXP =
+    |- m n p. ~(m = 0)
+              ==> (m EXP n) DIV (m EXP p) =
+                  if p <= n then m EXP (n - p)
+                  else if m = 1 then 1 else 0)
+
+  MOD_EXP =
+    |- !m n p. ~(m = 0)
+               ==> (m EXP n) MOD (m EXP p) =
+                   if p <= n \/ m = 1 then 0 else m EXP n)
+
+Tue 28th Mar 2017       Library/card.ml
+
+Added a small but more compact reformulation of cardinal exponentiation:
+
+  EXP_C =
+   |- !s t. s ^_c t = {f | IMAGE f t SUBSET s /\ EXTENSIONAL t f}
+
+Mon 27th Mar 2018       Library/floor.ml, Library/prime.ml
+
+Added a few handy lemmas:
+
+  RATIONAL_ABS_EQ = prove
+    |- !x. rational(abs x) <=> rational x
+
+  DIVIDES_EXP_LE_IMP = prove
+    |- !p m n. m <= n ==> (p EXP m) divides (p EXP n)
+
+  EXP_INDEX_DIVIDES = prove
+    |- !p n. p EXP (index p n) divides n
+
+  INDEX_ADD_MIN = prove
+    |- !p m n. MIN (index p m) (index p n) <= index p (m + n)
+
+  INDEX_SUB_MIN = prove
+    |- !p m n. n < m ==> MIN (index p m) (index p n) <= index p (m - n)
+
+Sat 25th Mar 2017       Minisat/minisat_parse.ml
+
+Replaced the use of int32 literals "0x...l" with "Int32.of_int 0x...".
+The former seems to have recently started to be problematic with the
+camlp5 preprocessing; really the underlying problem should be investigated and
+fixed but as this is the only instance, I just made this change for now.
+
+Fri 24th Mar 2017       holtest, holtest.ml
+
+Added "Multivariate/lpspaces.ml" to the test suite (formerly missing its
+own individual entry, though it's called in 100/fourier.ml anyway).
+
+Wed 22nd Mar 2017       Library/card.ml
+
+Added another variant of relational cardinal equality, as well as simplifying
+the proof of the Schroeder-Bernstein theorem using a formulation in the
+relational style (following a paper by Chad Brown, perhaps actually following
+Knaster?)
+
+  EQ_C_ALT =
+   |- s =_c t <=>
+      ?R:A#B->bool. (!x. x IN s ==> ?!y. y IN t /\ R(x,y)) /\
+                    (!y. y IN t ==> ?!x. x IN s /\ R(x,y))
+
+Thu 16th Mar 2017       Makefile
+
+Added yet another disjunct to the camlp5 version cases after a report from
+Vu Khac Ky of a failure with camlp5 6.17 (currently the latest version).
+
+Wed 15th Mar 2017       real.ml, Library/transc.ml, 100/sqrt.ml, Jordan/metric_spaces.ml, Jordan/jordan_curve_theorem.ml
+
+Added a definition and basic properties of square roots to the core system,
+mainly lifted from the existing Multivariate code. The proof that the
+definition works is laborious without any analytical machinery but it seemed
+artificial to make such a basic and well-known function dependent on such
+machinery. Note that the definition is totalized to be sign-preserving,
+which makes various theorems work nicely without side-conditions while not
+affecting its value for nonnegative arguments where it is usually considered
+to be defined. New definitions and theorems:
+
+  sqrt = |- !x. sqrt x = (@y. real_sgn y = real_sgn x /\ y pow 2 = abs x)
+
+  POW_2_SQRT =
+     |- !x. &0 <= x ==> sqrt (x pow 2) = x
+
+  POW_2_SQRT_ABS =
+     |- !x. sqrt (x pow 2) = abs x
+
+  REAL_DIV_SQRT =
+     |- !x. &0 <= x ==> x / sqrt x = sqrt x
+
+  REAL_LE_LSQRT =
+     |- !x y. &0 <= y /\ x <= y pow 2 ==> sqrt x <= y
+
+  REAL_LE_RSQRT =
+     |- !x y. x pow 2 <= y ==> x <= sqrt y
+
+  REAL_LSQRT_LE =
+     |- !x y. &0 <= x /\ sqrt x <= y ==> x <= y pow 2
+
+  REAL_LT_LSQRT =
+     |- !x y. &0 <= y /\ x < y pow 2 ==> sqrt x < y
+
+  REAL_LT_RSQRT =
+     |- !x y. x pow 2 < y ==> x < sqrt y
+
+  REAL_RSQRT_LE =
+     |- !x y. &0 <= x /\ &0 <= y /\ x <= sqrt y ==> x pow 2 <= y
+
+  REAL_SGN_SQRT =
+     |- !x. real_sgn (sqrt x) = real_sgn x
+
+  REAL_SQRT_POW_2 =
+     |- !x. sqrt x pow 2 = abs x
+
+  SQRT_0 =
+     |- sqrt (&0) = &0
+
+  SQRT_1 =
+     |- sqrt (&1) = &1
+
+  SQRT_DIV =
+     |- !x y. sqrt (x / y) = sqrt x / sqrt y
+
+  SQRT_EQ_0 =
+     |- !x. sqrt x = &0 <=> x = &0
+
+  SQRT_EVEN_POW2 =
+     |- !n. EVEN n ==> sqrt (&2 pow n) = &2 pow (n DIV 2)
+
+  SQRT_INJ =
+     |- !x y. sqrt x = sqrt y <=> x = y
+
+  SQRT_INV =
+     |- !x. sqrt (inv x) = inv (sqrt x)
+
+  SQRT_LE_0 =
+     |- !x. &0 <= sqrt x <=> &0 <= x
+
+  SQRT_LT_0 =
+     |- !x. &0 < sqrt x <=> &0 < x
+
+  SQRT_MONO_LE =
+     |- !x y. x <= y ==> sqrt x <= sqrt y
+
+  SQRT_MONO_LE_EQ =
+     |- !x y. sqrt x <= sqrt y <=> x <= y
+
+  SQRT_MONO_LT =
+     |- !x y. x < y ==> sqrt x < sqrt y
+
+  SQRT_MONO_LT_EQ =
+     |- !x y. sqrt x < sqrt y <=> x < y
+
+  SQRT_MUL =
+     |- !x y. sqrt (x * y) = sqrt x * sqrt y
+
+  SQRT_NEG =
+     |- !x. sqrt (--x) = --sqrt x
+
+  SQRT_POS_LE =
+     |- !x. &0 <= x ==> &0 <= sqrt x
+
+  SQRT_POS_LT =
+     |- !x. &0 < x ==> &0 < sqrt x
+
+  SQRT_POW2 =
+     |- !x. sqrt x pow 2 = x <=> &0 <= x
+
+  SQRT_POW_2 =
+     |- !x. &0 <= x ==> sqrt x pow 2 = x
+
+  SQRT_UNIQUE =
+     |- !x y. &0 <= y /\ y pow 2 = x ==> sqrt x = y
+
+  SQRT_UNIQUE_GEN =
+      |- !x y. real_sgn y = real_sgn x /\ y pow 2 = abs x ==> sqrt x = y
+
+  SQRT_WORKS =
+     |- !x. &0 <= x ==> &0 <= sqrt x /\ sqrt x pow 2 = x
+
+  SQRT_WORKS_GEN =
+     |- !x. real_sgn (sqrt x) = real_sgn x /\ sqrt x pow 2 = abs x
+
+Also removed either duplicates or weaker theorems (with more hypotheses)
+sharing the same names from "Library/transc.ml", removed a dependency in
+"100/sqrt.ml", and fixed some consequentially broken proofs in Jordan.
+
+Sun  5th Mar 2017       sets.ml
+
+Added a kind of infinite pigeonhole principle:
+
+  FINITE_IMAGE_INFINITE =
+    |- !f:A->B s.
+          INFINITE s /\ FINITE(IMAGE f s)
+          ==> ?a. a IN s /\ INFINITE {x | x IN s /\ f x = f a}
+
+Thu  2nd Mar 2017       sets.ml, cart.ml
+
+Added one more triviality about products of sets, both in the real product and
+the "cart" variant:
+
+  DISJOINT_CROSS =
+   |- !s t s' t'.
+        DISJOINT (s CROSS t) (s' CROSS t') <=>
+        DISJOINT s s' \/ DISJOINT t t'
+
+  DISJOINT_PCROSS =
+   |- !s t s' t'.
+        DISJOINT (s PCROSS t) (s' PCROSS t') <=>
+        DISJOINT s s' \/ DISJOINT t t'
+
+Sat 25th Feb 2017       sets.ml
+
+Added one more trivial but handy theorems about Cartesian products:
+
+  CARTESIAN_PRODUCT_UNIV = |- cartesian_product (:K) (\i. (:A)) = (:K->A)
+
+Wed 15th Feb 2017       sets.ml
+
+Added a definition of "extensional" functions, all the material lifted from
+Multivariate/misc.ml (except for the renaming of UNDEFINED -> ARB, which helps
+to emphasize that these are not truly partial functions). Used that to define a
+natural space of general Cartesian products of sets (or, viewed differently, a
+dependent function space), with a few lemmas. New definitions:
+
+  ARB =
+    |- ARB = (@x. F)
+
+  EXTENSIONAL =
+    |- !s. EXTENSIONAL s = {f | !x. ~(x IN s) ==> f x = ARB}
+
+  cartesian_product =
+    |- !k s.
+         cartesian_product k s =
+         {f | EXTENSIONAL k f /\ (!i. i IN k ==> f i IN s i)}
+
+and theorems:
+
+  CARTESIAN_PRODUCT =
+    |- !k s.
+           cartesian_product k s =
+           {f | !i. f i IN (if i IN k then s i else {ARB})}
+
+  CARTESIAN_PRODUCT_EQ =
+    |- !k s t.
+           cartesian_product k s = cartesian_product k t <=>
+           cartesian_product k s = {} /\ cartesian_product k t = {} \/
+           (!i. i IN k ==> s i = t i)
+
+  CARTESIAN_PRODUCT_EQ_EMPTY =
+    |- !k s. cartesian_product k s = {} <=> (?i. i IN k /\ s i = {})
+
+  EXTENSIONAL_EMPTY =
+    |- EXTENSIONAL {} = {(\x. ARB)}
+
+  EXTENSIONAL_EQ =
+    |- !s f g.
+           f IN EXTENSIONAL s /\
+           g IN EXTENSIONAL s /\
+           (!x. x IN s ==> f x = g x)
+           ==> f = g
+
+  EXTENSIONAL_UNIV =
+    |- !f. EXTENSIONAL (:A) f
+
+  IMAGE_PROJECTION_CARTESIAN_PRODUCT =
+    |- !k s i.
+           IMAGE (\x. x i) (cartesian_product k s) =
+           (if cartesian_product k s = {}
+            then {}
+            else if i IN k then s i else {ARB})
+
+  INTER_CARTESIAN_PRODUCT =
+    |- !k s t.
+           cartesian_product k s INTER cartesian_product k t =
+           cartesian_product k (\i. s i INTER t i)
+
+  IN_EXTENSIONAL =
+    |- !s f. f IN EXTENSIONAL s <=> (!x. ~(x IN s) ==> f x = ARB)
+
+  IN_EXTENSIONAL_UNDEFINED =
+    |- !s f x. f IN EXTENSIONAL s /\ ~(x IN s) ==> f x = ARB
+
+  SUBSET_CARTESIAN_PRODUCT =
+    |- !k s t.
+           cartesian_product k s SUBSET cartesian_product k t <=>
+           cartesian_product k s = {} \/ (!i. i IN k ==> s i SUBSET t i)
+
+Sat  4th Feb 2017       sets.ml, Library/card.ml
+
+Added quite a number of theorems about the UNION_OF and INTERSECTION_OF
+constructs in three common cases, one of which uses a new constant
+"ARBITRARY".
+
+  ARBITRARY =
+    |- !s. ARBITRARY s <=> T
+
+  ARBITRARY_INTERSECTION_OF_COMPLEMENT =
+    |- !P s.
+           (ARBITRARY INTERSECTION_OF P) s <=>
+           (ARBITRARY UNION_OF (\s. P ((:A) DIFF s))) ((:A) DIFF s)
+
+  ARBITRARY_INTERSECTION_OF_EMPTY =
+    |- !P. (ARBITRARY INTERSECTION_OF P) (:A)
+
+  ARBITRARY_INTERSECTION_OF_IDEMPOT =
+    |- !P. ARBITRARY INTERSECTION_OF ARBITRARY INTERSECTION_OF P =
+           ARBITRARY INTERSECTION_OF P
+
+  ARBITRARY_INTERSECTION_OF_INC =
+    |- !P s. P s ==> (ARBITRARY INTERSECTION_OF P) s
+
+  ARBITRARY_INTERSECTION_OF_INTER =
+    |- !P s t.
+           (ARBITRARY INTERSECTION_OF P) s /\ (ARBITRARY INTERSECTION_OF P) t
+           ==> (ARBITRARY INTERSECTION_OF P) (s INTER t)
+
+  ARBITRARY_INTERSECTION_OF_INTERS =
+    |- !P u.
+           (!s. s IN u ==> (ARBITRARY INTERSECTION_OF P) s)
+           ==> (ARBITRARY INTERSECTION_OF P) (INTERS u)
+
+  ARBITRARY_INTERSECTION_OF_UNION =
+    |- !P. (!s t. P s /\ P t ==> P (s UNION t))
+           ==> (!s t.
+                    (ARBITRARY INTERSECTION_OF P) s /\
+                    (ARBITRARY INTERSECTION_OF P) t
+                    ==> (ARBITRARY INTERSECTION_OF P) (s UNION t))
+
+  ARBITRARY_INTERSECTION_OF_UNION_EQ =
+    |- !P. (!s t.
+                (ARBITRARY INTERSECTION_OF P) s /\
+                (ARBITRARY INTERSECTION_OF P) t
+                ==> (ARBITRARY INTERSECTION_OF P) (s UNION t)) <=>
+           (!s t. P s /\ P t ==> (ARBITRARY INTERSECTION_OF P) (s UNION t))
+
+  ARBITRARY_UNION_OF_COMPLEMENT =
+    |- !P s.
+           (ARBITRARY UNION_OF P) s <=>
+           (ARBITRARY INTERSECTION_OF (\s. P ((:A) DIFF s))) ((:A) DIFF s)
+
+  ARBITRARY_UNION_OF_EMPTY =
+    |- !P. (ARBITRARY UNION_OF P) {}
+
+  ARBITRARY_UNION_OF_IDEMPOT =
+    |- !P. ARBITRARY UNION_OF ARBITRARY UNION_OF P = ARBITRARY UNION_OF P
+
+  ARBITRARY_UNION_OF_INC =
+    |- !P s. P s ==> (ARBITRARY UNION_OF P) s
+
+  ARBITRARY_UNION_OF_INTER =
+    |- !P. (!s t. P s /\ P t ==> P (s INTER t))
+           ==> (!s t.
+                    (ARBITRARY UNION_OF P) s /\ (ARBITRARY UNION_OF P) t
+                    ==> (ARBITRARY UNION_OF P) (s INTER t))
+
+  ARBITRARY_UNION_OF_INTER_EQ =
+    |- !P. (!s t.
+                (ARBITRARY UNION_OF P) s /\ (ARBITRARY UNION_OF P) t
+                ==> (ARBITRARY UNION_OF P) (s INTER t)) <=>
+           (!s t. P s /\ P t ==> (ARBITRARY UNION_OF P) (s INTER t))
+
+  ARBITRARY_UNION_OF_UNION =
+    |- !P s t.
+           (ARBITRARY UNION_OF P) s /\ (ARBITRARY UNION_OF P) t
+           ==> (ARBITRARY UNION_OF P) (s UNION t)
+
+  ARBITRARY_UNION_OF_UNIONS =
+    |- !P u.
+           (!s. s IN u ==> (ARBITRARY UNION_OF P) s)
+           ==> (ARBITRARY UNION_OF P) (UNIONS u)
+
+  FINITE_INTERSECTION_OF_COMPLEMENT =
+    |- !P s.
+           (FINITE INTERSECTION_OF P) s <=>
+           (FINITE UNION_OF (\s. P ((:A) DIFF s))) ((:A) DIFF s)
+
+  FINITE_INTERSECTION_OF_EMPTY =
+    |- !P. (FINITE INTERSECTION_OF P) (:A)
+
+  FINITE_INTERSECTION_OF_IDEMPOT =
+    |- !P. FINITE INTERSECTION_OF FINITE INTERSECTION_OF P =
+           FINITE INTERSECTION_OF P
+
+  FINITE_INTERSECTION_OF_INC =
+    |- !P s. P s ==> (FINITE INTERSECTION_OF P) s
+
+  FINITE_INTERSECTION_OF_INTER =
+    |- !P s t.
+           (FINITE INTERSECTION_OF P) s /\ (FINITE INTERSECTION_OF P) t
+           ==> (FINITE INTERSECTION_OF P) (s INTER t)
+
+  FINITE_INTERSECTION_OF_INTERS =
+    |- !P u.
+           FINITE u /\ (!s. s IN u ==> (FINITE INTERSECTION_OF P) s)
+           ==> (FINITE INTERSECTION_OF P) (INTERS u)
+
+  FINITE_INTERSECTION_OF_UNION =
+    |- !P. (!s t. P s /\ P t ==> P (s UNION t))
+           ==> (!s t.
+                    (FINITE INTERSECTION_OF P) s /\ (FINITE INTERSECTION_OF P) t
+                    ==> (FINITE INTERSECTION_OF P) (s UNION t))
+
+  FINITE_INTERSECTION_OF_UNION_EQ =
+    |- !P. (!s t.
+                (FINITE INTERSECTION_OF P) s /\ (FINITE INTERSECTION_OF P) t
+                ==> (FINITE INTERSECTION_OF P) (s UNION t)) <=>
+           (!s t. P s /\ P t ==> (FINITE INTERSECTION_OF P) (s UNION t))
+
+  FINITE_UNION_OF_COMPLEMENT =
+    |- !P s.
+           (FINITE UNION_OF P) s <=>
+           (FINITE INTERSECTION_OF (\s. P ((:A) DIFF s))) ((:A) DIFF s)
+
+  FINITE_UNION_OF_EMPTY =
+    |- !P. (FINITE UNION_OF P) {}
+
+  FINITE_UNION_OF_IDEMPOT =
+    |- !P. FINITE UNION_OF FINITE UNION_OF P = FINITE UNION_OF P
+
+  FINITE_UNION_OF_INC =
+    |- !P s. P s ==> (FINITE UNION_OF P) s
+
+  FINITE_UNION_OF_INTER =
+    |- !P. (!s t. P s /\ P t ==> P (s INTER t))
+           ==> (!s t.
+                    (FINITE UNION_OF P) s /\ (FINITE UNION_OF P) t
+                    ==> (FINITE UNION_OF P) (s INTER t))
+
+  FINITE_UNION_OF_INTER_EQ =
+    |- !P. (!s t.
+                (FINITE UNION_OF P) s /\ (FINITE UNION_OF P) t
+                ==> (FINITE UNION_OF P) (s INTER t)) <=>
+           (!s t. P s /\ P t ==> (FINITE UNION_OF P) (s INTER t))
+
+  FINITE_UNION_OF_UNION =
+    |- !P s t.
+           (FINITE UNION_OF P) s /\ (FINITE UNION_OF P) t
+           ==> (FINITE UNION_OF P) (s UNION t)
+
+  FINITE_UNION_OF_UNIONS =
+    |- !P u.
+           FINITE u /\ (!s. s IN u ==> (FINITE UNION_OF P) s)
+           ==> (FINITE UNION_OF P) (UNIONS u)
+
+  FORALL_INTERSECTION_OF =
+    |- (!s. (P INTERSECTION_OF Q) s ==> R s) <=>
+       (!t. P t /\ (!c. c IN t ==> Q c) ==> R (INTERS t))
+
+  FORALL_UNION_OF =
+    |- (!s. (P UNION_OF Q) s ==> R s) <=>
+       (!t. P t /\ (!c. c IN t ==> Q c) ==> R (UNIONS t))
+
+  INTERSECTION_OF_EMPTY =
+    |- !P Q. P {} ==> (P INTERSECTION_OF Q) (:A)
+
+  UNION_OF_EMPTY =
+    |- !P Q. P {} ==> (P UNION_OF Q) {}
+
+
+
+  COUNTABLE_DISJOINT_UNION_OF_IDEMPOT =
+    |- !P. (COUNTABLE INTER pairwise DISJOINT) UNION_OF
+           (COUNTABLE INTER pairwise DISJOINT) UNION_OF P =
+           (COUNTABLE INTER pairwise DISJOINT) UNION_OF P
+
+  COUNTABLE_INTERSECTION_OF_EMPTY =
+    |- !P. (COUNTABLE INTERSECTION_OF P) (:A)
+
+  COUNTABLE_INTERSECTION_OF_UNIONS =
+    |- !P u.
+           (COUNTABLE INTERSECTION_OF P) {} /\
+           (!s t. P s /\ P t ==> P (s UNION t)) /\
+           FINITE u /\
+           (!s. s IN u ==> (COUNTABLE INTERSECTION_OF P) s)
+           ==> (COUNTABLE INTERSECTION_OF P) (UNIONS u)
+
+  COUNTABLE_INTERSECTION_OF_UNIONS_NONEMPTY =
+    |- !P u.
+           (!s t. P s /\ P t ==> P (s UNION t)) /\
+           FINITE u /\
+           ~(u = {}) /\
+           (!s. s IN u ==> (COUNTABLE INTERSECTION_OF P) s)
+           ==> (COUNTABLE INTERSECTION_OF P) (UNIONS u)
+
+  COUNTABLE_INTERSECTION_OF_UNION_EQ =
+    |- !P. (!s t.
+                (COUNTABLE INTERSECTION_OF P) s /\
+                (COUNTABLE INTERSECTION_OF P) t
+                ==> (COUNTABLE INTERSECTION_OF P) (s UNION t)) <=>
+           (!s t. P s /\ P t ==> (COUNTABLE INTERSECTION_OF P) (s UNION t))
+
+  COUNTABLE_UNION_OF_EMPTY =
+    |- !P. (COUNTABLE UNION_OF P) {}
+
+  COUNTABLE_UNION_OF_INTERS =
+    |- !P u.
+           (COUNTABLE UNION_OF P) (:A) /\
+           (!s t. P s /\ P t ==> P (s INTER t)) /\
+           FINITE u /\
+           (!s. s IN u ==> (COUNTABLE UNION_OF P) s)
+           ==> (COUNTABLE UNION_OF P) (INTERS u)
+
+  COUNTABLE_UNION_OF_INTERS_NONEMPTY =
+    |- !P u.
+           (!s t. P s /\ P t ==> P (s INTER t)) /\
+           FINITE u /\
+           ~(u = {}) /\
+           (!s. s IN u ==> (COUNTABLE UNION_OF P) s)
+           ==> (COUNTABLE UNION_OF P) (INTERS u)
+
+  COUNTABLE_UNION_OF_INTER_EQ =
+    |- !P. (!s t.
+                (COUNTABLE UNION_OF P) s /\ (COUNTABLE UNION_OF P) t
+                ==> (COUNTABLE UNION_OF P) (s INTER t)) <=>
+           (!s t. P s /\ P t ==> (COUNTABLE UNION_OF P) (s INTER t))
+
+Sat 14th Jan 2017       passim
+
+Switched quite a few more instances of the deprecated "&" to "&&" (these got
+missed on the 9th Sep 2016 update because they are at the end of a line).
+
+Fri 13th Jan 2017       lists.ml
+
+Made a small recoding of a phrase that OCaml has started treating as
+erroneous in version 4.03 (pointed out by Hendrik Tews).
+
+Fri  6th Jan 2017       iterate.ml, 100/cayley_hamilton.ml
+
+Added two more generic "iterate" theorems that were already there in
+specific instances, and re-derived the special cases from them:
+
+  ITERATE_RESTRICT_SET =
+    |- !op. monoidal op
+            ==> !P s f. iterate op {x | x IN s /\ P x} f =
+                        iterate op s (\x. if P x then f x else neutral op)
+
+
+  ITERATE_IMAGE_GEN =
+    |- !op. monoidal op
+            ==> !f g. FINITE s
+                      ==> iterate op s g =
+                          iterate op (IMAGE f s)
+                             (\y. iterate op {x | x IN s /\ f x = y} g)
+
+Sun  4th Dec 2016       iterate.ml
+
+Added a generic "iterate" version of a theorem already present in various
+instantiations (SUM_SWAP etc.)
+
+  ITERATE_SWAP =
+    |- !op. monoidal op
+            ==> (!f s t.
+                     FINITE s /\ FINITE t
+                     ==> iterate op s (\i. iterate op t (f i)) =
+                         iterate op t (\j. iterate op s (\i. f i j)))
+
+Thu 17th Nov 2016       arith.ml, real.ml, int.ml, iterate.ml
+
+Added a miscellany of trivial but handy theorems:
+
+  INTER_NUMSEG =
+    |- !m n p q. (m..n) INTER (p..q) = MAX m p..MIN n q
+
+  INT_SGNS_EQ =
+    |- !x y.
+           int_sgn x = int_sgn y <=>
+           (x = &0 <=> y = &0) /\ (x > &0 <=> y > &0) /\ (x < &0 <=> y < &0)
+
+  INT_SGNS_EQ_ALT =
+    |- !x y.
+           int_sgn x = int_sgn y <=>
+           (x = &0 ==> y = &0) /\ (x > &0 ==> y > &0) /\ (x < &0 ==> y < &0)
+
+  LDIV_LT_EQ =
+    |- !a b n. ~(a = 0) ==> (n < b DIV a <=> a * (n + 1) <= b)
+
+  RDIV_LT_EQ =
+    |- !a b n. ~(a = 0) ==> (b DIV a < n <=> b < a * n)
+
+  REAL_SGNS_EQ =
+    |- !x y.
+           real_sgn x = real_sgn y <=>
+           (x = &0 <=> y = &0) /\ (x > &0 <=> y > &0) /\ (x < &0 <=> y < &0)
+
+  REAL_SGNS_EQ_ALT =
+    |- !x y.
+           real_sgn x = real_sgn y <=>
+           (x = &0 ==> y = &0) /\ (x > &0 ==> y > &0) /\ (x < &0 ==> y < &0)
+
+Mon 24th Oct 2016       wf.ml
+
+Added the following theorem about defining recursive functions based on an
+existential condition, after finally getting tired of effectively proving
+special cases using the same reasoning:
+
+  WF_REC_EXISTS : thm =
+    |- WF (<<)
+       ==> (!P. (!f g x y.
+                     (!z. z << x ==> f z = g z) ==> (P f x y <=> P g x y)) /\
+                (!f x. (!z. z << x ==> P f z (f z)) ==> (?y. P f x y))
+                ==> (?f. !x. P f x (f x)))
+
+Sun 23rd Oct 2016       sets.ml, Library/isum.ml, Library/products.ml
+
+Added the following occasionally handy manipulative theorem for iterated
+operations, the generic one and various instances:
+
+  ITERATE_UNIV =
+    |- !op. monoidal op
+            ==> (!f s.
+                     support op f (:A) SUBSET s
+                     ==> iterate op s f = iterate op (:A) f)
+
+  NSUM_UNIV =
+    |- !f s. support (+) f (:A) SUBSET s ==> nsum s f = nsum (:A) f
+
+  SUM_UNIV =
+    |- !f s. support (+) f (:A) SUBSET s ==> sum s f = sum (:A) f
+
+  ISUM_UNIV =
+    |- !f s. support (+) f (:A) SUBSET s ==> isum s f = isum (:A) f
+
+  NPRODUCT_UNIV =
+    |- !f s. support (*) f (:A) SUBSET s ==> nproduct s f = nproduct (:A) f
+
+  PRODUCT_UNIV =
+    |- !f s. support (*) f (:A) SUBSET s ==> product s f = product (:A) f
+
+Thu  6th Oct 2016       preterm.ml, bool.ml, impconv.ml, nums.ml
+
+Removed a few bindings that generate "unused variable" warnings from OCaml.
+
+Thu  6th Oct 2016       calc_rat.ml, Multivariate/complexes.ml
+
+Improved REAL_FIELD so that it does a somewhat better job of handling
+denominators of the form "c pow n" where c is a rational number and
+n is non-constant (actually the new version marginally improves the
+case where c is variable too, e.g. REAL_FIELD `&n pow n / &n pow n = &1`).
+The main differences are that prenormalization does not distribute
+"inv" through "pow" in the case of a non-constant power, and then the
+nonzeroness-proving logic uses obvious facts like ~(x = 0) ==> ~(x^n = 0).
+For instance things like this now just work:
+
+  REAL_FIELD `&2 pow m * x / &2 pow (n + m) * &2 pow n = x`;;
+
+Also made a completely analogous change to COMPLEX_FIELD so for example
+
+   COMPLEX_FIELD `Cx(&2) pow n / Cx(&2) pow n = Cx(&1)`;;
+
+Tue  4th Oct 2016       int.ml
+
+Added the trivial but convenient theorem:
+
+  INTEGER_REAL_OF_INT = |- !x. integer(real_of_int x)
+
+Tue  4th Oct 2016       Minisat/minisat_prove.ml
+
+Fixed a long-standing and trivial bug in the preprocessing into clause form,
+where definitionalization was missing a "mk_neg" in the code processing
+implications, meaning they were partly confused with disjunctions. This must
+have been able to lurk for such a long time because most of the tests are
+already in clausal form.
+
+Tue 27th Sep 2016       Library/floor.ml
+
+Added a few more theorems about the "floor" function:
+
+  REAL_FLOOR_FLOOR_DIV =
+    |- !x n. floor (floor x / &n) = floor (x / &n)
+
+  REAL_FLOOR_LT =
+    |- !x n. integer n ==> (floor x < n <=> x < n)
+
+  REAL_FLOOR_TRIANGLE =
+    |- !x y.
+           floor x + floor y <= floor (x + y) /\
+           floor (x + y) <= (floor x + floor y) + &1
+
+  REAL_LT_FLOOR =
+    |- !x n. integer n ==> (n < floor x <=> n <= x - &1)
+
+and renamed the existing REAL_FLOOR_LT to REAL_FLOOR_LT_REFL:
+
+  |- !x. floor x < x <=> ~integer x
+
+Fri  9th Sep 2016       passim
+
+Changed all (?) instances of "&" to "&&" and "or" to "||" to avoid any
+OCaml "deprecated" warnings which will presumably soon enough become
+actual errors.
+
+Fri  9th Sep 2016       parser.ml, theorems.ml, help.ml, Examples/mizar.ml, Examples/sos.ml, miz3/miz3.ml, Help/*.doc
+
+Renamed the parser "or" combinator from "||" to "|||", which is a bit of
+a mouthful but still quite intuitive. This seemed worth doing in principle
+given that "||" is overwriting an OCaml builtin, and I was more motivated
+because the word "or" is now deprecated in favour of "||" for the logical
+"or" operation.
+
+Fri  2nd Sep 2016       Library/card.ml
+
+Added a couple more lemmas about bounding cardinalities of "sequences"
+(expressed via cardinal exponentiation for maximum generality):
+
+  CARD_EXP_LE_REAL =
+    |- !s t. s <=_c (:real) /\ COUNTABLE t ==> s ^_c t <=_c (:real)
+
+  CARD_EXP_EQ_REAL =
+    |- !s. COUNTABLE s /\ ~(s = {}) ==> (:real) ^_c s =_c (:real)
+
+Thu 25th Aug 2016       Library/sets.ml
+
+Added a number of simple results about the COUNTABLE case of the new
+constructs "UNION_OF" and "INTERSECTION_OF". This is the immediately
+most useful case in topology, but one could of course reasonably
+add "FINITE" or more general variants too.
+
+  COUNTABLE_INTERSECTION_OF_COMPLEMENT =
+    |- !P s. (COUNTABLE INTERSECTION_OF P) s <=>
+             (COUNTABLE UNION_OF (\s. P((:A) DIFF s))) ((:A) DIFF s)
+
+  COUNTABLE_INTERSECTION_OF_IDEMPOT =
+    |- !P:(A->bool)->bool.
+          COUNTABLE INTERSECTION_OF COUNTABLE INTERSECTION_OF P =
+          COUNTABLE INTERSECTION_OF P
+
+  COUNTABLE_INTERSECTION_OF_INC =
+    |- !P s:A->bool. P s ==> (COUNTABLE INTERSECTION_OF P) s
+
+  COUNTABLE_INTERSECTION_OF_INTER =
+    |- !P s t. (COUNTABLE INTERSECTION_OF P) s /\
+               (COUNTABLE INTERSECTION_OF P) t
+               ==> (COUNTABLE INTERSECTION_OF P) (s INTER t)
+
+  COUNTABLE_INTERSECTION_OF_INTERS =
+    |- !P u:(A->bool)->bool.
+          COUNTABLE u /\ (!s. s IN u ==> (COUNTABLE INTERSECTION_OF P) s)
+          ==> (COUNTABLE INTERSECTION_OF P) (INTERS u)
+
+  COUNTABLE_INTERSECTION_OF_UNION =
+    |- !P:(A->bool)->bool.
+          (!s t. P s /\ P t ==> P(s UNION t))
+          ==> (!s t. (COUNTABLE INTERSECTION_OF P) s /\
+                     (COUNTABLE INTERSECTION_OF P) t
+                     ==> (COUNTABLE INTERSECTION_OF P) (s UNION t))
+
+  COUNTABLE_UNION_OF_ASCENDING =
+    |- !P s:A->bool.
+          P {} /\ (!t u. P t /\ P u ==> P(t UNION u))
+          ==> ((COUNTABLE UNION_OF P) s <=>
+               ?t. (!n. P(t n)) /\
+                   (!n. t n SUBSET t(SUC n)) /\
+                   UNIONS {t n | n IN (:num)} = s)
+
+  COUNTABLE_UNION_OF_COMPLEMENT =
+    |- !P s. (COUNTABLE UNION_OF P) s <=>
+             (COUNTABLE INTERSECTION_OF (\s. P((:A) DIFF s))) ((:A) DIFF s)
+
+  COUNTABLE_UNION_OF_EXPLICIT =
+    |- !P s:A->bool.
+          P {}
+          ==> ((COUNTABLE UNION_OF P) s <=>
+               ?t. (!n. P(t n)) /\ UNIONS {t n | n IN (:num)} = s)
+
+  COUNTABLE_UNION_OF_IDEMPOT =
+    |- !P:(A->bool)->bool.
+          COUNTABLE UNION_OF COUNTABLE UNION_OF P = COUNTABLE UNION_OF P
+
+  COUNTABLE_UNION_OF_INC =
+    |- !P s:A->bool. P s ==> (COUNTABLE UNION_OF P) s
+
+  COUNTABLE_UNION_OF_INTER =
+    |- !P:(A->bool)->bool.
+          (!s t. P s /\ P t ==> P(s INTER t))
+          ==> (!s t. (COUNTABLE UNION_OF P) s /\ (COUNTABLE UNION_OF P) t
+                     ==> (COUNTABLE UNION_OF P) (s INTER t))
+
+  COUNTABLE_UNION_OF_UNION =
+    |- !P s t. (COUNTABLE UNION_OF P) s /\ (COUNTABLE UNION_OF P) t
+             ==> (COUNTABLE UNION_OF P) (s UNION t)
+
+  COUNTABLE_UNION_OF_UNIONS =
+    |- !P u:(A->bool)->bool.
+          COUNTABLE u /\ (!s. s IN u ==> (COUNTABLE UNION_OF P) s)
+          ==> (COUNTABLE UNION_OF P) (UNIONS u)
+
+Fri 19th Aug 2016       sets.ml
+
+Added a few basic theorems, one trivial but very useful fact that
+complementation is an involution, and a few basic general properties
+of the "UNION_OF" and "INTERSECTION_OF" constructs:
+
+  COMPL_COMPL =
+    |- !s. (:A) DIFF ((:A) DIFF s) = s
+
+  INTERSECTION_OF_INC =
+    |- !P Q s:A->bool. P {s} /\ Q s ==> (P INTERSECTION_OF Q) s
+
+  INTERSECTION_OF_MONO =
+    |- !P Q Q' s:A->bool.
+         (P INTERSECTION_OF Q) s /\ (!x. Q x ==> Q' x)
+         ==> (P INTERSECTION_OF Q') s
+
+  UNION_OF_INC =
+    |- !P Q s:A->bool. P {s} /\ Q s ==> (P UNION_OF Q) s
+
+  UNION_OF_MONO =
+    |- !P Q Q' s:A->bool.
+        (P UNION_OF Q) s /\ (!x. Q x ==> Q' x) ==> (P UNION_OF Q') s
+
+
+Fri 12th Aug 2016       sets.ml
+
+Added two natural infix constants "UNION_OF" and "INTERSECTION_OF" for the
+useful and otherwise longwinded idiom that a set is a suitable (e.g. finite or
+countable or pairwise disjoint) union/intersection of "somethings". Typical
+examples are topological: `fsigma = COUNTABLE UNION_OF closed` etc.
+
+        UNION_OF =
+          |- !P Q. P UNION_OF Q =
+                   (\s. ?u. P u /\ (!c. c IN u ==> Q c) /\ UNIONS u = s)
+
+        INTERSECTION_OF =
+          |- !P Q. P INTERSECTION_OF Q =
+                   (\s. ?u. P u /\ (!c. c IN u ==> Q c) /\ INTERS u = s)
+
+Sat  9th Jul 2016       Makefile
+
+Added yet another disjunct to the OCaml and camlp5 version case split
+for 4.03 and 6.15 respectively (Flemming Andersen pointed out that
+this combination failed).
+
+Sun  3rd Jul 2016       cart.ml
+
+Added a finite-forcing Cartesian product for type indices (a natural thing to
+have by analogy with finite_sum and finite_diff, and also requested on
+hol-info by Abid Rauf):
+
+  finite_prod_tybij =
+    |- (!a. mk_finite_prod(dest_finite_prod a) = a) /\
+       (!r. r IN 1..dimindex(:A) * dimindex(:B) <=>
+            dest_finite_prod(mk_finite_prod r) = r)
+
+  FINITE_PROD_IMAGE =
+    |- (:(A,B)finite_prod) =
+       IMAGE mk_finite_prod (1..dimindex(:A) * dimindex(:B))
+
+  DIMINDEX_HAS_SIZE_FINITE_PROD =
+    |- (:(M,N)finite_prod) HAS_SIZE dimindex(:M) * dimindex(:N)
+
+  DIMINDEX_FINITE_PROD =
+    |- dimindex(:(M,N)finite_prod) = dimindex(:M) * dimindex(:N)
+
+Sun  3rd Jul 2016       sets.ml, cart.ml
+
+Added analogous theorems about distributing intersections over
+Cartesian products, in two forms:
+
+  CROSS_INTERS =
+   |- (!s f. s CROSS (INTERS f) =
+             if f = {} then s CROSS UNIV else INTERS {s CROSS t | t IN f}) /\
+      (!f t. (INTERS f) CROSS t =
+             if f = {} then UNIV CROSS t else INTERS {s CROSS t | s IN f})
+
+  CROSS_INTERS_INTERS =
+    |- !f g. (INTERS f) CROSS (INTERS g) =
+             if f = {} then INTERS {UNIV CROSS t | t IN g}
+             else if g = {} then INTERS {s CROSS UNIV | s IN f}
+             else INTERS {s CROSS t | s IN f /\ t IN g}
+
+  PCROSS_INTERS =
+    |- (!s f. s PCROSS (INTERS f) =
+              if f = {} then s PCROSS UNIV
+              else INTERS {s PCROSS t | t IN f}) /\
+       (!f t. (INTERS f) PCROSS t =
+              if f = {} then UNIV PCROSS t else INTERS {s PCROSS t | s IN f})
+
+  PCROSS_INTERS_INTERS =
+    |- !f g. (INTERS f) PCROSS (INTERS g) =
+             if f = {} then INTERS {UNIV PCROSS t | t IN g}
+             else if g = {} then INTERS {s PCROSS UNIV | s IN f}
+             else INTERS {s PCROSS t | s IN f /\ t IN g}
+
+Fri 24th Jun 2016       lists.ml
+
+Added a definition of "list_of_seq" mapping a sequence s and length n
+to the list [s_0,...,s_{n-1}], and various basic list theorems:
+
+
+  APPEND_LCANCEL =
+    |- !l1 l2 l3. APPEND l1 l2 = APPEND l1 l3 <=> l2 = l3
+
+  APPEND_RCANCEL =
+    |- !l1 l2 l3. APPEND l1 l3 = APPEND l2 l3 <=> l1 = l2
+
+  BUTLAST_APPEND =
+    |- !l m.
+         BUTLAST (APPEND l m) =
+         (if m = [] then BUTLAST l else APPEND l (BUTLAST m))
+
+  EL_LIST_OF_SEQ =
+    |- !s m n. m < n ==> EL m (list_of_seq s n) = s m
+
+  LENGTH_LIST_OF_SEQ =
+    |- !s n. LENGTH (list_of_seq s n) = n
+
+  LIST_EQ =
+    |- !l1 l2.
+         l1 = l2 <=>
+         LENGTH l1 = LENGTH l2 /\ (!n. n < LENGTH l2 ==> EL n l1 = EL n l2)
+
+  LIST_OF_SEQ_EQ_NIL =
+    |- !s n. list_of_seq s n = [] <=> n = 0
+
+  list_of_seq =
+    |- list_of_seq s 0 = [] /\
+       list_of_seq s (SUC n) = APPEND (list_of_seq s n) [s n]
+
+Fri 24th Jun 2016       sets.ml
+
+Added a few more handy set lemmas
+
+  INTER_INTERS =
+   |- (!f s. s INTER INTERS f =
+             if f = {} then s else INTERS {s INTER t | t IN f}) /\
+      (!f s. INTERS f INTER s =
+             if f = {} then s else INTERS {t INTER s | t IN f})
+
+  FINITE_UNIV_PAIR =
+   |- FINITE(:A#A) <=> FINITE(:A)
+
+  INFINITE_UNIV_PAIR =
+   |- INFINITE(:A#A) <=> INFINITE(:A)
+
+Tue 14th Jun 2016       sets.ml
+
+Added a few handy set theory lemmas, mainly on a theme of finite subsets
+of the union of a chain:
+
+  CARD_LE_UNIONS_CHAIN =
+    |- !f n.
+         (!t u. t IN f /\ u IN f ==> t SUBSET u \/ u SUBSET t) /\
+         (!t. t IN f ==> FINITE t /\ CARD t <= n)
+         ==> FINITE (UNIONS f) /\ CARD (UNIONS f) <= n
+
+  CHOOSE_SUBSET_EQ =
+    |- !n s. FINITE s ==> n <= CARD s <=> (?t. t SUBSET s /\ t HAS_SIZE n)
+
+  FINITE_SUBSET_UNIONS =
+    |- !f s.
+           FINITE s /\ s SUBSET UNIONS f
+           ==> (?f'. FINITE f' /\ f' SUBSET f /\ s SUBSET UNIONS f')
+
+  FINITE_SUBSET_UNIONS_CHAIN =
+    |- !f s.
+           FINITE s /\
+           s SUBSET UNIONS f /\
+           ~(f = {}) /\
+           (!t u. t IN f /\ u IN f ==> t SUBSET u \/ u SUBSET t)
+           ==> (?t. t IN f /\ s SUBSET t)
+
+  INTERS_IN_CHAIN =
+    |- !f. FINITE f /\
+           ~(f = {}) /\
+           (!s t. s IN f /\ t IN f ==> s SUBSET t \/ t SUBSET s)
+           ==> INTERS f IN f
+
+  UNIONS_IN_CHAIN =
+    |- !f. FINITE f /\
+           ~(f = {}) /\
+           (!s t. s IN f /\ t IN f ==> s SUBSET t \/ t SUBSET s)
+           ==> UNIONS f IN f
+
+Sat  4th Jun 2016       Examples/division_algebras.ml [new file]
+
+Added a new example with two nonexistence proofs for division algebras in
+higher dimensions; these are fairly straightforward corollaries of some
+Multivariate results like the global inverse function theorem.
+
+Sat  4th Jun 2016       sets.ml
+
+Added an equivalential form of an existing theorem:
+
+ INFINITE_ENUMERATE_EQ =
+  |- !s. INFINITE s <=>
+         (?r. (!m n. m < n ==> r m < r n) /\ IMAGE r (:num) = s)
+
+Wed 25th May 2016       sets.ml
+
+Added the simple fact that the "proper subset" relation on a finite
+set is wellfounded:
+
+  WF_PSUBSET = |- !s. FINITE s ==> WF (\t1 t2. t1 PSUBSET t2 /\ t2 SUBSET s)
+
+Sat  7th May 2016       Library/floor.ml
+
+Added RATIONAL_BETWEEN_EQ =
+          |- !a b. (?q. rational q /\ a < q /\ q < b) <=> a < b
+
+Fri 29th Apr 2016       Library/card.ml
+
+Added two theorems asserting that a countable chain has an "equivalent"
+omega-indexed chain:
+
+ COUNTABLE_ASCENDING_CHAIN =
+   |- !f:(A->bool)->bool.
+        COUNTABLE f /\ ~(f = {}) /\
+        (!s t. s IN f /\ t IN f ==> s SUBSET t \/ t SUBSET s)
+        ==> ?u. (!n. u(n) IN f) /\ (!n. u(n) SUBSET u(SUC n)) /\
+                UNIONS {u n | n IN (:num)} = UNIONS f
+
+ COUNTABLE_DESCENDING_CHAIN =
+   |- !f:(A->bool)->bool.
+        COUNTABLE f /\ ~(f = {}) /\
+        (!s t. s IN f /\ t IN f ==> s SUBSET t \/ t SUBSET s)
+        ==> ?u. (!n. u(n) IN f) /\ (!n. u(SUC n) SUBSET u(n)) /\
+                INTERS {u n | n IN (:num)} = INTERS f
 
 Sat 23rd Apr 2016       Library/products.ml
 
@@ -866,7 +1981,7 @@ Dynamical Systems, vol 1, pp. 103-106, 1981.
 
 Fri  7th Nov 2014       Library/iter.ml
 
-Added ITER_ADD_POINTLESS : thm = |- !m n. ITER (m + n) f = ITER m f o ITER n f
+Added ITER_ADD_POINTLESS = |- !m n. ITER (m + n) f = ITER m f o ITER n f
 
 Fri  7th Nov 2014       sets.ml
 
@@ -1302,13 +2417,13 @@ core
 Added some theorems to Library/iter.ml about the "order" or "characteristic" in
 a general setting
 
-  val ORDER_EXISTENCE_GEN : thm =
+  val ORDER_EXISTENCE_GEN =
     |- !P f.
            P (f 0) /\
            (!m n. P (f m) /\ ~(m = 0) ==> (P (f (m + n)) <=> P (f n)))
            ==> ?d. !n. P (f n) <=> d divides n
 
-  val ORDER_EXISTENCE_ITER : thm =
+  val ORDER_EXISTENCE_ITER =
     |- !R f z.
            R z z /\
            (!x y. R x y ==> R y x) /\
@@ -1316,7 +2431,7 @@ a general setting
            (!x y. R x y ==> R (f x) (f y))
            ==> ?d. !n. R (ITER n f z) z <=> d divides n
 
-  val ORDER_EXISTENCE_CARD : thm =
+  val ORDER_EXISTENCE_CARD =
     |- !R f z k.
            FINITE {R (ITER n f z) | n IN (:num)} /\
            CARD {R (ITER n f z) | n IN (:num)} <= k /\
@@ -1326,7 +2441,7 @@ a general setting
            (!x y. R (f x) (f y) <=> R x y)
            ==> ?d. 0 < d /\ d <= k /\ (!n. R (ITER n f z) z <=> d divides n)
 
-  val ORDER_EXISTENCE_FINITE : thm =
+  val ORDER_EXISTENCE_FINITE =
     |- !R f z.
            FINITE {R (ITER n f z) | n IN (:num)} /\
            R z z /\
@@ -4007,7 +5122,7 @@ intervals.
 
 as well as the trivial consequence
 
-  real_INFINITE : thm = |- INFINITE(:real)
+  real_INFINITE = |- INFINITE(:real)
 
 Fri  8th Jan 2010       pair.ml
 
@@ -5620,8 +6735,8 @@ Tue 20th Nov 2007       real.ml
 
 Added two theorems that I keep regenerating:
 
- ( REAL_BOUNDS_LE ) : thm = |- !x k. --k <= x /\ x <= k <=> abs x <= k
- ( REAL_BOUNDS_LT ) : thm = |- !x k. --k < x /\ x < k <=> abs x < k
+  REAL_BOUNDS_LE = |- !x k. --k <= x /\ x <= k <=> abs x <= k
+  REAL_BOUNDS_LT = |- !x k. --k < x /\ x < k <=> abs x < k
 
 The symmetric form of the first one was already there as REAL_ABS_BOUNDS, but
 I've never actually used it (however, since it's used by Freek and Tom, I

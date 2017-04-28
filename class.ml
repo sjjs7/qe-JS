@@ -22,7 +22,7 @@ let ETA_CONV =
   fun tm ->
     try let bv,bod = dest_abs tm in
         let l,r = dest_comb bod in
-        if r = bv & not (vfree_in bv l) then
+        if r = bv && not (vfree_in bv l) then
           TRANS (REFL tm) (PINST [type_of bv,aty; type_of bod,bty] [l,t] pth)
         else fail()
     with Failure _ -> failwith "ETA_CONV";;
@@ -86,7 +86,7 @@ let SELECT_CONV =
    (`(P:A->bool)((@) P) = (?) P`,
     REWRITE_TAC[EXISTS_THM] THEN BETA_TAC THEN REFL_TAC) in
    fun tm ->
-     try let is_epsok t = is_select t &
+     try let is_epsok t = is_select t &&
                           let bv,bod = dest_select t in
                           aconv tm (vsubst [t,bv] bod) in
          let pickeps = find_term is_epsok tm in
@@ -171,7 +171,7 @@ let ASM_CASES_TAC t = DISJ_CASES_TAC(SPEC t EXCLUDED_MIDDLE);;
 let TAUT =
   let PROP_REWRITE_TAC = REWRITE_TAC[] in
   let RTAUT_TAC (asl,w) =
-    let ok t = type_of t = bool_ty & can (find_term is_var) t & free_in t w in
+    let ok t = type_of t = bool_ty && can (find_term is_var) t && free_in t w in
     (PROP_REWRITE_TAC THEN
      W((fun t1 t2 -> t1 THEN t2) (REWRITE_TAC[]) o BOOL_CASES_TAC o
        hd o sort free_in o find_terms ok o snd)) (asl,w) in
@@ -360,10 +360,10 @@ let COND_ABS = prove
  (`!b (f:A->B) g. (\x. if b then f x else g x) = (if b then f else g)`,
   REPEAT GEN_TAC THEN BOOL_CASES_TAC `b:bool` THEN REWRITE_TAC[ETA_AX]);;
 
-let COND_SWAP = prove                                                          
+let COND_SWAP = prove
  (`!p x y:A. (if ~p then x else y) = (if p then y else x)`,
   REPEAT GEN_TAC THEN BOOL_CASES_TAC `p:bool` THEN REWRITE_TAC[]);;
-                                                    
+
 (* ------------------------------------------------------------------------- *)
 (* Redefine TAUT to freeze in the rewrites including COND.                   *)
 (* ------------------------------------------------------------------------- *)
@@ -371,7 +371,7 @@ let COND_SWAP = prove
 let TAUT =
   let PROP_REWRITE_TAC = REWRITE_TAC[] in
   let RTAUT_TAC (asl,w) =
-    let ok t = type_of t = bool_ty & can (find_term is_var) t & free_in t w in
+    let ok t = type_of t = bool_ty && can (find_term is_var) t && free_in t w in
     (PROP_REWRITE_TAC THEN
      W((fun t1 t2 -> t1 THEN t2) (REWRITE_TAC[]) o BOOL_CASES_TAC o
        hd o sort free_in o find_terms ok o snd)) (asl,w) in

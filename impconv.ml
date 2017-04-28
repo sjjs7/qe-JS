@@ -9,6 +9,8 @@
 (*                  Concordia University                                     *)
 (*                                                                           *)
 (*           Contact: <vincent.aravantinos@fortiss.org>                      *)
+(*                                                                           *)
+(*            Distributed under the same license as HOL Light.               *)
 (* ========================================================================= *)
 
 let IMP_REWRITE_TAC,TARGET_REWRITE_TAC,HINT_EXISTS_TAC,
@@ -293,9 +295,9 @@ let module Type_annoted_term =
     let rec equal t1 t2 =
       match t1,t2 with
       |Var_(s1,ty1),Var_(s2,ty2)
-      |Const_(s1,ty1,_),Const_(s2,ty2,_) -> s1 = s2 & ty1 = ty2
-      |Comb_(u1,v1,_),Comb_(u2,v2,_) -> equal u1 u2 & equal v1 v2
-      |Abs_(v1,b1,_),Abs_(v2,b2,_) -> equal v1 v2 & equal b1 b2
+      |Const_(s1,ty1,_),Const_(s2,ty2,_) -> s1 = s2 && ty1 = ty2
+      |Comb_(u1,v1,_),Comb_(u2,v2,_) -> equal u1 u2 && equal v1 v2
+      |Abs_(v1,b1,_),Abs_(v2,b2,_) -> equal v1 v2 && equal b1 b2
       |_ -> false
 
     let rec to_term = function
@@ -347,7 +349,7 @@ let fo_term_match lcs p t =
           if mem v lcs
           then
             match t with
-            |Annot.Var_(n',ty') when n' = n & ty' = ty -> env
+            |Annot.Var_(n',ty') when n' = n && ty' = ty -> env
             |_ -> fail ()
           else
             let tyenv' = type_match ty (Annot.type_of t) tyenv in
@@ -391,9 +393,6 @@ let GEN_PART_MATCH_ALL =
       if Pervasives.compare tm' tm = 0 then fth else
       try SUBS[ALPHA tm' tm] fth
       with Failure _ -> failwith "PART_MATCH: Sanity check failure" in
-
-let exists_subterm p t =
-  try ignore (find_term p t);true with Failure _ -> false in
 
 let module Fo_nets =
   struct
@@ -1221,7 +1220,7 @@ let pat_cnv_of_thm th : (term * (term list->annot_conv)) =
   match c with
   |Comb(Comb(Const("=",_),l),r) as t ->
       let matches = C (can o term_match lconsts) in
-      if free_in l r or (matches l r & matches r l)
+      if free_in l r || (matches l r && matches r l)
       then t,C REWR_ANNOTCONV (MAP_FORALL_BODY EQT_INTRO th)
       else l,C REWR_ANNOTCONV th
   |Comb(Comb(Const("==>",_),p),c) as t ->
@@ -1229,7 +1228,7 @@ let pat_cnv_of_thm th : (term * (term list->annot_conv)) =
       let imprewr_concl f = C IMPREWR_CONV (GEN_MAP_CONCLUSION f th) in
       (match c with
       |Comb(Comb(Const("=",_),l),r) ->
-          if free_in l r or (matches l r & matches r l) or is_var l
+          if free_in l r || (matches l r && matches r l) || is_var l
           then
             if matches p c
             then t, C REWR_ANNOTCONV (EQT_INTRO th)

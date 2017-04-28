@@ -178,7 +178,7 @@ let REAL_RAT_NEG_CONV =
   fun tm -> try conv1 tm
             with Failure _ -> try
                 let l,r = dest_comb tm in
-                if l = ptm & is_realintconst r & dest_realintconst r >/ num_0
+                if l = ptm && is_realintconst r && dest_realintconst r >/ num_0
                 then REFL tm
                 else fail()
             with Failure _ -> failwith "REAL_RAT_NEG_CONV";;
@@ -311,7 +311,7 @@ let REAL_RAT_MUL_CONV =
     and x2n = dest_realintconst x2' and y2n = dest_realintconst y2' in
     let d1n = gcd_num x1n y2n
     and d2n = gcd_num x2n y1n in
-    if d1n = num_1 & d2n = num_1 then
+    if d1n = num_1 && d2n = num_1 then
       let th0 = INST [x1',x1; y1',y1; x2',x2; y2',y2] pth_nocancel in
       let th1 = BINOP_CONV REAL_INT_MUL_CONV (rand(concl th0)) in
       TRANS th0 th1
@@ -429,7 +429,7 @@ let REAL_POLY_CONV =
   and min_tm = `min:real->real->real`
   and div_conv = REWR_CONV real_div in
   let rec REAL_POLY_CONV tm =
-    if not(is_comb tm) or is_ratconst tm then REFL tm else
+    if not(is_comb tm) || is_ratconst tm then REFL tm else
     let lop,r = dest_comb tm in
     if lop = neg_tm then
       let th1 = AP_TERM lop (REAL_POLY_CONV r) in
@@ -444,7 +444,7 @@ let REAL_POLY_CONV =
     if op = pow_tm then
       let th1 = AP_THM (AP_TERM op (REAL_POLY_CONV l)) r in
       TRANS th1 (TRY_CONV REAL_POLY_POW_CONV (rand(concl th1)))
-    else if op = add_tm or op = mul_tm or op = sub_tm then
+    else if op = add_tm || op = mul_tm || op = sub_tm then
       let th1 = MK_COMB(AP_TERM op (REAL_POLY_CONV l),
                         REAL_POLY_CONV r) in
       let fn = if op = add_tm then REAL_POLY_ADD_CONV
@@ -454,7 +454,7 @@ let REAL_POLY_CONV =
     else if op = div_tm then
       let th1 = div_conv tm in
       TRANS th1 (REAL_POLY_CONV (rand(concl th1)))
-    else if op = min_tm or op = max_tm then
+    else if op = min_tm || op = max_tm then
       MK_COMB(AP_TERM op (REAL_POLY_CONV l),REAL_POLY_CONV r)
     else REFL tm in
   REAL_POLY_CONV;;
@@ -551,10 +551,25 @@ let REAL_LE_TRANS_LT = prove
 (* ------------------------------------------------------------------------- *)
 
 let REAL_FIELD =
+  let norm_net =
+    itlist (net_of_thm false o SPEC_ALL)
+     [FORALL_SIMP; EXISTS_SIMP; real_div; REAL_INV_INV; REAL_INV_MUL;
+      REAL_POW_ADD]
+    (net_of_conv
+      `inv((x:real) pow n)`
+      (REWR_CONV(GSYM REAL_POW_INV) o check (is_numeral o rand o rand))
+      empty_net)
+  and easy_nz_conv =
+    LAND_CONV
+     (GEN_REWRITE_CONV TRY_CONV [MESON[REAL_POW_EQ_0; REAL_OF_NUM_EQ]
+       `~(x pow n = &0) <=>
+        ~((x:real) = &0) \/ (&n = &0) \/ ~(x pow n = &0)`]) THENC
+    TRY_CONV(LAND_CONV REAL_RAT_REDUCE_CONV THENC
+             GEN_REWRITE_CONV I [TAUT `(T ==> p) <=> p`]) in
   let prenex_conv =
     TOP_DEPTH_CONV BETA_CONV THENC
-    PURE_REWRITE_CONV[FORALL_SIMP; EXISTS_SIMP; real_div;
-                      REAL_INV_INV; REAL_INV_MUL; GSYM REAL_POW_INV] THENC
+    NUM_REDUCE_CONV THENC
+    TOP_DEPTH_CONV(REWRITES_CONV norm_net) THENC
     NNFC_CONV THENC DEPTH_BINOP_CONV `(/\)` CONDS_CELIM_CONV THENC
     PRENEX_CONV THENC
     ONCE_REWRITE_CONV[REAL_ARITH `x < y <=> x < y /\ ~(x = y)`]
@@ -563,12 +578,13 @@ let REAL_FIELD =
   and is_inv =
     let inv_tm = `inv:real->real`
     and is_div = is_binop `(/):real->real->real` in
-    fun tm -> (is_div tm or (is_comb tm & rator tm = inv_tm)) &
+    fun tm -> (is_div tm || (is_comb tm && rator tm = inv_tm)) &&
               not(is_ratconst(rand tm)) in
   let BASIC_REAL_FIELD tm =
-    let is_freeinv t = is_inv t & free_in t tm in
+    let is_freeinv t = is_inv t && free_in t tm in
     let itms = setify(map rand (find_terms is_freeinv tm)) in
-    let hyps = map (fun t -> SPEC t REAL_MUL_RINV) itms in
+    let hyps = map
+     (fun t -> CONV_RULE easy_nz_conv (SPEC t REAL_MUL_RINV)) itms in
     let tm' = itlist (fun th t -> mk_imp(concl th,t)) hyps tm in
     let th1 = setup_conv tm' in
     let cjs = conjuncts(rand(concl th1)) in

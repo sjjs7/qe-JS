@@ -40,6 +40,10 @@ let dest_int_rep = prove
  (`!i. ?n. (real_of_int i = &n) \/ (real_of_int i = --(&n))`,
   REWRITE_TAC[GSYM is_int; int_rep; int_abstr]);;
 
+let INTEGER_REAL_OF_INT = prove
+ (`!x. integer(real_of_int x)`,
+  MESON_TAC[int_tybij]);;
+
 (* ------------------------------------------------------------------------- *)
 (* We want the following too.                                                *)
 (* ------------------------------------------------------------------------- *)
@@ -226,7 +230,7 @@ let is_intconst tm =
   match tm with
     Comb(Const("int_of_num",_),n) -> is_numeral n
   | Comb(Const("int_neg",_),Comb(Const("int_of_num",_),n)) ->
-      is_numeral n & not(dest_numeral n = num_0)
+      is_numeral n && not(dest_numeral n = num_0)
   | _ -> false;;
 
 let dest_intconst tm =
@@ -510,6 +514,8 @@ let INT_SGN_NEG = INT_OF_REAL_THM REAL_SGN_NEG;;
 let INT_SGN_POW = INT_OF_REAL_THM REAL_SGN_POW;;
 let INT_SGN_POW_2 = INT_OF_REAL_THM REAL_SGN_POW_2;;
 let INT_SGN_INT_SGN = INT_OF_REAL_THM REAL_SGN_REAL_SGN;;
+let INT_SGNS_EQ = INT_OF_REAL_THM REAL_SGNS_EQ;;
+let INT_SGNS_EQ_ALT = INT_OF_REAL_THM REAL_SGNS_EQ_ALT;;
 let INT_SOS_EQ_0 = INT_OF_REAL_THM REAL_SOS_EQ_0;;
 let INT_SUB_0 = INT_OF_REAL_THM REAL_SUB_0;;
 let INT_SUB_ABS = INT_OF_REAL_THM REAL_SUB_ABS;;
@@ -1148,7 +1154,7 @@ let INTEGER_TAC =
     let pth = INT_ARITH `!a x. a = &0 <=> x = x + a` in
     let is_defined v t =
       let mons = striplist(dest_binary "int_add") t in
-      mem v mons & forall (fun m -> v = m or not(free_in v m)) mons in
+      mem v mons && forall (fun m -> v = m || not(free_in v m)) mons in
     fun vars tm ->
       let th = INT_POLYEQ_CONV tm
       and th' = (SYM_CONV THENC INT_POLYEQ_CONV) tm in
