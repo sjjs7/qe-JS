@@ -55,16 +55,18 @@ let converter x = match x with
 
 *)
 
-(*This function takes a string, searches for the "->" indicating a function type, and returns the parts before and after the function. *)
-let rec splitForFunction x before = match explode(x) with
+(*This function takes an exploded string, searches for the "->" indicating a function type, and returns the parts before and after the function. *)
+let rec splitForFunction x before = match x with
 	| "-" :: ">" :: rest -> before,(implode rest)
 	| [] -> before,""
-	| a :: rest -> splitForFunction (implode rest) (before ^ a);;
+	| a :: rest -> splitForFunction rest (before ^ a);;
 
 (*This function converts a string into the custom defined 'type' type. I have tried to find a way to match types directly, but all attempts have proven unsuccesful. OCaml rejects the use of, for example, `:bool`
 as it is not a constructor, along with attempts to create a type on the spot such as with mk_type("bool",[]).*)
-let getType x = function
+let rec getType x = match x with
 	| "bool" -> mk_const("Bool",[`:type`,`:A`])
 	| "Placeholder For Ind" -> mk_const("Ind",[`:type`,`:A`]) (*This is most likely an inductive type, not entirely sure how to check for these as of yet so the placeholder pattern remains*)
-	(*"->" -> mk_const("Fun",[getType a,`:A`;getType b,`:Bool`])*) (*Gets function results, disabled until string pattern matcher is ready*)
-	| customType -> mk_comb(mk_const("Tyvar",[`:(char)list`,`:string`]),(mk_string customType));;
+	(*This last case will handle making function and Tyvar types. splitForFunction is called to determine if this is a function type or not, if not, we create a Tyvar with the appropriate string*)
+	| customType -> let a,b = (splitForFunction (explode x) "") in if b = "" then (mk_comb(mk_const("Tyvar",[`:(char)list`,`:string`]),(mk_string customType)))
+	(*This else means that there WAS a succesful split, so a type of Fun is created*)
+	  else mk_comb(mk_comb(mk_const("Fun",[]),(getType a)),(getType b));;
