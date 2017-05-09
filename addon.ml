@@ -1,14 +1,17 @@
-(* Legacy type:S
-let lth,rth = define_type "syntax = ATOMIC_VAR A | ATOMIC_CONS A | EXPR_OPER A | EXPR_BIND syntax,syntax | EXPR_COMB syntax,syntax";;
-*)
-
 (*Defines type and term as is defined in John Harisson's paper
 Tyvar -> String representing a type
 Bool -> Boolean type
-Ind -> ???
+RealInd -> A real individual
+NaturalInd -> An individual belonging to the natural numbers
+IntegerInd -> An individual belonging to the integers
+(These have been separated to avoid losing information when converting a number to an individual - 3 could be a real, integer, or natural number with no way of discerning this outside of keeping track of the original type)
+Ind -> Generic type for individuals that do not fit into other categories
 Fun -> Function going from type to type*)
 define_type "type = Tyvar string
 			      | Bool
+			      | RealInd
+			      | IntegerInd
+			      | NaturalInd
 			      | Ind
 			      | Fun type type";;    
 
@@ -27,3 +30,4 @@ define_type "term = Var string type
 				  | Abs string type term";;
 
 (*Future code goes here, for now load q.ml for development of conversion*)
+
