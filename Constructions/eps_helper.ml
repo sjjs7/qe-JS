@@ -5,10 +5,27 @@
 (*Discard values are never actually used, but the type checker doesn't know this so they are kept numbered to separate them*)
 let ep_type = define 
 `(ep_type (QuoVar Discard1 Discard2) = "QuoVar") /\
-(ep_type (QuoConst Discard3 Discard4) = "QuoConst") /\
-(ep_type (Abs Discard5 Discard6) = "Abs") /\
-(ep_type (App Discard7 Discard8) = "App") /\
-(ep_type (Quote Discard9 Discard10) = "Quote")`;;
+ (ep_type (QuoConst Discard3 Discard4) = "QuoConst") /\
+ (ep_type (Abs Discard5 Discard6) = "Abs") /\
+ (ep_type (App Discard7 Discard8) = "App") /\
+ (ep_type (Quote Discard9 Discard10) = "Quote")`;;
+
+(*Mathematical function to inspect a member of epsilon's subtype*)
+(*Will call decomposeType to turn a type into a string for easy comparisons*)
+let ep_subtype = define
+`(ep_type (QuoVar Discard1 T1) = decomposeType T1) /\
+ (ep_type (QuoConst Discard2 T2) = decomposeType T2) /\
+ (ep_type (Quote Discard3 T3) = decomposeType T3)`;;
+
+(*Todo: Find a way to recursively call Fun on T1 and T2*)
+let decomposeType = define
+`decomposeType Bool = "Bool" /\
+ decomposeType Ind = "Ind" /\
+ decomposeType NaturalInd = "NaturalInt" /\
+ decomposeType IntegerInd = "IntegerInd" /\
+ decomposeType RealInd = "RealInd" /\
+ decomposeType (Fun T1 T2) = "Fun" /\ 
+ decomposeType (Tyvar name) = name`;;
 
 (*Mathematical definition of what constitutes a variable*)
 let isVar = define `isVar e = ((ep_type e) = "QuoVar")`;;
@@ -57,6 +74,41 @@ REWRITE_TAC[isAbs] THEN
 REWRITE_TAC[ep_type] THEN
 REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Abs"`)]
 );;
+
+(*Mathematical definition of what constitutes an application*)
+let isApp = define `isApp e = ((ep_type e) = "App")`;;
+
+(*Simple proof that an application is recognized as an application*)
+prove(`isApp (App (QuoVar "Prove" Bool) (QuoConst "Me" Bool)) = T`,
+REWRITE_TAC[isApp] THEN
+REWRITE_TAC[ep_type]
+);;
+
+(*Simple proof that non-applications are not applications*)
+prove(`isApp (QuoVar "DontProveMe" Bool) = F`,
+REWRITE_TAC[isApp] THEN
+REWRITE_TAC[ep_type] THEN
+REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "App"`)]
+);;
+
+(*Mathematical definition of what constitutes a quote*)
+let isQuote = define `isQuote e = ((ep_type e) = "Quote")`;;
+
+(*Simple proof that a quote is recognized as a quote*)
+prove(`isQuote (Quote (QuoVar "Prove" Bool) Bool) = T`,
+REWRITE_TAC[isQuote] THEN
+REWRITE_TAC[ep_type]
+);;
+
+(*Simple proof that non-quotes are not quotes*)
+prove(`isQuote (QuoVar "DontProveMe" Bool) = F`,
+REWRITE_TAC[isQuote] THEN
+REWRITE_TAC[ep_type] THEN
+REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
+);;
+
+(*Mathematical definition for isVarType*)
+let isVarType = define `isVarType e t = (isVar e) /\ ((decomposeType t) = (ep_subtype e))`;;
 
 
 
