@@ -22,9 +22,20 @@ let decomposeType = define
 
 (*This proof is to check that the recursive definition of decomposeType is working*)
 prove(`decomposeType (Fun (Fun Bool Ind) (Fun Ind Ind)) = "(Fun (Fun Bool->Ind)->(Fun Ind->Ind))"`,
-REWRITE_TAC[decomposeType] THEN
-REWRITE_TAC[APPEND]
+	REWRITE_TAC[decomposeType] THEN
+	REWRITE_TAC[APPEND]
 )
+
+(*This function returns true if the given expression f appears free anywhere in e*)
+(*Regarding abstractions: I assume that the structure of an abstraction will contain the variable to
+bind on the left and expression on the right, therefore for a variable to be free in an abstraction it
+must appear in the right while not appearing free in the left*)
+let isFreeIn = define
+`(isFreeIn n1 (QuoVar n2 Discard1) = (n1 = n2)) /\
+ (isFreeIn n3 (QuoConst n4 Discard2) = (n3 = n4)) /\ 
+ (isFreeIn n5 (App n6 n7) = ((isFreeIn n5 n6) \/ (isFreeIn n5 n7))) /\
+ (isFreeIn n8 (Abs n9 n10) = (~(isFreeIn n8 n9) /\ (isFreeIn n8 n10))) /\
+ (isFreeIn n11 (Quote n12 Discard3) = (isFreeIn n11 n12))`;;
 
 (*Mathematical function to inspect a member of epsilon's subtype*)
 (*Will call decomposeType to turn a type into a string for easy comparisons*)
@@ -38,15 +49,15 @@ let isVar = define `isVar e = ((ep_type e) = "QuoVar")`;;
 
 (*A simple proof that variables are variables*)
 prove(`isVar (QuoVar "ProveMe" Bool) = T`,
-REWRITE_TAC[isVar] THEN
-REWRITE_TAC[ep_type]
+	REWRITE_TAC[isVar] THEN
+	REWRITE_TAC[ep_type]
 );;
 
 (*A simple proof that another type of epsilon is NOT a variable*)
 prove(`isVar (QuoConst "DontProveMe" Bool) = F`,
-REWRITE_TAC[isVar] THEN
-REWRITE_TAC[ep_type] THEN
-REWRITE_TAC[(STRING_EQ_CONV `"QuoConst" = "QuoVar"`)]
+	REWRITE_TAC[isVar] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoConst" = "QuoVar"`)]
 );;
 
 (*Mathematical definition of what constitutes a constant*)
@@ -54,15 +65,15 @@ let isConst = define `isConst e = ((ep_type e) = "QuoConst")`;;
 
 (*A simple proof that constants are constants*)
 prove(`isConst (QuoConst "ProveMe" Bool) = T`,
-REWRITE_TAC[isConst] THEN
-REWRITE_TAC[ep_type]
+	REWRITE_TAC[isConst] THEN
+	REWRITE_TAC[ep_type]
 );;
 
 (*A simple proof that another type of epsilon is NOT a constant*)
 prove(`isConst (QuoVar "DontProveMe" Bool) = F`,
-REWRITE_TAC[isConst] THEN
-REWRITE_TAC[ep_type] THEN
-REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "QuoConst"`)]
+	REWRITE_TAC[isConst] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "QuoConst"`)]
 );;
 
 (*Mathematical definition of what constitutes an abstraction*)
@@ -70,15 +81,15 @@ let isAbs = define `isAbs e = ((ep_type e) = "Abs")`;;
 
 (*Simple proof that an abstraction is recognized as an abstraction*)
 prove(`isAbs (Abs (QuoVar "Prove" Bool) (QuoConst "Me" Bool)) = T`,
-REWRITE_TAC[isAbs] THEN
-REWRITE_TAC[ep_type]
+	REWRITE_TAC[isAbs] THEN
+	REWRITE_TAC[ep_type]
 );;
 
 (*Simple proof that non-abstractions are not abstractions*)
 prove(`isAbs (QuoVar "DontProveMe" Bool) = F`,
-REWRITE_TAC[isAbs] THEN
-REWRITE_TAC[ep_type] THEN
-REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Abs"`)]
+	REWRITE_TAC[isAbs] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Abs"`)]
 );;
 
 (*Mathematical definition of what constitutes an application*)
@@ -86,37 +97,107 @@ let isApp = define `isApp e = ((ep_type e) = "App")`;;
 
 (*Simple proof that an application is recognized as an application*)
 prove(`isApp (App (QuoVar "Prove" Bool) (QuoConst "Me" Bool)) = T`,
-REWRITE_TAC[isApp] THEN
-REWRITE_TAC[ep_type]
+	REWRITE_TAC[isApp] THEN
+	REWRITE_TAC[ep_type]
 );;
 
 (*Simple proof that non-applications are not applications*)
 prove(`isApp (QuoVar "DontProveMe" Bool) = F`,
-REWRITE_TAC[isApp] THEN
-REWRITE_TAC[ep_type] THEN
-REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "App"`)]
+	REWRITE_TAC[isApp] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "App"`)]
 );;
 
-(*Mathematical definition of what constitutes a quote*)
-let isQuote = define `isQuote e = ((ep_type e) = "Quote")`;;
+(*Mathematical definition of what constitutes an expression*)
+let isExpr = define `isExpr e = ((ep_type e) = "Quote")`;;
 
-(*Simple proof that a quote is recognized as a quote*)
-prove(`isQuote (Quote (QuoVar "Prove" Bool) Bool) = T`,
-REWRITE_TAC[isQuote] THEN
-REWRITE_TAC[ep_type]
+(*Simple proof that a quote is recognized as an expression*)
+prove(`isExpr (Quote (QuoVar "Prove" Bool) Bool) = T`,
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[ep_type]
 );;
 
-(*Simple proof that non-quotes are not quotes*)
-prove(`isQuote (QuoVar "DontProveMe" Bool) = F`,
-REWRITE_TAC[isQuote] THEN
-REWRITE_TAC[ep_type] THEN
-REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
+(*Simple proof that non-expressions are not expressions*)
+prove(`isExpr (QuoVar "DontProveMe" Bool) = F`,
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
 );;
 
 (*Mathematical definition for isVarType *)
 let isVarType = define `isVarType e t = ((isVar e) /\ ((decomposeType t) = (ep_subtype e)))`;;
 
+(*Start by proving that isVarType is false when something is not a var*)
+prove(`isVarType (QuoConst "Wrong" Ind) Ind <=> F`,
+	REWRITE_TAC[isVarType] THEN
+	REWRITE_TAC[isVar] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoConst" = "QuoVar"`)]
+);;
 
+(*Now prove that isVarType with the wrong variable type is false*)
+prove(`isVarType (QuoVar "Wrong" Ind) Bool <=> F`,
+	REWRITE_TAC[isVarType] THEN
+	REWRITE_TAC[decomposeType;ep_subtype] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "Ind"`)]
+);;
+
+(*Now proves that isVarType with the right variable type is true*)
+prove(`isVarType (QuoVar "Right" Ind) Ind`,
+	REWRITE_TAC[isVarType] THEN
+	REWRITE_TAC[decomposeType;ep_subtype;isVar] THEN
+	REWRITE_TAC[ep_type]
+)
+
+(*Mathematical definition for isConstType*)
+let isConstType = define `isConstType e t = ((isConst e) /\ ((decomposeType t) = (ep_subtype e)))`;;
+
+(*Test for failure when not a constant*)
+prove(`isConstType (QuoVar "Wrong" Ind) Ind <=> F`,
+	REWRITE_TAC[isConstType] THEN
+	REWRITE_TAC[isConst] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "QuoConst"`)]
+);;
+
+(*Test for failure when the constant is of the wrong type*)
+prove(`isConstType (QuoConst "Wrong" Bool) Ind <=> F`,
+	REWRITE_TAC[isConstType] THEN
+	REWRITE_TAC[decomposeType;ep_subtype] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"Ind" = "Bool"`)]
+);;
+
+(*Proves that the right types result in true*)
+prove(`isConstType (QuoConst "Right" (Fun Bool Ind)) (Fun Bool Ind)`,
+	REWRITE_TAC[isConstType] THEN
+	REWRITE_TAC[isConst;decomposeType;ep_subtype] THEN
+	REWRITE_TAC[ep_type]
+);;
+
+(*Mathematical definition of isExprType*)
+let isExprType = define `isExprType e t = ((isExpr e) /\ ((decomposeType t) = (ep_subtype e)))`;;
+
+(*Test for failure when e is not an expression*)
+prove(`isExprType (QuoVar "Wrong" Ind) Ind <=> F`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
+);;
+
+(*Test for failure when e is an expression of the wrong type*)
+prove(`isExprType (Quote (QuoConst "Wrong" Ind) Ind) Bool <=> F`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[decomposeType; ep_subtype] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "Ind"`)]
+);;
+
+(*Test for success when the types agree and e is an expression*)
+prove(`isExprType (Quote (QuoVar "Right" Ind) Ind) Ind`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[decomposeType; ep_subtype;ep_type]
+)
 
 (*This function takes an exploded string, searches for the "->" indicating a function type, and returns the parts before and after the function. *)
 let rec splitForFunction x before = match x with
