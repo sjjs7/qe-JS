@@ -10,16 +10,21 @@ let ep_type = define
  (ep_type (App Discard7 Discard8) = "App") /\
  (ep_type (Quote Discard9 Discard10) = "Quote")`;;
 
- (*Todo: Find a way to recursively call Fun on T1 and T2*)
 let decomposeType = define
 `decomposeType Bool = "Bool" /\
  decomposeType Ind = "Ind" /\
  decomposeType NaturalInd = "NaturalInt" /\
  decomposeType IntegerInd = "IntegerInd" /\
  decomposeType RealInd = "RealInd" /\
- decomposeType (Fun T1 T2) = "Fun" /\ 
+ decomposeType (Fun T1 T2) = APPEND (APPEND (APPEND (APPEND "(Fun " (decomposeType T1)) "->") (decomposeType T2)) ")" /\ 
  decomposeType (Tyvar name) = name`;;
 
+
+(*This proof is to check that the recursive definition of decomposeType is working*)
+prove(`decomposeType (Fun (Fun Bool Ind) (Fun Ind Ind)) = "(Fun (Fun Bool->Ind)->(Fun Ind->Ind))"`,
+REWRITE_TAC[decomposeType] THEN
+REWRITE_TAC[APPEND]
+)
 
 (*Mathematical function to inspect a member of epsilon's subtype*)
 (*Will call decomposeType to turn a type into a string for easy comparisons*)
