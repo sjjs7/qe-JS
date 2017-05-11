@@ -10,14 +10,7 @@ let ep_type = define
  (ep_type (App Discard7 Discard8) = "App") /\
  (ep_type (Quote Discard9 Discard10) = "Quote")`;;
 
-(*Mathematical function to inspect a member of epsilon's subtype*)
-(*Will call decomposeType to turn a type into a string for easy comparisons*)
-let ep_subtype = define
-`(ep_type (QuoVar Discard1 T1) = decomposeType T1) /\
- (ep_type (QuoConst Discard2 T2) = decomposeType T2) /\
- (ep_type (Quote Discard3 T3) = decomposeType T3)`;;
-
-(*Todo: Find a way to recursively call Fun on T1 and T2*)
+ (*Todo: Find a way to recursively call Fun on T1 and T2*)
 let decomposeType = define
 `decomposeType Bool = "Bool" /\
  decomposeType Ind = "Ind" /\
@@ -26,6 +19,14 @@ let decomposeType = define
  decomposeType RealInd = "RealInd" /\
  decomposeType (Fun T1 T2) = "Fun" /\ 
  decomposeType (Tyvar name) = name`;;
+
+
+(*Mathematical function to inspect a member of epsilon's subtype*)
+(*Will call decomposeType to turn a type into a string for easy comparisons*)
+let ep_subtype = define
+`(ep_subtype (QuoVar Discard1 T1) = (decomposeType T1)) /\
+ (ep_subtype (QuoConst Discard2 T2) = (decomposeType T2)) /\
+ (ep_subtype (Quote Discard3 T3) = (decomposeType T3))`;;
 
 (*Mathematical definition of what constitutes a variable*)
 let isVar = define `isVar e = ((ep_type e) = "QuoVar")`;;
@@ -107,8 +108,8 @@ REWRITE_TAC[ep_type] THEN
 REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
 );;
 
-(*Mathematical definition for isVarType*)
-let isVarType = define `isVarType e t = (isVar e) /\ ((decomposeType t) = (ep_subtype e))`;;
+(*Mathematical definition for isVarType *)
+let isVarType = define `isVarType e t = ((isVar e) /\ ((decomposeType t) = (ep_subtype e)))`;;
 
 
 
