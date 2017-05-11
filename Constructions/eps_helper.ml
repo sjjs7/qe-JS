@@ -29,13 +29,63 @@ prove(`decomposeType (Fun (Fun Bool Ind) (Fun Ind Ind)) = "(Fun (Fun Bool->Ind)-
 (*This function returns true if the given expression f appears free anywhere in e*)
 (*Regarding abstractions: I assume that the structure of an abstraction will contain the variable to
 bind on the left and expression on the right, therefore for a variable to be free in an abstraction it
-must appear in the right while not appearing free in the left*)
+must appear in the right while not appearing free in the left. Also, this takes a really long time to finish defining, but it does work.*)
 let isFreeIn = define
-`(isFreeIn n1 (QuoVar n2 Discard1) = (n1 = n2)) /\
- (isFreeIn n3 (QuoConst n4 Discard2) = (n3 = n4)) /\ 
- (isFreeIn n5 (App n6 n7) = ((isFreeIn n5 n6) \/ (isFreeIn n5 n7))) /\
- (isFreeIn n8 (Abs n9 n10) = (~(isFreeIn n8 n9) /\ (isFreeIn n8 n10))) /\
- (isFreeIn n11 (Quote n12 Discard3) = (isFreeIn n11 n12))`;;
+`(isFreeIn (QuoVar n1 t1) (QuoVar n2 t2) = (n1 = n2 /\ (decomposeType t1) = (decomposeType t2))) /\
+ (isFreeIn (QuoVar n3 Discard5) (QuoConst n4 Discard2) = F) /\ 
+ (isFreeIn (QuoVar n5 Discard6) (App n6 n7) = ((isFreeIn (QuoVar n5 Discard6) n6) \/ (isFreeIn (QuoVar n5 Discard6) n7))) /\
+ (isFreeIn (QuoVar n8 Discard7) (Abs n9 n10) = (~(isFreeIn (QuoVar n8 Discard7) n9) /\ (isFreeIn (QuoVar n8 Discard7) n10))) /\
+ (isFreeIn (QuoVar n11 Discard8) (Quote n12 Discard3) = (isFreeIn (QuoVar n11 Discard8) n12))`;;
+
+(*Proof that a variable not inside an expression is not free in that expression*)
+prove(`isFreeIn (QuoVar "x" Bool) (QuoVar "y" Bool) <=> F`,
+	REWRITE_TAC[isFreeIn] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"x" = "y"`)]
+);;
+
+(*Proof that a variable is free if the entire expression is just that variable*)
+prove(`isFreeIn (QuoVar "x" Bool) (QuoVar "x" Bool)`,
+	REWRITE_TAC[isFreeIn]
+);;
+
+(*Proof that a variable cannot be free inside a constant even if the names match*)
+prove(`isFreeIn (QuoVar "x" Bool) (QuoConst "x" Bool) <=> F`,
+	REWRITE_TAC[isFreeIn]
+);;
+
+(*Proof that a variable inside an application can be free*)
+prove(`isFreeIn (QuoVar "x" RealInd) (App (App (QuoVar "x" RealInd) (QuoConst "+" (Fun (Fun RealInd RealInd) RealInd))) (QuoVar "y" RealInd))`,
+	REWRITE_TAC[isFreeIn]
+);;
+
+(*Prove that a mistyped variable in an otherwise free context is not free
+(Mathematically a mistyped variable makes no sense, this is just meant to test that typing is enforced)*)
+prove(`isFreeIn (QuoVar "x" Bool) (App (App (QuoVar "x" RealInd) (QuoConst "+" (Fun (Fun RealInd RealInd) RealInd))) (QuoVar "y" RealInd)) <=> F`,
+	REWRITE_TAC[isFreeIn] THEN
+	REWRITE_TAC[decomposeType] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "RealInd"`)]
+);;
+
+(*Proof that a variable inside an abstraction can be free if it is not bound*)
+prove(`isFreeIn (QuoVar "x" RealInd) (Abs (QuoVar "y" RealInd) ((App (App (QuoVar "x" RealInd) (QuoConst "+" (Fun (Fun RealInd RealInd) RealInd))) (QuoVar "y" RealInd))))`,
+	REWRITE_TAC[isFreeIn] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"x" = "y"`)]
+);;
+
+(*Proof that a variable inside an abstraction is not free if it is bound*)
+prove(`isFreeIn (QuoVar "x" RealInd) (Abs (QuoVar "x" RealInd) ((App (App (QuoVar "x" RealInd) (QuoConst "+" (Fun (Fun RealInd RealInd) RealInd))) (QuoVar "y" RealInd)))) <=> F`,
+	REWRITE_TAC[isFreeIn] 
+);;
+
+(*The next two proofs show that wrapping the previous two expressions inside a quotation does not change whether or not the variables are free*)
+prove(`isFreeIn (QuoVar "x" RealInd) (Quote (Abs (QuoVar "y" RealInd) ((App (App (QuoVar "x" RealInd) (QuoConst "+" (Fun (Fun RealInd RealInd) RealInd))) (QuoVar "y" RealInd)))) RealInd)`,
+	REWRITE_TAC[isFreeIn] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"x" = "y"`)]
+);;
+
+prove(`isFreeIn (QuoVar "x" RealInd) (Quote (Abs (QuoVar "x" RealInd) ((App (App (QuoVar "x" RealInd) (QuoConst "+" (Fun (Fun RealInd RealInd) RealInd))) (QuoVar "y" RealInd)))) RealInd) <=> F`,
+	REWRITE_TAC[isFreeIn] 
+);;
 
 (*Mathematical function to inspect a member of epsilon's subtype*)
 (*Will call decomposeType to turn a type into a string for easy comparisons*)
