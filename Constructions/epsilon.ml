@@ -29,7 +29,7 @@ define_type "epsilon =
 				  	 | QuoConst string type
 				     | Abs epsilon epsilon
 				     | App epsilon epsilon
-				     | Quote A type";;
+				     | Quote epsilon type";;
 
 (*Future code goes here, for now load q.ml for development of conversion*)
 
