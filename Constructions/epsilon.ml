@@ -71,6 +71,21 @@ let ep_subtype = define
  (ep_subtype (QuoConst str ty) = (decomposeType ty)) /\
  (ep_subtype (Quote eps ty) = (decomposeType ty))`;;
 
+(*This function takes a Fun type and takes off the first part of it - for use in calculating types of Abs/App*)
+let stripFunc = define `stripFunc (Fun T1 T2) = T2`
+
+(*This function takes a Fun type and takes the first part off*)
+let headFunc = define `headFunc (Fun T1 T2) = T1`;;
+
+(*This function handles calculating the type of App and Abs expressions, necessary to handle function applications*)
+(*Assuming that function will always be on left*)
+let combinatoryType = define
+`combinatoryType (App e1 e2) = (stripFunc (combinatoryType e1)) /\
+combinatoryType (QuoConst str ty) = ty /\
+combinatoryType (Abs (QuoVar str ty) e2) = (Fun (ty) (combinatoryType e2)) /\
+combinatoryType (QuoVar str ty) = ty /\
+combinatoryType (Quote e ty) = ty`;;
+
 (*Mathematical definition of what constitutes a variable*)
 let isVar = define `isVar e = ((ep_type e) = "QuoVar")`;;
 
@@ -83,9 +98,32 @@ let isAbs = define `isAbs e = ((ep_type e) = "Abs")`;;
 (*Mathematical definition of what constitutes an application*)
 let isApp = define `isApp e = ((ep_type e) = "App")`;;
 
-(*Mathematical definition of what constitutes an expression*)
-let isExpr = define `isExpr e = ((ep_type e) = "Quote")`;;
+(*
 
+In development - commented out so that the file can still load during the demo
+
+(*This function will take a variable term, and another term of type epsilon, and return whether or not the types mismatch. If the term is not found, false is returned.
+i.e. true means that two variables of the same name but different types exist inside these terms*)
+(*Todo: Prove some things with this function to test it for correctness*)
+let typeMatch = define `
+	(typeMatch (QuoVar name ty) (QuoVar name2 ty2) = (name = name2 /\ ~(ty = ty2))) /\
+	(typeMatch (QuoVar name ty) (QuoConst name2 ty2) = F) /\
+	(typeMatch (QuoVar name ty) (App e1 e2) = (typeMatch (QuoVar name ty) e1) \/ (typeMatch (QuoVar name ty) e2)) /\
+	(typeMatch (QuoVar name ty) (Abs e1 e2) = (typeMatch (QuoVar name ty) e1) \/ (typeMatch (QuoVar name ty) e2)) /\
+	(typeMatch (QuoVar name ty) (Quote e ty2) = (typeMatch (QuoVar name ty) e)
+`;;
+
+(*Mathematical definition of what constitutes a correct expression*)
+(*Todo: Enforce a check to see that constants are valid*)
+let isExpr = define 
+`
+	(isExpr (Quovar str ty) = T) /\
+	(isExpr (App e1 e2) = (ep_type e1 = "QuoConst") /\ (ep_subtype e2) = (headFunc (ep_subtype e1))) /\
+	(isexpr (Abs e1 e2) = (ep_type e1 = "QuoVar") /\ ~(typeMatch e1 e2)) /\
+	Todo: Finish this
+`;;
+
+*)
 (*Mathematical definition for isVarType *)
 let isVarType = define `isVarType e t = ((isVar e) /\ ((decomposeType t) = (ep_subtype e)))`;;
 
@@ -206,20 +244,6 @@ prove(`isApp (QuoVar "DontProveMe" Bool) = F`,
 );;
 
 
-(*Simple proof that a quote is recognized as an expression*)
-prove(`isExpr (Quote (QuoVar "Prove" Bool) Bool) = T`,
-	REWRITE_TAC[isExpr] THEN
-	REWRITE_TAC[ep_type]
-);;
-
-(*Simple proof that non-expressions are not expressions*)
-prove(`isExpr (QuoVar "DontProveMe" Bool) = F`,
-	REWRITE_TAC[isExpr] THEN
-	REWRITE_TAC[ep_type] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
-);;
-
-
 (*Start by proving that isVarType is false when something is not a var*)
 prove(`isVarType (QuoConst "Wrong" Ind) Ind <=> F`,
 	REWRITE_TAC[isVarType] THEN
@@ -272,18 +296,30 @@ prove(`isExprType (QuoVar "Wrong" Ind) Ind <=> F`,
 	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
 );;
 
-(*Test for failure when e is an expression of the wrong type*)
-prove(`isExprType (Quote (QuoConst "Wrong" Ind) Ind) Bool <=> F`,
-	REWRITE_TAC[isExprType] THEN
-	REWRITE_TAC[decomposeType; ep_subtype] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "Ind"`)]
+(*The following proofs will test combinatoryType*)
+
+(*(+) 3 is of type NaturalInd->NaturalInd*)
+prove(`combinatoryType(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) = (Fun NaturalInd NaturalInd)`,
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc]
 );;
 
-(*Test for success when the types agree and e is an expression*)
-prove(`isExprType (Quote (QuoVar "Right" Ind) Ind) Ind`,
-	REWRITE_TAC[isExprType] THEN
-	REWRITE_TAC[isExpr] THEN
-	REWRITE_TAC[decomposeType; ep_subtype;ep_type]
+(* 2 + 3 is of type NaturalInd *)
+prove(`combinatoryType(App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) = NaturalInd`,
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc]
+);;
+
+(*Binding x in (+) x gets a type of NaturalInd->NaturalInd->NaturalInd*)
+prove(`combinatoryType (Abs (QuoVar "x" NaturalInd) (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoVar "x" NaturalInd))) = Fun NaturalInd (Fun NaturalInd NaturalInd)`,
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc]
+);;
+
+(*Binding x in 2 + x should make it NaturalInd -> NaturalInd*)
+prove(`combinatoryType (Abs (QuoVar "x" NaturalInd) (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoVar "x" NaturalInd))) = Fun NaturalInd NaturalInd`,
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc]
 );;
 
 

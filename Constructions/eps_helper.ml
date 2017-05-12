@@ -1,6 +1,71 @@
 (*Temporarily in it's own file to allow for rapid reloading without having to destroy and rebuild the types built in epsilon.ml*)
 (*Will be merged into epsilon.ml later on*)
 
+(*Definition of abstraction*)
+(*This cannot be nammed because abs is already reserved by absolute value, so this is now e_abs for epsilon_abs*)
+let e_abs = define `e_abs e1 e2 = Abs e1 e2`;;
+
+(*Definition of application*)
+let app = define `app e1 e2 = App e1 e2`;;
+
+(*Definition of quo for epsilon types*)
+let quo = define `quo eps = Quote eps (combinatoryType eps)`;;
+
+(*Comparison to see if two types are equal*)
+let eqTypes = define `eqTypes t1 t2 = (decomposeType t1 = decomposeType t2)`;;
+
+(*Todo: Implement a function to check constants for validity*)
+
+(*Proof that application works for basic expressions*)
+prove(`app (QuoVar "x" Bool) (QuoVar "y" Bool) = App (QuoVar "x" Bool) (QuoVar "y" Bool)`,
+	REWRITE_TAC[app]
+);;
+
+(*Testing it for bigger expressions*)
+prove(`app (app (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool) = App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool)`,
+	REWRITE_TAC[app]
+);;
+
+(*Proof that abstraction works for basic expressions*)
+prove(`e_abs (QuoVar "x" Bool) (QuoVar "y" Bool) = Abs (QuoVar "x" Bool) (QuoVar "y" Bool)`,
+	REWRITE_TAC[e_abs]
+);;
+
+(*Testing it for bigger expressions, along with proving that x is free in the expression on it's own but is no longer free after applying e_abs*)
+prove(`(e_abs (QuoVar "x" Bool) (App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool)) = 
+	   Abs (QuoVar "x" Bool) (App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool))) /\ 
+	   (~(isFreeIn (QuoVar "x" Bool) (e_abs (QuoVar "x" Bool) (app (app (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool))))) /\
+	   (isFreeIn (QuoVar "x" Bool) (App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool)))`,
+	REWRITE_TAC[e_abs] THEN
+	REWRITE_TAC[isFreeIn]
+);;
+
+(*Proof that quoting works as intended*)
+prove(`quo (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) = 
+	Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) NaturalInd`,
+	REWRITE_TAC[quo] THEN
+	REWRITE_TAC [combinatoryType] THEN
+	REWRITE_TAC[stripFunc]
+);;
+
+(*Proof that quotes can be quoted and they retain their types*)
+prove(`quo (quo (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd))) = 
+	Quote (Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) NaturalInd) NaturalInd`,
+	REWRITE_TAC[quo] THEN
+	REWRITE_TAC [combinatoryType] THEN
+	REWRITE_TAC[stripFunc]
+);;
+
+(*Proves that eqTypes returns true when the two types are equal*)
+prove(`eqTypes Bool Bool`,REWRITE_TAC[eqTypes]);;
+
+(*Proves that eqTypes returns false when the two types are not equal*)
+prove(`eqTypes Bool Ind <=> F`,
+	REWRITE_TAC[eqTypes] THEN
+	REWRITE_TAC[decomposeType] THEN
+	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "Ind"`)]
+);;
+
 (*This function takes an exploded string, searches for the "->" indicating a function type, and returns the parts before and after the function. *)
 let rec splitForFunction x before = match x with
 	| "-" :: ">" :: rest -> before,(implode rest)
