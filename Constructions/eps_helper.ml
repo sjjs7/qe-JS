@@ -9,7 +9,7 @@ let e_abs = define `e_abs e1 e2 = Abs e1 e2`;;
 let app = define `app e1 e2 = App e1 e2`;;
 
 (*Definition of quo for epsilon types*)
-let quo = define `quo eps = Quote eps (combinatoryType eps)`;;
+let quo = define `quo eps = Quote eps`;;
 
 (*Comparison to see if two types are equal*)
 let eqTypes = define `eqTypes t1 t2 = (decomposeType t1 = decomposeType t2)`;;
@@ -42,19 +42,16 @@ prove(`(e_abs (QuoVar "x" Bool) (App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun
 
 (*Proof that quoting works as intended*)
 prove(`quo (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) = 
-	Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) NaturalInd`,
-	REWRITE_TAC[quo] THEN
-	REWRITE_TAC [combinatoryType] THEN
-	REWRITE_TAC[stripFunc]
+	Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd))`,
+	REWRITE_TAC[quo]
 );;
 
-(*Proof that quotes can be quoted and they retain their types*)
+(*Proof that quotes can be quoted*)
 prove(`quo (quo (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd))) = 
-	Quote (Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) NaturalInd) NaturalInd`,
-	REWRITE_TAC[quo] THEN
-	REWRITE_TAC [combinatoryType] THEN
-	REWRITE_TAC[stripFunc]
+	Quote (Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)))`,
+	REWRITE_TAC[quo]
 );;
+
 
 (*Proves that eqTypes returns true when the two types are equal*)
 prove(`eqTypes Bool Bool`,REWRITE_TAC[eqTypes]);;
