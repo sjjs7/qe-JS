@@ -33,10 +33,16 @@ let lth, rth = define_type "epsilon =
 				     | App epsilon epsilon
 				     | Quote epsilon";;
 
+(*Distinctness operator can do what strings were implemented to do: Prove that different types of terms and types are unequal*)
+let typeDistinct = distinctness "type";;
+let epsilonDistinct = distinctness "epsilon";; 
+(*These two theorems say that for any elements of type or epsilon to be equal, their arguments must be equal*)
+let typeInjective = injectivity "type";;
+let epsilonInjective = injectivity "epsilon";;
 
 (*** Function Definitions ***)
 (*Mathematical function that can be used to inspect terms inside epsilon*)
-(*Discard values are never actually used, but the type checker doesn't know this so they are kept numbered to separate them*)
+(*This needs to be kept until I can find a way to make this function return just the raw function - type checker currently disallows it*)
 let ep_constructor = define 
 `(ep_constructor (QuoVar str ty) = "QuoVar") /\
  (ep_constructor (QuoConst str ty) = "QuoConst") /\
@@ -44,28 +50,18 @@ let ep_constructor = define
  (ep_constructor (App eps eps2) = "App") /\
  (ep_constructor (Quote eps) = "Quote")`;;
 
-let decomposeType = define
-`decomposeType Bool = "Bool" /\
- decomposeType Ind = "Ind" /\
- decomposeType NaturalInd = "NaturalInd" /\
- decomposeType IntegerInd = "IntegerInd" /\
- decomposeType RealInd = "RealInd" /\
- decomposeType (Fun T1 T2) = APPEND (APPEND (APPEND (APPEND "(Fun " (decomposeType T1)) "->") (decomposeType T2)) ")" /\ 
- decomposeType (Tyvar name) = name`;;
-
  (*This function returns true if the given expression f appears free anywhere in e*)
 (*Regarding abstractions: I assume that the structure of an abstraction will contain the variable to
 bind on the left and expression on the right, therefore for a variable to be free in an abstraction it
 must appear in the right while not appearing free in the left.*)
 let isFreeIn = define
-`(isFreeIn (QuoVar n1 t1) (QuoVar n2 t2) = (n1 = n2 /\ (decomposeType t1) = (decomposeType t2))) /\
+`(isFreeIn (QuoVar n1 t1) (QuoVar n2 t2) = (n1 = n2 /\ t1 = t2)) /\
  (isFreeIn qv (QuoConst str ty) = F) /\ 
  (isFreeIn qv (App eps eps2) = ((isFreeIn qv eps) \/ (isFreeIn qv eps2))) /\
  (isFreeIn qv (Abs eps eps2) = (~(isFreeIn qv eps) /\ (isFreeIn qv eps2))) /\
  (isFreeIn qv (Quote eps) = F)`;; 
 
- (*Mathematical function to inspect a member of epsilon's subtype*)
-(*Will return the raw type - need to now call decomposeType manually to convert to string*)
+ (*Mathematical function to inspect a member of epsilon's type*)
 let ep_type = define
 `(ep_type (QuoVar str ty) = (ty)) /\
  (ep_type (QuoConst str ty) = (ty)) /\
@@ -117,7 +113,7 @@ let isValidConstName = define`
 i.e. true means that two variables of the same name but different types exist inside these terms*)
 (*Todo: Prove some things with this function to test it for correctness*)
 let typeMismatch = define `
-(typeMismatch (QuoVar name ty) (QuoVar name2 ty2) = (name = name2 /\ ~((decomposeType ty) = (decomposeType ty2)))) /\
+(typeMismatch (QuoVar name ty) (QuoVar name2 ty2) = (name = name2 /\ ~(ty = ty2))) /\
 (typeMismatch (QuoVar name ty) (QuoConst name2 ty2) = F) /\
 (typeMismatch (QuoVar name ty) (App e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
 (typeMismatch (QuoVar name ty) (Abs e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
@@ -137,27 +133,46 @@ let isExpr = define
 `
 	(isExpr (QuoVar str ty) = T) /\
 	(isExpr (QuoConst str ty) = isValidConstName str) /\
-	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1)) /\ ((decomposeType (headFunc (combinatoryType e1))) = ((decomposeType (ep_type e2)))) /\ (isFunction (combinatoryType e1)) /\ (isExpr e2))) /\
+	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isExpr e2))) /\
 	(isExpr (Abs e1 e2) = ((isVar e1) /\ ~(typeMismatch e1 e2) /\ (isExpr e2))) /\ 
 	(isExpr (Quote e) = (isExpr e))
 `;;
 
 (*Mathematical definition for isVarType *)
-let isVarType = define `isVarType e t = ((isVar e) /\ ((decomposeType t) = decomposeType (ep_type e)))`;;
+let isVarType = define `isVarType e t = ((isVar e) /\ (t = (ep_type e)))`;;
 
 (*Mathematical definition for isConstType*)
-let isConstType = define `isConstType e t = ((isConst e) /\ ((decomposeType t) = decomposeType (ep_type e)))`;;
+let isConstType = define `isConstType e t = ((isConst e) /\ (t = (ep_type e)))`;;
 
 (*Mathematical definition of isExprType*)
-let isExprType = define `isExprType e t = ((isExpr e) /\ ((decomposeType t) = decomposeType (ep_type e)))`;;
+let isExprType = define `isExprType e t = ((isExpr e) /\ (t = (combinatoryType e)))`;;
+
+(*This is a sub part of the "is proper subexpression of" definition - it checks if the given first term appears anywhere inside the second *)
+let isPartOf = define `
+isPartOf (exp:epsilon) (QuoVar str ty) = (exp = (QuoVar str ty)) /\
+isPartOf (exp:epsilon) (QuoConst str ty) = (exp = (QuoConst str ty)) /\
+isPartOf (exp:epsilon) (App exp1 exp2) = ((isPartOf exp exp1) \/ (isPartOf exp exp2) \/ (exp = (App exp1 exp2))) /\
+isPartOf (exp:epsilon) (Abs exp1 exp2) = ((isPartOf exp exp1) \/ (isPartOf exp exp2) \/ (exp = (Abs exp1 exp2))) /\
+isPartOf (exp:epsilon) (Quote exp1) = ((isPartOf exp exp1) \/ (exp = (Quote exp1))) 
+`;;
+
+(*This defines the check to see if something is a proper subexpression of another expression*)
+let isProperSubexpressionOf = define `isProperSubexpressionOf (exp1:epsilon) (exp2:epsilon) = ((isExpr exp1) /\ (isPartOf exp1 exp2))`;;
+
+(*Definition of abstraction*)
+(*This cannot be nammed because abs is already reserved by absolute value, so this is now e_abs for epsilon_abs*)
+let e_abs = define `e_abs e1 e2 = Abs e1 e2`;;
+
+(*Definition of application*)
+let app = define `app e1 e2 = App e1 e2`;;
+
+(*Definition of quo for epsilon types*)
+let quo = define `quo eps = Quote eps`;;
+
+(*Comparison to see if two types are equal*)
+let eqTypes = define `eqTypes t1 t2 = (t1 = t2)`;;
 
 (*** PROOFS FOR TESTING ***)
-(*This proof is to check that the recursive definition of decomposeType is working*)
-prove(`decomposeType (Fun (Fun Bool Ind) (Fun Ind Ind)) = "(Fun (Fun Bool->Ind)->(Fun Ind->Ind))"`,
-	REWRITE_TAC[decomposeType] THEN
-	REWRITE_TAC[APPEND]
-);;
-
 (*Proof that a variable not inside an expression is not free in that expression*)
 prove(`isFreeIn (QuoVar "x" Bool) (QuoVar "y" Bool) <=> F`,
 	REWRITE_TAC[isFreeIn] THEN
@@ -183,8 +198,7 @@ prove(`isFreeIn (QuoVar "x" RealInd) (App (App (QuoVar "x" RealInd) (QuoConst "+
 (Mathematically a mistyped variable makes no sense, this is just meant to test that typing is enforced)*)
 prove(`isFreeIn (QuoVar "x" Bool) (App (App (QuoVar "x" RealInd) (QuoConst "+" (Fun (Fun RealInd RealInd) RealInd))) (QuoVar "y" RealInd)) <=> F`,
 	REWRITE_TAC[isFreeIn] THEN
-	REWRITE_TAC[decomposeType] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "RealInd"`)]
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*Proof that a variable inside an abstraction can be free if it is not bound*)
@@ -272,14 +286,14 @@ prove(`isVarType (QuoConst "Wrong" Ind) Ind <=> F`,
 (*Now prove that isVarType with the wrong variable type is false*)
 prove(`isVarType (QuoVar "Wrong" Ind) Bool <=> F`,
 	REWRITE_TAC[isVarType] THEN
-	REWRITE_TAC[decomposeType;ep_type] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "Ind"`)]
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*Now proves that isVarType with the right variable type is true*)
 prove(`isVarType (QuoVar "Right" Ind) Ind`,
 	REWRITE_TAC[isVarType] THEN
-	REWRITE_TAC[decomposeType;ep_type;isVar] THEN
+	REWRITE_TAC[ep_type;isVar] THEN
 	REWRITE_TAC[ep_constructor]
 );;
 
@@ -294,25 +308,16 @@ prove(`isConstType (QuoVar "Wrong" Ind) Ind <=> F`,
 (*Test for failure when the constant is of the wrong type*)
 prove(`isConstType (QuoConst "Wrong" Bool) Ind <=> F`,
 	REWRITE_TAC[isConstType] THEN
-	REWRITE_TAC[decomposeType;ep_type] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"Ind" = "Bool"`)]
+	REWRITE_TAC[ep_type] THEN
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*Proves that the right types result in true*)
 prove(`isConstType (QuoConst "Right" (Fun Bool Ind)) (Fun Bool Ind)`,
 	REWRITE_TAC[isConstType] THEN
-	REWRITE_TAC[isConst;decomposeType;ep_type] THEN
+	REWRITE_TAC[isConst;ep_type] THEN
 	REWRITE_TAC[ep_constructor]
 );;
-
-(*Test for failure when e is not an expression
-prove(`isExprType (QuoVar "Wrong" Ind) Ind <=> F`,
-	REWRITE_TAC[isExprType] THEN
-	REWRITE_TAC[isExpr] THEN
-	REWRITE_TAC[ep_constructor] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Quote"`)]
-);;
-*)
 
 (*The following proofs will test combinatoryType*)
 
@@ -407,8 +412,7 @@ prove(`isExpr (App(App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (Qu
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[headFunc] THEN
-	REWRITE_TAC[decomposeType] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "NaturalInd"`)]
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*Proving that function application does not work out of order*)
@@ -455,8 +459,222 @@ prove(`isExpr (Abs (QuoVar "x" Bool) (QuoVar "x" NaturalInd)) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[typeMismatch] THEN
-	REWRITE_TAC[decomposeType] THEN
-	REWRITE_TAC[(STRING_EQ_CONV `"Bool" = "NaturalInd"`)]
+	REWRITE_TAC[typeDistinct]
+);;
+
+(*Abstracting over an application is invalid in the case of a type mismatch*)
+prove(`isExpr (Abs (QuoVar "x" Bool) (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd))) <=> F`,
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isVar;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[isApp;ep_constructor] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[typeMismatch] THEN
+	REWRITE_TAC[typeDistinct]
+);;
+
+(*Abstracting over an application is valid when the types do match*)
+prove(`isExpr (Abs (QuoVar "x" NaturalInd) (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd)))`,
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isVar;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[isApp;ep_constructor] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[typeMismatch]
+);;
+
+(*The following will test isExprType*)
+prove(`isExprType (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd)) (Fun Bool NaturalInd)`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isConst;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[isFunction]
+);;
+
+(*This tests that isExprType fails when the given expression is not an expression*)
+prove(`isExprType (App (QuoConst "2" NaturalInd) (QuoConst "3" NaturalInd)) (Fun Bool NaturalInd) <=> F`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[isFunction]
+);;
+
+(*This tests that isExprType fails when the types do not match*)
+prove(`isExprType (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd)) Bool <=> F`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isConst;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[typeDistinct]
+);;
+
+(*This tests that isProperSubexpression returns false when the given subexpression is not a subexpression*)
+prove(`isProperSubexpressionOf (QuoVar "x" Bool) (QuoVar "y" Bool) <=> F`,
+	REWRITE_TAC[isProperSubexpressionOf] THEN
+	REWRITE_TAC[isPartOf] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[epsilonInjective] THEN
+	REWRITE_TAC[STRING_EQ_CONV `"x" = "y"`]
+);;
+
+(*This tests that isProperSubexpression returns false when the given subexpression is not an expression*)
+prove(`isProperSubexpressionOf (App (QuoVar "x" Bool) (QuoConst "y" Bool)) (App (QuoVar "x" Bool) (QuoConst "y" Bool)) <=> F`,
+	REWRITE_TAC[isProperSubexpressionOf] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[isFunction]
+);;
+
+
+(*This tests that isProperSubexpression returns true even if the expresion on the right is improper*)
+prove(`isProperSubexpressionOf (QuoVar "x" Bool) (App (QuoVar "x" Bool) (QuoConst "y" Bool))`,
+	REWRITE_TAC[isProperSubexpressionOf] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isPartOf]
+);;
+
+(*Tests that isProperSubExpression works for large terms*)
+prove(`isProperSubexpressionOf (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd))`,
+	REWRITE_TAC[isProperSubexpressionOf] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isPartOf] THEN
+	REWRITE_TAC[isConst;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[headFunc]
+);;
+
+(*Final tests for this type - making sure that quote does not interfere with previous proofs*)
+prove(`isExpr (Quote (Abs (QuoVar "x" NaturalInd) (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd))))`,
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isVar;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[isApp;ep_constructor] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[typeMismatch]
+);;
+
+prove(`isExpr (Quote (Abs (QuoVar "x" Bool) (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd)))) <=> F`,
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isVar;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[isApp;ep_constructor] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[typeMismatch] THEN
+	REWRITE_TAC[typeDistinct]
+);;
+
+prove(`isExprType (Quote ((App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd)))) (Fun Bool NaturalInd)`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isConst;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[isFunction]
+);;
+
+prove(`isExprType (Quote(App (QuoConst "2" NaturalInd) (QuoConst "3" NaturalInd))) (Fun Bool NaturalInd) <=> F`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[isFunction]
+);;
+
+prove(`isExprType (Quote (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd))) Bool <=> F`,
+	REWRITE_TAC[isExprType] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isConst;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[stripFunc] THEN
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[headFunc] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[typeDistinct]
+);;
+
+prove(`isProperSubexpressionOf (QuoVar "x" Bool) (Quote (QuoVar "y" Bool)) <=> F`,
+	REWRITE_TAC[isProperSubexpressionOf] THEN
+	REWRITE_TAC[isPartOf] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[epsilonInjective] THEN
+	REWRITE_TAC[epsilonDistinct] THEN
+	REWRITE_TAC[STRING_EQ_CONV `"x" = "y"`]
+);;
+
+prove(`isProperSubexpressionOf (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (Quote(App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd)))`,
+	REWRITE_TAC[isProperSubexpressionOf] THEN
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isPartOf] THEN
+	REWRITE_TAC[isConst;ep_constructor] THEN
+	REWRITE_TAC[combinatoryType] THEN
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isFunction] THEN
+	REWRITE_TAC[headFunc]
+);;
+
+(*Proof that application works for basic expressions*)
+prove(`app (QuoVar "x" Bool) (QuoVar "y" Bool) = App (QuoVar "x" Bool) (QuoVar "y" Bool)`,
+	REWRITE_TAC[app]
+);;
+
+(*Testing it for bigger expressions*)
+prove(`app (app (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool) = App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool)`,
+	REWRITE_TAC[app]
+);;
+
+(*Proof that abstraction works for basic expressions*)
+prove(`e_abs (QuoVar "x" Bool) (QuoVar "y" Bool) = Abs (QuoVar "x" Bool) (QuoVar "y" Bool)`,
+	REWRITE_TAC[e_abs]
+);;
+
+(*Testing it for bigger expressions, along with proving that x is free in the expression on it's own but is no longer free after applying e_abs*)
+prove(`(e_abs (QuoVar "x" Bool) (App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool)) = 
+	   Abs (QuoVar "x" Bool) (App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool))) /\ 
+	   (~(isFreeIn (QuoVar "x" Bool) (e_abs (QuoVar "x" Bool) (app (app (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool))))) /\
+	   (isFreeIn (QuoVar "x" Bool) (App (App (QuoVar "x" Bool) (QuoConst "/\\" (Fun (Fun Bool Bool) Bool))) (QuoConst "F" Bool)))`,
+	REWRITE_TAC[e_abs] THEN
+	REWRITE_TAC[isFreeIn]
+);;
+
+(*Proof that quoting works as intended*)
+prove(`quo (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)) = 
+	Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd))`,
+	REWRITE_TAC[quo]
+);;
+
+(*Proof that quotes can be quoted*)
+prove(`quo (quo (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd))) = 
+	Quote (Quote (App (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "2" NaturalInd)) (QuoConst "3" NaturalInd)))`,
+	REWRITE_TAC[quo]
+);;
+
+
+(*Proves that eqTypes returns true when the two types are equal*)
+prove(`eqTypes Bool Bool`,REWRITE_TAC[eqTypes]);;
+
+(*Proves that eqTypes returns false when the two types are not equal*)
+prove(`eqTypes Bool Ind <=> F`,
+	REWRITE_TAC[eqTypes] THEN
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*Future code goes here, for now load eps_helper.ml for unfinished developments*)
