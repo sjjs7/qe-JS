@@ -104,9 +104,9 @@ let isFunction = define `
 	(isFunction (RealInd) = F) /\
 	(isFunction (Tyvar name) = F)`;; 
 
-(*Placeholder to check for a valid constant name*)
-let isValidConstName = define`
-	isValidConstName (str:string) = T
+(*Checks that the constant name is valid*)
+let isValidConstName = define `
+	isValidConstName name = EX (\x. x = name /\ LENGTH x = LENGTH name) ["eqTypes"; "quo"; "app"; "e_abs"; "isProperSubexpressionOf"; "isPartOf"; "isExprType"; "isConstType"; "isVarType"; "isExpr"; "typeMismatch"; "isValidConstName"; "isFunction"; "isApp"; "isAbs"; "isConst"; "isVar"; "combinatoryType"; "headFunc"; "stripFunc"; "ep_type"; "isFreeIn"; "ep_constructor"; "Quote"; "App"; "Abs"; "QuoConst"; "QuoVar"; "_dest_epsilon"; "_mk_epsilon"; "Fun"; "Ind"; "NaturalInd"; "IntegerInd"; "RealInd"; "Bool"; "Tyvar"; "_dest_type"; "_mk_type"; "superadmissible"; "tailadmissible"; "admissible"; "CASEWISE"; "PCROSS"; "vector"; "dest_auto_define_finite_type_4"; "mk_auto_define_finite_type_4"; "dest_auto_define_finite_type_3"; "mk_auto_define_finite_type_3"; "dest_auto_define_finite_type_2"; "mk_auto_define_finite_type_2"; "dest_finite_prod"; "mk_finite_prod"; "dest_finite_diff"; "mk_finite_diff"; "sndcart"; "fstcart"; "pastecart"; "dest_finite_sum"; "mk_finite_sum"; "lambda"; "$"; "dest_cart"; "mk_cart"; "dest_finite_image"; "finite_index"; "dimindex"; "polynomial_function"; "sum"; "nsum"; "iterate"; "support"; "monoidal"; "neutral"; ".."; "has_sup"; "has_inf"; "inf"; "sup"; "COUNTABLE"; ">_c"; ">=_c"; "=_c"; "<_c"; "<=_c"; "ARBITRARY"; "INTERSECTION_OF"; "UNION_OF"; "pairwise"; "list_of_set"; "set_of_list"; "cartesian_product"; "EXTENSIONAL"; "ARB"; "CROSS"; "HAS_SIZE"; "CARD"; "ITSET"; "FINREC"; "REST"; "CHOICE"; "BIJ"; "SURJ"; "INJ"; "IMAGE"; "INFINITE"; "FINITE"; "SING"; "DISJOINT"; "PSUBSET"; "SUBSET"; "DELETE"; "DIFF"; "INTERS"; "INTER"; "UNIONS"; "UNION"; "UNIV"; "INSERT"; "EMPTY"; "SETSPEC"; "GSPEC"; "IN"; "num_gcd"; "num_coprime"; "num_mod"; "num_divides"; "num_of_int"; "int_gcd"; "int_coprime"; "int_mod"; "int_divides"; "real_mod"; "=="; "rem"; "div"; "int_pow"; "int_min"; "int_max"; "int_sgn"; "int_abs"; "int_mul"; "int_sub"; "int_add"; "int_neg"; "int_of_num"; "int_gt"; "int_ge"; "int_lt"; "int_le"; "real_of_int"; "int_of_real"; "integer"; "DECIMAL"; "sqrt"; "real_sgn"; "real_min"; "real_max"; "real_div"; "real_pow"; "real_abs"; "real_gt"; "real_ge"; "real_lt"; "real_sub"; "real_inv"; "real_le"; "real_mul"; "real_add"; "real_neg"; "real_of_num"; "dest_real"; "mk_real"; "treal_eq"; "treal_inv"; "treal_le"; "treal_mul"; "treal_add"; "treal_neg"; "treal_of_num"; "hreal_inv"; "hreal_le"; "hreal_mul"; "hreal_add"; "hreal_of_num"; "dest_hreal"; "mk_hreal"; "nadd_inv"; "nadd_rinv"; "nadd_mul"; "nadd_add"; "nadd_le"; "nadd_of_num"; "nadd_eq"; "dest_nadd"; "mk_nadd"; "is_nadd"; "dist"; "ASCII"; "_dest_char"; "_mk_char"; "list_of_seq"; "PAIRWISE"; "ZIP"; "ITLIST2"; "ASSOC"; "FILTER"; "EL"; "MAP2"; "ALL2"; "MEM"; "ITLIST"; "EX"; "ALL"; "NULL"; "REPLICATE"; "BUTLAST"; "LAST"; "MAP"; "LENGTH"; "REVERSE"; "APPEND"; "TL"; "HD"; "ISO"; "CONS"; "NIL"; "_dest_list"; "_mk_list"; "SOME"; "NONE"; "_dest_option"; "_mk_option"; "OUTR"; "OUTL"; "INR"; "INL"; "_dest_sum"; "_mk_sum"; "FNIL"; "FCONS"; "CONSTR"; "BOTTOM"; "_dest_rec"; "_mk_rec"; "ZRECSPACE"; "ZBOT"; "ZCONSTR"; "INJP"; "INJF"; "INJA"; "INJN"; "NUMRIGHT"; "NUMLEFT"; "NUMSUM"; "NUMSND"; "NUMFST"; "NUMPAIR"; "MEASURE"; "WF"; "minimal"; "MOD"; "DIV"; "FACT"; "-"; "ODD"; "EVEN"; "MIN"; "MAX"; ">"; ">="; "<"; "<="; "EXP"; "*"; "+"; "PRE"; "BIT1"; "BIT0"; "NUMERAL"; "SUC"; "_0"; "dest_num"; "mk_num"; "NUM_REP"; "IND_0"; "IND_SUC"; "ONTO"; "ONE_ONE"; "PASSOC"; "UNCURRY"; "CURRY"; "SND"; "FST"; ","; "REP_prod"; "ABS_prod"; "mk_pair"; "_FUNCTION"; "_MATCH"; "_GUARDED_PATTERN"; "_UNGUARDED_PATTERN"; "_SEQPATTERN"; "GEQ"; "GABS"; "LET_END"; "LET"; "one"; "one_REP"; "one_ABS"; "I"; "o"; "COND"; "@"; "_FALSITY_"; "?!"; "~"; "F"; "\\/"; "?"; "!"; "==>"; "/\\"; "T"; "="]
 `;;
 
 (*This function will take a variable term, and another term of type epsilon, and return whether or not the types mismatch. If the term is not found, false is returned.
@@ -353,24 +353,26 @@ prove(`isExpr (QuoVar "x" Bool)`,
 );;
 
 (*Prove that a constant is an expression*)
-prove(`isExpr (QuoConst "3" NaturalInd)`,
+prove(`isExpr (QuoConst "T" Bool)`,
 	REWRITE_TAC[isExpr] THEN
-	REWRITE_TAC[isValidConstName]
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX]
 );;
 
 (*Prove that a simple function application is an expression*)
-prove(`isExpr (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd))`,
+prove(`isExpr (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "NUMERAL" NaturalInd))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[isValidConstName]
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX]
 );;
 
 (*Prove that recursed function applications are an expression*)
-prove(`isExpr (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd))`,
+prove(`isExpr (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "NUMERAL" NaturalInd)) (QuoVar "x" NaturalInd))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isApp;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -378,7 +380,8 @@ prove(`isExpr (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd)
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[isValidConstName]
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX]
 );;
 
 (*Prove that a malformed application is not an expression*)
@@ -393,14 +396,15 @@ prove(`isExpr(App (QuoVar "x" Bool) (QuoVar "y" Bool)) <=> F`,
 
 
 (*Prove that a function application whose initial types match is an expression (i.e. this takes a number -> bool -> number so it should work when giving it a single number)*)
-prove(`isExpr (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd))`,
+prove(`isExpr (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "NUMERAL" NaturalInd))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[isValidConstName];
+	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX]
 );;
 
 (*Proving that the above should no longer work when giving it a second number*)
@@ -488,13 +492,14 @@ prove(`isExpr (Abs (QuoVar "x" NaturalInd) (App(App (QuoConst "+" (Fun NaturalIn
 );;
 
 (*The following will test isExprType*)
-prove(`isExprType (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd)) (Fun Bool NaturalInd)`,
+prove(`isExprType (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "NUMERAL" NaturalInd)) (Fun Bool NaturalInd)`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction]
 );;
@@ -508,13 +513,14 @@ prove(`isExprType (App (QuoConst "2" NaturalInd) (QuoConst "3" NaturalInd)) (Fun
 );;
 
 (*This tests that isExprType fails when the types do not match*)
-prove(`isExprType (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd)) Bool <=> F`,
+prove(`isExprType (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "NUMERAL" NaturalInd)) Bool <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[typeDistinct]
@@ -546,13 +552,14 @@ prove(`isProperSubexpressionOf (QuoVar "x" Bool) (App (QuoVar "x" Bool) (QuoCons
 );;
 
 (*Tests that isProperSubExpression works for large terms*)
-prove(`isProperSubexpressionOf (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd))`,
+prove(`isProperSubexpressionOf (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "NUMERAL" NaturalInd)) (App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "NUMERAL" NaturalInd)) (QuoVar "x" NaturalInd))`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isPartOf] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[headFunc]
 );;
@@ -581,13 +588,14 @@ prove(`isExpr (Quote (Abs (QuoVar "x" Bool) (App(App (QuoConst "+" (Fun NaturalI
 	REWRITE_TAC[typeDistinct]
 );;
 
-prove(`isExprType (Quote ((App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd)))) (Fun Bool NaturalInd)`,
+prove(`isExprType (Quote ((App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "NUMERAL" NaturalInd)))) (Fun Bool NaturalInd)`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction]
 );;
@@ -599,13 +607,14 @@ prove(`isExprType (Quote(App (QuoConst "2" NaturalInd) (QuoConst "3" NaturalInd)
 	REWRITE_TAC[isFunction]
 );;
 
-prove(`isExprType (Quote (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "3" NaturalInd))) Bool <=> F`,
+prove(`isExprType (Quote (App (QuoConst "+" (Fun NaturalInd (Fun Bool NaturalInd))) (QuoConst "NUMERAL" NaturalInd))) Bool <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[typeDistinct]
@@ -620,13 +629,14 @@ prove(`isProperSubexpressionOf (QuoVar "x" Bool) (Quote (QuoVar "y" Bool)) <=> F
 	REWRITE_TAC[STRING_EQ_CONV `"x" = "y"`]
 );;
 
-prove(`isProperSubexpressionOf (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (Quote(App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "3" NaturalInd)) (QuoVar "x" NaturalInd)))`,
+prove(`isProperSubexpressionOf (App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "NUMERAL" NaturalInd)) (Quote(App(App (QuoConst "+" (Fun NaturalInd (Fun NaturalInd NaturalInd))) (QuoConst "NUMERAL" NaturalInd)) (QuoVar "x" NaturalInd)))`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isPartOf] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[headFunc]
 );;

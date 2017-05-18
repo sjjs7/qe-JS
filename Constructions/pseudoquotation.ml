@@ -31,7 +31,7 @@ let rec quoteRecursion = function
 	| Var (vName, vType) -> makeQuoVarComb vName (matchTypes vType)
 	| Const (cName, cType) -> makeQuoConstComb cName (matchTypes cType)
 	| Comb(E1,E2) -> makeAppComb (quoteRecursion E1) (quoteRecursion E2)
-	| Abs(E1, E2) -> makeAbsComb (quoteRecursion E1) (quoteRecursion E2)
+	| Abs(E1, E2) -> makeAbsComb (quoteRecursion E1) (quoteRecursion E2);;
 
 (*Function to take an expression, and convert it into a type of epsilon wrapped inside of a Quote*)
 let quote exp = mk_comb(mk_const("Quote",[]),(quoteRecursion exp));;
