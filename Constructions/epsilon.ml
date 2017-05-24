@@ -3,7 +3,7 @@
 (*Defines type and term as is defined in John Harisson's paper
 TyBar -> String representing a type variable
 TyCons -> String representing a constructed type, followed by a type and a list of types.*) 
-define_type "type = 
+let lt, rt = define_type "type = 
 				    TyVar string
 			 	  | TyCons string ((type)list)";;    
 
@@ -94,9 +94,9 @@ let isValidConstName = define `
 (*Checks that a type is a valid type*)
 let isValidType = define `
 	(isValidType (TyVar str) = T) /\
-	(isValidType (TyCons str []) = EX (\x. x = str) ["epsilon";"type";"4";"3";"2";"int";"real";"hreal";"nadd";"char";"num";"ind";"1";"bool"]) /\
-	(isValidType (TyCons str [(a:type)]) = (EX (\x. x = str) ["finite_image";"list";"option";"recspace"])) /\
-	(isValidType (TyCons str [(a:type);(b:type)]) = (EX (\x. x = str) ["finite_prod";"finite_diff";"finite_sum";"cart";"sum";"prod";"fun"]))
+	(isValidType (TyCons str []) = (EX (\x. x = str) ["epsilon";"type";"4";"3";"2";"int";"real";"hreal";"nadd";"char";"num";"ind";"1";"bool"])) /\
+	(isValidType (TyCons str [a]) = ((isValidType a) /\ (EX (\x. x = str) ["finite_image";"list";"option";"recspace"]))) /\
+	(isValidType (TyCons str [(a:type);(b:type)]) = ((isValidType a) /\ (isValidType b) /\ (EX (\x. x = str) ["finite_prod";"finite_diff";"finite_sum";"cart";"sum";"prod";"fun"])))
 `;;
 
 (*This function will take a variable term, and another term of type epsilon, and return whether or not the types mismatch. If the term is not found, false is returned.
@@ -108,6 +108,70 @@ let typeMismatch = define `
 (typeMismatch (QuoVar name ty) (App e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
 (typeMismatch (QuoVar name ty) (Abs e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
 (typeMismatch (QuoVar name ty) (Quote e) = (typeMismatch (QuoVar name ty) e))`;;
+
+(*The below is temporary testing code while I try to get isValidType to recurse properly*)
+let rc = prove_general_recursive_function_exists `?rc.
+(rc [] = 0) /\
+(rc (CONS (TyVar str) t) = 1 + (rc t)) /\
+(rc (CONS (TyCons str l) t) = 1 + (rc l) + (rc t)) 
+`;;
+
+let test = define `
+	(lrt (a:type) (TyVar str) = F) /\
+	(lrt (a:type) (TyCons str []) = F) /\
+	(lrt (a:type) (TyCons str [b]) = (a=b)) /\
+	(lrt (a:type) (TyCons str [b;c]) = (a = b \/ a = c))
+`;;
+
+let SUM = new_recursive_definition list_RECURSION
+  `(SUM [] = 0) /\
+   (SUM (CONS h t) = h + SUM t)`;;
+
+let getList = define `
+	(getList (TyCons str lt)) = (lt)
+`;;
+
+let flattenlist = define `
+	(flattenlist (TyCons str lt) = 1 + (SUM (MAP flattenlist lt))) /\
+	(flattenlist (TyVar str) = 1)
+`;;
+
+
+let flatten = prove_general_recursive_function_exists `?flatten.
+	(flatten [] = 0) /\
+	(flatten [(TyCons str l)] = 1 + (flatten l)) /\
+	(flatten [(TyVar str)] = 1) /\
+	(flatten [(TyCons str l);(TyVar str2)] = 2 + (flatten l)) /\
+	(flatten [(TyVar str);(TyCons str2 l)] = 2 + (flatten l)) /\
+	(flatten [(TyVar str);(TyVar str2)] = 2) /\
+	(flatten [(TyCons str l);(TyCons str2 l2)] = 2 + (flatten l) + (flatten l2))
+`;;
+
+let so0 = prove_general_recursive_function_exists `?so0.
+	(so0 (TyVar str) = 1) /\
+	(so0 (TyCons str l) = (SUM (MAP so0 l)) + 1)
+`;;
+
+let so1 = define `
+	(so1 (a:type) (TyVar str) = F) /\
+	(so1 (a:type) (TyCons str l) = (EX (\x. x = a) l))
+`;;
+
+
+let isValidType = prove_general_recursive_function_exists `?isValidType.
+	(isValidType (TyVar str) = T) /\
+	(isValidType (TyCons str []) = (EX (\x. x = str) ["epsilon";"type";"4";"3";"2";"int";"real";"hreal";"nadd";"char";"num";"ind";"1";"bool"])) /\
+	(isValidType (TyCons str [a]) = ((isValidType a) /\ (EX (\x. x = str) ["finite_image";"list";"option";"recspace"]))) /\
+	(isValidType (TyCons str [(a:type);(b:type)]) = ((isValidType a) /\ (isValidType b) /\ (EX (\x. x = str) ["finite_prod";"finite_diff";"finite_sum";"cart";"sum";"prod";"fun"])))
+`;;
+
+let listUnordered = prove_general_recursive_function_exists `?luo.
+	luo [] = F /\
+	luo [a] = F /\
+	luo [b;c] = ((luo [c]) \/ (luo [b]))
+`;;
+
+(*End of testing code*)
 
 (*
 (*Mathematical definition of what constitutes a correct expression*)
