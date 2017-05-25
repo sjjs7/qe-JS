@@ -5,7 +5,9 @@ TyBar -> String representing a type variable
 TyCons -> String representing a constructed type, followed by a type and a list of types.*) 
 let lt, rt = define_type "type = 
 				    TyVar string
-			 	  | TyCons string ((type)list)";;    
+			 	  | TyBase string
+			 	  | TyMonoCons string type
+			 	  | TyBiCons string type type";;    
 
 (*
 QuoVar -> Variable named after the string represented by the type (could this also be used to represent a constant?)
@@ -54,20 +56,20 @@ let isFreeIn = define
 let ep_type = define
 `(ep_type (QuoVar str ty) = (ty)) /\
  (ep_type (QuoConst str ty) = (ty)) /\
- (ep_type (Quote eps) = (TyCons "epsilon" []))`;;
+ (ep_type (Quote eps) = (TyBase "epsilon"))`;;
 
 (*This function takes a Fun type and takes off the first part of it - for use in calculating types of Abs/App*)
-let stripFunc = define `stripFunc (TyCons "fun" [T1;T2]) = T2`
+let stripFunc = define `stripFunc (TyBiCons "fun" T1 T2) = T2`
 
 (*This function takes a function type and returns the first part of it*)
-let headFunc = define `headFunc (TyCons "fun" [T1;T2]) = T1`;;
+let headFunc = define `headFunc (TyBiCons "fun" T1 T2) = T1`;;
 
 (*This function handles calculating the type of App and Abs expressions, necessary to handle function applications*)
 (*Assuming that function will always be on left*)
 let combinatoryType = define
 `combinatoryType (App e1 e2) = (stripFunc (combinatoryType e1)) /\
 combinatoryType (QuoConst str ty) = ty /\
-combinatoryType (Abs (QuoVar str ty) e2) = (TyCons "fun" [ty;(combinatoryType e2)]) /\
+combinatoryType (Abs (QuoVar str ty) e2) = (TyBiCons "fun" ty (combinatoryType e2)) /\
 combinatoryType (QuoVar str ty) = ty /\
 combinatoryType (Quote e) = combinatoryType e`;;
 
@@ -84,7 +86,7 @@ let isAbs = define `isAbs e = ((ep_constructor e) = "Abs")`;;
 let isApp = define `isApp e = ((ep_constructor e) = "App")`;;
 
 (*Checks if a given type is a function using a much cleaner method*)
-let isFunction = define `isFunction ty = (?a0. ty = (TyCons "fun" a0))`;; 
+let isFunction = define `isFunction ty = (?a0 a1. ty = (TyBiCons "fun" a0 a1))`;; 
 
 (*Checks that the constant name is valid*)
 let isValidConstName = define `
@@ -94,9 +96,9 @@ let isValidConstName = define `
 (*Checks that a type is a valid type*)
 let isValidType = define `
 	(isValidType (TyVar str) = T) /\
-	(isValidType (TyCons str []) = (EX (\x. x = str) ["epsilon";"type";"4";"3";"2";"int";"real";"hreal";"nadd";"char";"num";"ind";"1";"bool"])) /\
-	(isValidType (TyCons str [a]) = ((isValidType a) /\ (EX (\x. x = str) ["finite_image";"list";"option";"recspace"]))) /\
-	(isValidType (TyCons str [(a:type);(b:type)]) = ((isValidType a) /\ (isValidType b) /\ (EX (\x. x = str) ["finite_prod";"finite_diff";"finite_sum";"cart";"sum";"prod";"fun"])))
+	(isValidType (TyBase str) = (EX (\x. x = str) ["epsilon";"type";"4";"3";"2";"int";"real";"hreal";"nadd";"char";"num";"ind";"1";"bool"])) /\
+	(isValidType (TyMonoCons str a) = ((isValidType a) /\ (EX (\x. x = str) ["finite_image";"list";"option";"recspace"]))) /\
+	(isValidType (TyBiCons str a b) = ((isValidType a) /\ (isValidType b) /\ (EX (\x. x = str) ["finite_prod";"finite_diff";"finite_sum";"cart";"sum";"prod";"fun"])))
 `;;
 
 (*This function will take a variable term, and another term of type epsilon, and return whether or not the types mismatch. If the term is not found, false is returned.
@@ -108,70 +110,6 @@ let typeMismatch = define `
 (typeMismatch (QuoVar name ty) (App e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
 (typeMismatch (QuoVar name ty) (Abs e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
 (typeMismatch (QuoVar name ty) (Quote e) = (typeMismatch (QuoVar name ty) e))`;;
-
-(*The below is temporary testing code while I try to get isValidType to recurse properly*)
-let rc = prove_general_recursive_function_exists `?rc.
-(rc [] = 0) /\
-(rc (CONS (TyVar str) t) = 1 + (rc t)) /\
-(rc (CONS (TyCons str l) t) = 1 + (rc l) + (rc t)) 
-`;;
-
-let test = define `
-	(lrt (a:type) (TyVar str) = F) /\
-	(lrt (a:type) (TyCons str []) = F) /\
-	(lrt (a:type) (TyCons str [b]) = (a=b)) /\
-	(lrt (a:type) (TyCons str [b;c]) = (a = b \/ a = c))
-`;;
-
-let SUM = new_recursive_definition list_RECURSION
-  `(SUM [] = 0) /\
-   (SUM (CONS h t) = h + SUM t)`;;
-
-let getList = define `
-	(getList (TyCons str lt)) = (lt)
-`;;
-
-let flattenlist = define `
-	(flattenlist (TyCons str lt) = 1 + (SUM (MAP flattenlist lt))) /\
-	(flattenlist (TyVar str) = 1)
-`;;
-
-
-let flatten = prove_general_recursive_function_exists `?flatten.
-	(flatten [] = 0) /\
-	(flatten [(TyCons str l)] = 1 + (flatten l)) /\
-	(flatten [(TyVar str)] = 1) /\
-	(flatten [(TyCons str l);(TyVar str2)] = 2 + (flatten l)) /\
-	(flatten [(TyVar str);(TyCons str2 l)] = 2 + (flatten l)) /\
-	(flatten [(TyVar str);(TyVar str2)] = 2) /\
-	(flatten [(TyCons str l);(TyCons str2 l2)] = 2 + (flatten l) + (flatten l2))
-`;;
-
-let so0 = prove_general_recursive_function_exists `?so0.
-	(so0 (TyVar str) = 1) /\
-	(so0 (TyCons str l) = (SUM (MAP so0 l)) + 1)
-`;;
-
-let so1 = define `
-	(so1 (a:type) (TyVar str) = F) /\
-	(so1 (a:type) (TyCons str l) = (EX (\x. x = a) l))
-`;;
-
-
-let isValidType = prove_general_recursive_function_exists `?isValidType.
-	(isValidType (TyVar str) = T) /\
-	(isValidType (TyCons str []) = (EX (\x. x = str) ["epsilon";"type";"4";"3";"2";"int";"real";"hreal";"nadd";"char";"num";"ind";"1";"bool"])) /\
-	(isValidType (TyCons str [a]) = ((isValidType a) /\ (EX (\x. x = str) ["finite_image";"list";"option";"recspace"]))) /\
-	(isValidType (TyCons str [(a:type);(b:type)]) = ((isValidType a) /\ (isValidType b) /\ (EX (\x. x = str) ["finite_prod";"finite_diff";"finite_sum";"cart";"sum";"prod";"fun"])))
-`;;
-
-let listUnordered = prove_general_recursive_function_exists `?luo.
-	luo [] = F /\
-	luo [a] = F /\
-	luo [b;c] = ((luo [c]) \/ (luo [b]))
-`;;
-
-(*End of testing code*)
 
 (*
 (*Mathematical definition of what constitutes a correct expression*)
@@ -185,13 +123,13 @@ Quote -> Valid if the quoted expression is valid
 
 let isExpr = define 
 `
-	(isExpr (QuoVar str ty) = T) /\
-	(isExpr (QuoConst str ty) = isValidConstName str) /\
-	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isExpr e2)))  /\
-	(isExpr (Abs e1 e2) = ((isVar e1) /\ ~(typeMismatch e1 e2) /\ (isExpr e2))) /\ 
+	(isExpr (QuoVar str ty) = (isValidType ty)) /\
+	(isExpr (QuoConst str ty) = ((isValidConstName str) /\ (isValidType ty))) /\
+	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isValidType (combinatoryType e1)) /\ (isExpr e2)))  /\
+	(isExpr (Abs e1 e2) = ((isVar e1) /\ ~(typeMismatch e1 e2) /\ (isExpr e2) /\ (isExpr e1))) /\ 
 	(isExpr (Quote e) = (isExpr e))
 `;;
-
+	
 (*Mathematical definition for isVarType *)
 let isVarType = define `isVarType e t = ((isVar e) /\ (t = (ep_type e)))`;;
 
@@ -228,102 +166,102 @@ let eqTypes = define `eqTypes t1 t2 = (t1 = t2)`;;
 
 (*** PROOFS FOR TESTING ***)
 (*Proof that a variable not inside an expression is not free in that expression*)
-prove(`isFreeIn (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" [])) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool")) <=> F`,
 	REWRITE_TAC[isFreeIn] THEN
 	REWRITE_TAC[(STRING_EQ_CONV `"x" = "y"`)]
 );;
 
 (*Proof that a variable is free if the entire expression is just that variable*)
-prove(`isFreeIn (QuoVar "x" (TyCons "Bool" [])) (QuoVar "x" (TyCons "Bool" []))`,
+prove(`isFreeIn (QuoVar "x" (TyBase "bool")) (QuoVar "x" (TyBase "bool"))`,
 	REWRITE_TAC[isFreeIn]
 );;
 
 (*Proof that a variable cannot be free inside a constant even if the names match*)
-prove(`isFreeIn (QuoVar "x" (TyCons "Bool" [])) (QuoConst "x" (TyCons "Bool" [])) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "bool")) (QuoConst "x" (TyBase "bool")) <=> F`,
 	REWRITE_TAC[isFreeIn]
 );;
 
 (*Proof that a variable inside an application can be free*)
-prove(`isFreeIn (QuoVar "x" (TyCons "RealInd" [])) (App (App (QuoVar "x" (TyCons "RealInd" [])) (QuoConst "+" (TyCons "fun" [TyCons "RealInd" [];TyCons "fun" [TyCons "RealInd" [];TyCons "RealInd" []]]))) (QuoVar "y" (TyCons "RealInd" [])))`,
+prove(`isFreeIn (QuoVar "x" (TyBase "real")) (App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))`,
 	REWRITE_TAC[isFreeIn]
 );;
 
 (*Prove that a mistyped variable in an otherwise free context is not free
 (Mathematically a mistyped variable makes no sense, this is just meant to test that typing is enforced)*)
-prove(`isFreeIn (QuoVar "x" (TyCons "Bool" [])) (App (App (QuoVar "x" (TyCons "RealInd" [])) (QuoConst "+" (TyCons "fun" [TyCons "RealInd" [];TyCons "fun" [TyCons "RealInd" [];TyCons "RealInd" []]]))) (QuoVar "y" (TyCons "RealInd" []))) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "bool")) (App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real"))) <=> F`,
 	REWRITE_TAC[isFreeIn] THEN
 	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "RealInd"`]
+	REWRITE_TAC[STRING_EQ_CONV `"bool" = "real"`]
 );;
 
 (*Proof that a variable inside an abstraction can be free if it is not bound*)
-prove(`isFreeIn (QuoVar "x" (TyCons "RealInd" [])) (Abs (QuoVar "y" (TyCons "RealInd" [])) ((App (App (QuoVar "x" (TyCons "RealInd" [])) (QuoConst "+" (TyCons "fun" [TyCons "RealInd" [];TyCons "fun" [TyCons "RealInd" [];TyCons "RealInd" []]]))) (QuoVar "y" (TyCons "RealInd" [])))))`,
+prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Abs (QuoVar "y" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))))`,
 	REWRITE_TAC[isFreeIn] THEN
 	REWRITE_TAC[(STRING_EQ_CONV `"x" = "y"`)]
 );;
 
 (*Proof that a variable inside an abstraction is not free if it is bound*)
-prove(`isFreeIn (QuoVar "x" (TyCons "RealInd" [])) (Abs (QuoVar "x" (TyCons "RealInd" [])) ((App (App (QuoVar "x" (TyCons "RealInd" [])) (QuoConst "+" (TyCons "fun" [TyCons "RealInd" [];TyCons "fun" [TyCons "RealInd" [];TyCons "RealInd" []]]))) (QuoVar "y" (TyCons "RealInd" []))))) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Abs (QuoVar "x" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real"))))) <=> F`,
 	REWRITE_TAC[isFreeIn] 
 );;
 
 (*The next two proofs show that wrapping the previous two expressions inside a quotation makes them false*)
-prove(`isFreeIn (QuoVar "x" (TyCons "RealInd" [])) (Quote (Abs (QuoVar "y" (TyCons "RealInd" [])) ((App (App (QuoVar "x" (TyCons "RealInd" [])) (QuoConst "+" (TyCons "fun" [TyCons "RealInd" [];TyCons "fun" [TyCons "RealInd" [];TyCons "RealInd" []]]))) (QuoVar "y" (TyCons "RealInd" [])))))) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Quote (Abs (QuoVar "y" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))))) <=> F`,
 	REWRITE_TAC[isFreeIn]
 );;
 
-prove(`isFreeIn (QuoVar "x" (TyCons "RealInd" [])) (Quote (Abs (QuoVar "x" (TyCons "RealInd" [])) ((App (App (QuoVar "x" (TyCons "RealInd" [])) (QuoConst "+" (TyCons "fun" [TyCons "RealInd" [];TyCons "fun" [TyCons "RealInd" [];TyCons "RealInd" []]]))) (QuoVar "y" (TyCons "RealInd" [])))))) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Quote (Abs (QuoVar "x" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))))) <=> F`,
 	REWRITE_TAC[isFreeIn] 
 );;
 
 
 (*A simple proof that variables are variables*)
-prove(`isVar (QuoVar "ProveMe" (TyCons "Bool" [])) = T`,
+prove(`isVar (QuoVar "ProveMe" (TyBase "bool")) = T`,
 	REWRITE_TAC[isVar] THEN
 	REWRITE_TAC[ep_constructor]
 );;
 
 (*A simple proof that another type of epsilon is NOT a variable*)
-prove(`isVar (QuoConst "DontProveMe" (TyCons "Bool" [])) = F`,
+prove(`isVar (QuoConst "DontProveMe" (TyBase "bool")) = F`,
 	REWRITE_TAC[isVar] THEN
 	REWRITE_TAC[ep_constructor] THEN
 	REWRITE_TAC[(STRING_EQ_CONV `"QuoConst" = "QuoVar"`)]
 );;
 
 (*A simple proof that constants are constants*)
-prove(`isConst (QuoConst "ProveMe" (TyCons "Bool" [])) = T`,
+prove(`isConst (QuoConst "ProveMe" (TyBase "bool")) = T`,
 	REWRITE_TAC[isConst] THEN
 	REWRITE_TAC[ep_constructor]
 );;
 
 (*A simple proof that another type of epsilon is NOT a constant*)
-prove(`isConst (QuoVar "DontProveMe" (TyCons "Bool" [])) = F`,
+prove(`isConst (QuoVar "DontProveMe" (TyBase "bool")) = F`,
 	REWRITE_TAC[isConst] THEN
 	REWRITE_TAC[ep_constructor] THEN
 	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "QuoConst"`)]
 );;
 
 (*Simple proof that an abstraction is recognized as an abstraction*)
-prove(`isAbs (Abs (QuoVar "Prove" (TyCons "Bool" [])) (QuoConst "Me" (TyCons "Bool" []))) = T`,
+prove(`isAbs (Abs (QuoVar "Prove" (TyBase "bool")) (QuoConst "Me" (TyBase "bool"))) = T`,
 	REWRITE_TAC[isAbs] THEN
 	REWRITE_TAC[ep_constructor]
 );;
 
 (*Simple proof that non-abstractions are not abstractions*)
-prove(`isAbs (QuoVar "DontProveMe" (TyCons "Bool" [])) = F`,
+prove(`isAbs (QuoVar "DontProveMe" (TyBase "bool")) = F`,
 	REWRITE_TAC[isAbs] THEN
 	REWRITE_TAC[ep_constructor] THEN
 	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "Abs"`)]
 );;
 
 (*Simple proof that an application is recognized as an application*)
-prove(`isApp (App (QuoVar "Prove" (TyCons "Bool" [])) (QuoConst "Me" (TyCons "Bool" []))) = T`,
+prove(`isApp (App (QuoVar "Prove" (TyBase "bool")) (QuoConst "Me" (TyBase "bool"))) = T`,
 	REWRITE_TAC[isApp] THEN
 	REWRITE_TAC[ep_constructor]
 );;
 
 (*Simple proof that non-applications are not applications*)
-prove(`isApp (QuoVar "DontProveMe" (TyCons "Bool" [])) = F`,
+prove(`isApp (QuoVar "DontProveMe" (TyBase "bool")) = F`,
 	REWRITE_TAC[isApp] THEN
 	REWRITE_TAC[ep_constructor] THEN
 	REWRITE_TAC[(STRING_EQ_CONV `"QuoVar" = "App"`)]
@@ -339,7 +277,7 @@ prove(`isVarType (QuoConst "Wrong" (TyVar "A")) (TyVar "A") <=> F`,
 );;
 
 (*Now prove that isVarType with the wrong variable type is false*)
-prove(`isVarType (QuoVar "Wrong" (TyVar "A")) (TyCons "Bool" []) <=> F`,
+prove(`isVarType (QuoVar "Wrong" (TyVar "A")) (TyBase "bool") <=> F`,
 	REWRITE_TAC[isVarType] THEN
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[typeDistinct]
@@ -361,14 +299,14 @@ prove(`isConstType (QuoVar "Wrong" (TyVar "A")) (TyVar "A") <=> F`,
 );;
 
 (*Test for failure when the constant is of the wrong type*)
-prove(`isConstType (QuoConst "Wrong" (TyCons "Bool" [])) (TyVar "A") <=> F`,
+prove(`isConstType (QuoConst "Wrong" (TyBase "bool")) (TyVar "A") <=> F`,
 	REWRITE_TAC[isConstType] THEN
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[typeDistinct]
 );;
 
 (*Proves that the right types result in true*)
-prove(`isConstType (QuoConst "Right" (TyCons "fun" [TyCons "Bool" [];TyVar "A"])) (TyCons "fun" [TyCons "Bool" [];TyVar "A"])`,
+prove(`isConstType (QuoConst "Right" (TyBiCons "fun" (TyBase "bool") (TyVar "A"))) (TyBiCons "fun" (TyBase "bool") (TyVar "A"))`,
 	REWRITE_TAC[isConstType] THEN
 	REWRITE_TAC[isConst;ep_type] THEN
 	REWRITE_TAC[ep_constructor]
@@ -376,26 +314,26 @@ prove(`isConstType (QuoConst "Right" (TyCons "fun" [TyCons "Bool" [];TyVar "A"])
 
 (*The following proofs will test combinatoryType*)
 
-(*(+) 3 is of type (TyCons "NaturalInd" [])->(TyCons "NaturalInd" [])*)
-prove(`combinatoryType(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "3" (TyCons "NaturalInd" []))) = TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]`,
+(*(+) 3 is of type (TyBase "num")->(TyBase "num")*)
+prove(`combinatoryType(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) = TyBiCons "fun" (TyBase "num") (TyBase "num")`,
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc]
 );;
 
-(* 2 + 3 is of type (TyCons "NaturalInd" []) *)
-prove(`combinatoryType(App (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "2" (TyCons "NaturalInd" []))) (QuoConst "3" (TyCons "NaturalInd" []))) = (TyCons "NaturalInd" [])`,
+(* 2 + 3 is of type (TyBase "num") *)
+prove(`combinatoryType(App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num"))) = (TyBase "num")`,
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc]
 );;
 
-(*Binding x in (+) x gets a type of (TyCons "NaturalInd" [])->(TyCons "NaturalInd" [])->(TyCons "NaturalInd" [])*)
-prove(`combinatoryType (Abs (QuoVar "x" (TyCons "NaturalInd" [])) (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoVar "x" (TyCons "NaturalInd" [])))) = TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]]`,
+(*Binding x in (+) x gets a type of (TyBase "num")->(TyBase "num")->(TyBase "num")*)
+prove(`combinatoryType (Abs (QuoVar "x" (TyBase "num")) (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoVar "x" (TyBase "num")))) = TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num"))`,
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc]
 );;
 
-(*Binding x in 2 + x should make it (TyCons "NaturalInd" []) -> (TyCons "NaturalInd" [])*)
-prove(`combinatoryType (Abs (QuoVar "x" (TyCons "NaturalInd" [])) (App (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "2" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" [])))) =  TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]`,
+(*Binding x in 2 + x should make it (TyBase "num") -> (TyBase "num")*)
+prove(`combinatoryType (Abs (QuoVar "x" (TyBase "num")) (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoVar "x" (TyBase "num")))) =  TyBiCons "fun" (TyBase "num") (TyBase "num")`,
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc]
 );;
@@ -403,19 +341,22 @@ prove(`combinatoryType (Abs (QuoVar "x" (TyCons "NaturalInd" [])) (App (App (Quo
 (*The below are all tests for isExpr - it is a very important function so it will be extensively tested*)
 
 (*Prove that a variable is an expression*)
-prove(`isExpr (QuoVar "x" (TyCons "Bool" []))`,
-	REWRITE_TAC[isExpr]
+prove(`isExpr (QuoVar "x" (TyBase "bool"))`,
+	REWRITE_TAC[isExpr] THEN
+	REWRITE_TAC[isValidType] THEN
+	REWRITE_TAC[EX]
 );;
 
 (*Prove that a constant is an expression*)
-prove(`isExpr (QuoConst "T" (TyCons "Bool" []))`,
+prove(`isExpr (QuoConst "T" (TyBase "bool"))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX]
 );;
 
 (*Prove that a simple function application is an expression*)
-prove(`isExpr (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" [])))`,
+prove(`isExpr (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num")))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -423,13 +364,15 @@ prove(`isExpr (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "f
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]]` THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBiCons "fun" (TyBase "num") (TyBase "num")` THEN
 	REFL_TAC
 );;
 
 (*Prove that recursed function applications are an expression*)
-prove(`isExpr (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" [])))`,
+prove(`isExpr (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (QuoVar "x" (TyBase "num")))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isApp;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -438,13 +381,15 @@ prove(`isExpr (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCon
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "NaturalInd" []]` THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBase "num"` THEN
 	REFL_TAC
 );;
 
 (*Prove that a malformed application is not an expression*)
-prove(`isExpr(App (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" []))) <=> F`,
+prove(`isExpr(App (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool"))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;isApp;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -454,8 +399,8 @@ prove(`isExpr(App (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" [])
 );;
 
 
-(*Prove that a function application whose initial types match is an expression (i.e. this takes a number -> (TyCons "Bool" []) -> number so it should work when giving it a single number)*)
-prove(`isExpr (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" [])))`,
+(*Prove that a function application whose initial types match is an expression (i.e. this takes a number -> (TyBase "bool") -> number so it should work when giving it a single number)*)
+prove(`isExpr (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num")))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -463,13 +408,15 @@ prove(`isExpr (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "f
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]]` THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBiCons "fun" (TyBase "bool") (TyBase "num")` THEN
 	REFL_TAC
 );;
 
 (*Proving that the above should no longer work when giving it a second number*)
-prove(`isExpr (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]])) (QuoConst "3" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" []))) <=> F`,
+prove(`isExpr (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num"))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;isApp;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -478,32 +425,30 @@ prove(`isExpr (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCon
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "NaturalInd"`]
+	REWRITE_TAC[STRING_EQ_CONV `"bool" = "num"`]
 );;
 
 (*Proving that function application does not work out of order*)
-prove(`isExpr (App  (QuoConst "3" (TyCons "NaturalInd" [])) (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]]))) <=> F`,
+prove(`isExpr (App  (QuoConst "3" (TyBase "num")) (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num"))))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[ep_type] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"NaturalInd" = "fun"`]
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*A function application to an invalid expresion is also an invalid expression*)
-prove(`isExpr (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]])) (App (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" [])))) <=> F`,
+prove(`isExpr (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (App (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool")))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "fun"`]
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*An abstraction where the first expression is not a variable is invalid*)
-prove(`isExpr (Abs (QuoConst "3" (TyCons "NaturalInd" [])) (QuoVar "x" (TyCons "NaturalInd" []))) <=> F`,
+prove(`isExpr (Abs (QuoConst "3" (TyBase "num")) (QuoVar "x" (TyBase "num"))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar] THEN
 	REWRITE_TAC[ep_constructor] THEN
@@ -511,30 +456,34 @@ prove(`isExpr (Abs (QuoConst "3" (TyCons "NaturalInd" [])) (QuoVar "x" (TyCons "
 );;
 
 (*An abstraction where the abstracted variable makes no appearence in the second term is valid*)
-prove(`isExpr (Abs (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" [])))`,
+prove(`isExpr (Abs (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool")))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
+	REWRITE_TAC[isValidType] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[typeMismatch]
 );;
 
 (*An abstraction where the abstracted variable appears and is the same type is valid*)
-prove(`isExpr (Abs (QuoVar "x" (TyCons "Bool" [])) (QuoVar "x" (TyCons "Bool" [])))`,
+prove(`isExpr (Abs (QuoVar "x" (TyBase "bool")) (QuoVar "x" (TyBase "bool")))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
+	REWRITE_TAC[isValidType] THEN
+	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[typeMismatch]
 );;
 
 (*An abstraction where the abstraced variable appears but is a different type is invalid*)
-prove(`isExpr (Abs (QuoVar "x" (TyCons "Bool" [])) (QuoVar "x" (TyCons "NaturalInd" []))) <=> F`,
+prove(`isExpr (Abs (QuoVar "x" (TyBase "bool")) (QuoVar "x" (TyBase "num"))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[typeMismatch] THEN
 	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "NaturalInd"`]
+	REWRITE_TAC[STRING_EQ_CONV `"bool" = "num"`]
 );;
 
 (*Abstracting over an application is invalid in the case of a type mismatch*)
-prove(`isExpr (Abs (QuoVar "x" (TyCons "Bool" [])) (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "3" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" [])))) <=> F`,
+prove(`isExpr (Abs (QuoVar "x" (TyBase "bool")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num")))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -544,11 +493,11 @@ prove(`isExpr (Abs (QuoVar "x" (TyCons "Bool" [])) (App(App (QuoConst "+" (TyCon
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[typeMismatch] THEN
 	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "NaturalInd"`]
+	REWRITE_TAC[STRING_EQ_CONV `"bool" = "num"`]
 );;
 
 (*Abstracting over an application is valid when the types do match*)
-prove(`isExpr (Abs (QuoVar "x" (TyCons "NaturalInd" [])) (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "3" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" []))))`,
+prove(`isExpr (Abs (QuoVar "x" (TyBase "num")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num"))))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -557,52 +506,56 @@ prove(`isExpr (Abs (QuoVar "x" (TyCons "NaturalInd" [])) (App(App (QuoConst "+" 
 	REWRITE_TAC[isApp;ep_constructor] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[typeMismatch] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "NaturalInd" []]` THEN
+	REWRITE_TAC[isValidType] THEN
+	REWRITE_TAC[EX] THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBase "num"` THEN
 	REFL_TAC
 );;
 
 (*The following will test isExprType*)
-prove(`isExprType (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))) (TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []])`,
+prove(`isExprType (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (TyBiCons "fun" (TyBase "bool") (TyBase "num"))`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" []; TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]]` THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBiCons "fun" (TyBase "bool") (TyBase "num")` THEN
 	REFL_TAC
 );;
 
 (*This tests that isExprType fails when the given expression is not an expression*)
-prove(`isExprType (App (QuoConst "2" (TyCons "NaturalInd" [])) (QuoConst "3" (TyCons "NaturalInd" []))) (TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]) <=> F`,
+prove(`isExprType (App (QuoConst "2" (TyBase "num")) (QuoConst "3" (TyBase "num"))) (TyBiCons "fun" (TyBase "bool") (TyBase "num")) <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"NaturalInd" = "fun"`]
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*This tests that isExprType fails when the types do not match*)
-prove(`isExprType (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))) (TyCons "Bool" []) <=> F`,
+prove(`isExprType (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (TyBase "bool") <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "fun"`]
+	REWRITE_TAC[typeDistinct]
 );;
 
 (*This tests that isProperSubexpression returns false when the given subexpression is not a subexpression*)
-prove(`isProperSubexpressionOf (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" [])) <=> F`,
+prove(`isProperSubexpressionOf (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool")) <=> F`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isPartOf] THEN
 	REWRITE_TAC[isExpr] THEN
@@ -611,40 +564,43 @@ prove(`isProperSubexpressionOf (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCo
 );;
 
 (*This tests that isProperSubexpression returns false when the given subexpression is not an expression*)
-prove(`isProperSubexpressionOf (App (QuoVar "x" (TyCons "Bool" [])) (QuoConst "y" (TyCons "Bool" []))) (App (QuoVar "x" (TyCons "Bool" [])) (QuoConst "y" (TyCons "Bool" []))) <=> F`,
+prove(`isProperSubexpressionOf (App (QuoVar "x" (TyBase "bool")) (QuoConst "y" (TyBase "bool"))) (App (QuoVar "x" (TyBase "bool")) (QuoConst "y" (TyBase "bool"))) <=> F`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "fun"`]
+	REWRITE_TAC[typeDistinct] 
 );;
 
 
 (*This tests that isProperSubexpression returns true even if the expresion on the right is improper*)
-prove(`isProperSubexpressionOf (QuoVar "x" (TyCons "Bool" [])) (App (QuoVar "x" (TyCons "Bool" [])) (QuoConst "y" (TyCons "Bool" [])))`,
+prove(`isProperSubexpressionOf (QuoVar "x" (TyBase "bool")) (App (QuoVar "x" (TyBase "bool")) (QuoConst "y" (TyBase "bool")))`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isExpr] THEN
-	REWRITE_TAC[isPartOf]
+	REWRITE_TAC[isPartOf] THEN
+	REWRITE_TAC[isValidType] THEN
+	REWRITE_TAC[EX]
 );;
 
 (*Tests that isProperSubExpression works for large terms*)
-prove(`isProperSubexpressionOf (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))) (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" [])))`,
+prove(`isProperSubexpressionOf (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (QuoVar "x" (TyBase "num")))`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isPartOf] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[headFunc] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]]` THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBiCons "fun" (TyBase "num") (TyBase "num")` THEN
 	REFL_TAC
 );;
 
 (*Final tests for this type - making sure that quote does not interfere with previous proofs*)
-prove(`isExpr (Quote (Abs (QuoVar "x" (TyCons "NaturalInd" [])) (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "3" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" [])))))`,
+prove(`isExpr (Quote (Abs (QuoVar "x" (TyBase "num")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num")))))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -653,11 +609,14 @@ prove(`isExpr (Quote (Abs (QuoVar "x" (TyCons "NaturalInd" [])) (App(App (QuoCon
 	REWRITE_TAC[isApp;ep_constructor] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[typeMismatch] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "NaturalInd" []]` THEN
+	REWRITE_TAC[isValidType] THEN
+	REWRITE_TAC[EX] THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBase "num"` THEN
 	REFL_TAC
 );;
 
-prove(`isExpr (Quote (Abs (QuoVar "x" (TyCons "Bool" [])) (App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "3" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" []))))) <=> F`,
+prove(`isExpr (Quote (Abs (QuoVar "x" (TyBase "bool")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num"))))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -667,47 +626,48 @@ prove(`isExpr (Quote (Abs (QuoVar "x" (TyCons "Bool" [])) (App(App (QuoConst "+"
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[typeMismatch] THEN
 	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "NaturalInd"`]
+	REWRITE_TAC[STRING_EQ_CONV `"bool" = "num"`]
 );;
 
-prove(`isExprType (Quote ((App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))))) (TyCons "fun" [TyCons "Bool" []; TyCons "NaturalInd" []])`,
+prove(`isExprType (Quote ((App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))))) (TyBiCons "fun" (TyBase "bool") (TyBase "num"))`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]]` THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBiCons "fun" (TyBase "bool") (TyBase "num")` THEN
 	REFL_TAC
 );;
 
-prove(`isExprType (Quote(App (QuoConst "2" (TyCons "NaturalInd" [])) (QuoConst "3" (TyCons "NaturalInd" [])))) (TyCons "fun" [TyCons "Bool" []; TyCons "NaturalInd" []]) <=> F`,
+prove(`isExprType (Quote(App (QuoConst "2" (TyBase "num")) (QuoConst "3" (TyBase "num")))) (TyBiCons "fun" (TyBase "bool") (TyBase "num")) <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"NaturalInd" = "fun"`]
+	REWRITE_TAC[typeDistinct]
 );;
 
-prove(`isExprType (Quote (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "Bool" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" [])))) (TyCons "Bool" []) <=> F`,
+prove(`isExprType (Quote (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num")))) (TyBase "bool") <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[stripFunc] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[headFunc] THEN
 	REWRITE_TAC[isFunction] THEN
-	REWRITE_TAC[typeInjective] THEN
-	REWRITE_TAC[STRING_EQ_CONV `"Bool" = "fun"`]
+	REWRITE_TAC[typeDistinct]
 );;
 
-prove(`isProperSubexpressionOf (QuoVar "x" (TyCons "Bool" [])) (Quote (QuoVar "y" (TyCons "Bool" []))) <=> F`,
+prove(`isProperSubexpressionOf (QuoVar "x" (TyBase "bool")) (Quote (QuoVar "y" (TyBase "bool"))) <=> F`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isPartOf] THEN
 	REWRITE_TAC[isExpr] THEN
@@ -716,66 +676,98 @@ prove(`isProperSubexpressionOf (QuoVar "x" (TyCons "Bool" [])) (Quote (QuoVar "y
 	REWRITE_TAC[STRING_EQ_CONV `"x" = "y"`]
 );;
 
-prove(`isProperSubexpressionOf (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))) (Quote(App(App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "NUMERAL" (TyCons "NaturalInd" []))) (QuoVar "x" (TyCons "NaturalInd" []))))`,
+prove(`isProperSubexpressionOf (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (Quote(App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (QuoVar "x" (TyBase "num"))))`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isPartOf] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
 	REWRITE_TAC[isValidConstName] THEN
+	REWRITE_TAC[isValidType] THEN
 	REWRITE_TAC[EX] THEN
 	REWRITE_TAC[isFunction] THEN
 	REWRITE_TAC[headFunc] THEN
-	EXISTS_TAC `[TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]]` THEN
+	EXISTS_TAC `TyBase "num"` THEN
+	EXISTS_TAC `TyBiCons "fun" (TyBase "num") (TyBase "num")` THEN
 	REFL_TAC
 );;
 
 (*Got to this point before the meeting, debug below proofs*)
 
 (*Proof that application works for basic expressions*)
-prove(`app (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" [])) = App (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" []))`,
+prove(`app (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool")) = App (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool"))`,
 	REWRITE_TAC[app]
 );;
 
 (*Testing it for bigger expressions*)
-prove(`app (app (QuoVar "x" (TyCons "Bool" [])) (QuoConst "/\\" (TyCons "fun" [TyCons "fun" [TyCons "Bool" [];TyCons "Bool" []];TyCons "Bool" []]))) (QuoConst "F" (TyCons "Bool" [])) = App (App (QuoVar "x" (TyCons "Bool" [])) (QuoConst "/\\" (TyCons "fun" [TyCons "fun" [TyCons "Bool" [];TyCons "Bool" []];TyCons "Bool" []]))) (QuoConst "F" (TyCons "Bool" []))`,
+prove(`app (app (QuoVar "x" (TyBase "bool")) (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))) (QuoConst "F" (TyBase "bool")) = App (App (QuoVar "x" (TyBase "bool")) (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))) (QuoConst "F" (TyBase "bool"))`,
 	REWRITE_TAC[app]
 );;
 
 (*Proof that abstraction works for basic expressions*)
-prove(`e_abs (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" [])) = Abs (QuoVar "x" (TyCons "Bool" [])) (QuoVar "y" (TyCons "Bool" []))`,
+prove(`e_abs (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool")) = Abs (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool"))`,
 	REWRITE_TAC[e_abs]
 );;
 
 (*Testing it for bigger expressions, along with proving that x is free in the expression on it's own but is no longer free after applying e_abs*)
-prove(`(e_abs (QuoVar "x" (TyCons "Bool" [])) (App (App (QuoVar "x" (TyCons "Bool" [])) (QuoConst "/\\" (TyCons "fun" [TyCons "fun" [TyCons "Bool" [];TyCons "Bool" []];TyCons "Bool" []]))) (QuoConst "F" (TyCons "Bool" []))) = 
-	   Abs (QuoVar "x" (TyCons "Bool" [])) (App (App (QuoVar "x" (TyCons "Bool" [])) (QuoConst "/\\" (TyCons "fun" [TyCons "fun" [TyCons "Bool" [];TyCons "Bool" []];TyCons "Bool" []]))) (QuoConst "F" (TyCons "Bool" [])))) /\ 
-	   (~(isFreeIn (QuoVar "x" (TyCons "Bool" [])) (e_abs (QuoVar "x" (TyCons "Bool" [])) (app (app (QuoVar "x" (TyCons "Bool" [])) (QuoConst "/\\" (TyCons "fun" [TyCons "fun" [TyCons "Bool" [];TyCons "Bool" []];TyCons "Bool" []]))) (QuoConst "F" (TyCons "Bool" [])))))) /\
-	   (isFreeIn (QuoVar "x" (TyCons "Bool" [])) (App (App (QuoVar "x" (TyCons "Bool" [])) (QuoConst "/\\" (TyCons "fun" [TyCons "fun" [TyCons "Bool" [];TyCons "Bool" []];TyCons "Bool" []]))) (QuoConst "F" (TyCons "Bool" []))))`,
+prove(`(e_abs (QuoVar "x" (TyBase "bool")) (App (App (QuoVar "x" (TyBase "bool")) (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))) (QuoConst "F" (TyBase "bool"))) = 
+	   Abs (QuoVar "x" (TyBase "bool")) (App (App (QuoVar "x" (TyBase "bool")) (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))) (QuoConst "F" (TyBase "bool")))) /\ 
+	   (~(isFreeIn (QuoVar "x" (TyBase "bool")) (e_abs (QuoVar "x" (TyBase "bool")) (app (app (QuoVar "x" (TyBase "bool")) (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))) (QuoConst "F" (TyBase "bool")))))) /\
+	   (isFreeIn (QuoVar "x" (TyBase "bool")) (App (App (QuoVar "x" (TyBase "bool")) (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))) (QuoConst "F" (TyBase "bool"))))`,
 	REWRITE_TAC[e_abs] THEN
 	REWRITE_TAC[isFreeIn]
 );;
 
 (*Proof that quoting works as intended*)
-prove(`quo (App (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "2" (TyCons "NaturalInd" []))) (QuoConst "3" (TyCons "NaturalInd" []))) = 
-	Quote (App (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "2" (TyCons "NaturalInd" []))) (QuoConst "3" (TyCons "NaturalInd" [])))`,
+prove(`quo (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num"))) = 
+	Quote (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num")))`,
 	REWRITE_TAC[quo]
 );;
 
 (*Proof that quotes can be quoted*)
-prove(`quo (quo (App (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "2" (TyCons "NaturalInd" []))) (QuoConst "3" (TyCons "NaturalInd" [])))) = 
-	Quote (Quote (App (App (QuoConst "+" (TyCons "fun" [TyCons "NaturalInd" [];TyCons "fun" [TyCons "NaturalInd" [];TyCons "NaturalInd" []]])) (QuoConst "2" (TyCons "NaturalInd" []))) (QuoConst "3" (TyCons "NaturalInd" []))))`,
+prove(`quo (quo (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num")))) = 
+	Quote (Quote (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num"))))`,
 	REWRITE_TAC[quo]
 );;
 
 
 (*Proves that eqTypes returns true when the two types are equal*)
-prove(`eqTypes (TyCons "Bool" []) (TyCons "Bool" [])`,REWRITE_TAC[eqTypes]);;
+prove(`eqTypes (TyBase "bool") (TyBase "bool")`,REWRITE_TAC[eqTypes]);;
 
 (*Proves that eqTypes returns false when the two types are not equal*)
-prove(`eqTypes (TyCons "Bool" []) (TyVar "A") <=> F`,
+prove(`eqTypes (TyBase "bool") (TyVar "A") <=> F`,
 	REWRITE_TAC[eqTypes] THEN
 	REWRITE_TAC[typeDistinct]
 );;
 
-(*Future code goes here, for now load eps_helper.ml for unfinished developments*)
+(*Tests to check that isValidType works correctly*)
+prove(`isValidType (TyVar "AnythingIsAVariable")`,
+REWRITE_TAC[isValidType]
+);;
+
+prove(`isValidType (TyBase "num")`,
+REWRITE_TAC[isValidType] THEN
+REWRITE_TAC[EX]
+);;
+
+prove(`isValidType (TyMonoCons "list" (TyBase "num"))`,
+REWRITE_TAC[isValidType] THEN
+REWRITE_TAC[EX]
+);;
+
+prove(`isValidType (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))`,
+REWRITE_TAC[isValidType] THEN
+REWRITE_TAC[EX]
+);;
+
+prove(`isValidType (TyBiCons "fun" (TyBase "num") (TyBiCons "BAD_TYPE" (TyBase "num") (TyBase "num"))) <=> F`,
+REWRITE_TAC[isValidType] THEN
+REWRITE_TAC[EX] THEN
+REWRITE_TAC[STRING_EQ_CONV `"finite_prod" = "BAD_TYPE"`] THEN
+REWRITE_TAC[STRING_EQ_CONV `"finite_diff" = "BAD_TYPE"`] THEN
+REWRITE_TAC[STRING_EQ_CONV `"finite_sum" = "BAD_TYPE"`] THEN
+REWRITE_TAC[STRING_EQ_CONV `"cart" = "BAD_TYPE"`] THEN
+REWRITE_TAC[STRING_EQ_CONV `"sum" = "BAD_TYPE"`] THEN
+REWRITE_TAC[STRING_EQ_CONV `"prod" = "BAD_TYPE"`] THEN
+REWRITE_TAC[STRING_EQ_CONV `"fun" = "BAD_TYPE"`]
+);;
