@@ -542,3 +542,11 @@ let print_to_string printer =
 let string_of_type = print_to_string pp_print_type;;
 let string_of_term = print_to_string pp_print_term;;
 let string_of_thm = print_to_string pp_print_thm;;
+
+(*Configures the term printer to print out quoted terms (for now, they will be wrapped in (Q( )Q)*)
+(*This doesn't clear up the epsilon term's AST format, it just enables the terms to be printed at all since Quote breaks the default printer*)
+let print_quoted fmt tm = 
+  let e = dest_quote tm in
+  pp_print_string fmt ("(Q(" ^ string_of_term e ^ ")Q)");;
+
+install_user_printer("print_quoted",print_quoted);;
