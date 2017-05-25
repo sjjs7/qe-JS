@@ -20,6 +20,7 @@ module type Hol_kernel =
       | Const of string * hol_type
       | Comb of term * term
       | Abs of term * term
+      | Quote of term
 
       type thm
 
@@ -46,14 +47,17 @@ module type Hol_kernel =
       val is_const : term -> bool
       val is_abs : term -> bool
       val is_comb : term -> bool
+      val is_quote : term -> bool
       val mk_var : string * hol_type -> term
       val mk_const : string * (hol_type * hol_type) list -> term
       val mk_abs : term * term -> term
       val mk_comb : term * term -> term
+      val mk_quote : term -> term
       val dest_var : term -> string * hol_type
       val dest_const : term -> string * hol_type
       val dest_comb : term -> term * term
       val dest_abs : term -> term * term
+      val dest_quote: term -> term
       val frees : term -> term list
       val freesl : term list -> term list
       val freesin : term list -> term -> bool
@@ -66,10 +70,14 @@ module type Hol_kernel =
       val rator: term -> term
       val dest_eq: term -> term * term
 
+
+      val charToHOL : int -> int -> term
+
       val dest_thm : thm -> term list * term
       val hyp : thm -> term list
       val concl : thm -> term
       val REFL : term -> thm
+      val QUOTE : term -> thm
       val TRANS : thm -> thm -> thm
       val MK_COMB : thm * thm -> thm
       val ABS : term -> thm -> thm
@@ -100,6 +108,7 @@ module Hol : Hol_kernel = struct
             | Const of string * hol_type
             | Comb of term * term
             | Abs of term * term
+            | Quote of term
 
   type thm = Sequent of (term list * term)
 
@@ -237,6 +246,7 @@ module Hol : Hol_kernel = struct
     | Const(_,ty) -> ty
     | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty)
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
+    | Quote(e) -> Tyapp("epsilon",[])
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive discriminators.                                                 *)
@@ -249,6 +259,8 @@ module Hol : Hol_kernel = struct
   let is_abs = function (Abs(_,_)) -> true | _ -> false
 
   let is_comb = function (Comb(_,_)) -> true | _ -> false
+
+  let is_quote = function (Quote(_)) -> true | _ -> false
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive constructors.                                                   *)
@@ -272,6 +284,10 @@ module Hol : Hol_kernel = struct
         -> Comb(f,a)
     | _ -> failwith "mk_comb: types do not agree"
 
+  let mk_quote t = match type_of t with
+      Tyapp("epsilon",[]) -> Quote(t)
+    | _ -> failwith "mk_quote: not of type epsilon"
+
 (* ------------------------------------------------------------------------- *)
 (* Primitive destructors.                                                    *)
 (* ------------------------------------------------------------------------- *)
@@ -288,6 +304,9 @@ module Hol : Hol_kernel = struct
   let dest_abs =
     function (Abs(v,b)) -> v,b | _ -> failwith "dest_abs: not an abstraction"
 
+  let dest_quote =
+    function (Quote(e)) -> e | _ -> failwith "dest_quote: not a quotation"
+
 (* ------------------------------------------------------------------------- *)
 (* Finds the variables free in a term (list of terms).                       *)
 (* ------------------------------------------------------------------------- *)
@@ -298,6 +317,7 @@ module Hol : Hol_kernel = struct
     | Const(_,_) -> []
     | Abs(bv,bod) -> subtract (frees bod) [bv]
     | Comb(s,t) -> union (frees s) (frees t)
+    | Quote(_) -> []
 
   let freesl tml = itlist (union o frees) tml []
 
@@ -311,6 +331,7 @@ module Hol : Hol_kernel = struct
     | Const(_,_) -> true
     | Abs(bv,bod) -> freesin (bv::acc) bod
     | Comb(s,t) -> freesin acc s && freesin acc t
+    | Quote(_) -> true (*Quotes have no free variables, [] is a subset of every list, therefore this should be true*)
 
 (* ------------------------------------------------------------------------- *)
 (* Whether a variable (or constant in fact) is free in a term.               *)
@@ -320,6 +341,7 @@ module Hol : Hol_kernel = struct
     match tm with
       Abs(bv,bod) -> v <> bv && vfree_in v bod
     | Comb(s,t) -> vfree_in v s || vfree_in v t
+    | Quote(_) -> false
     | _ -> Pervasives.compare tm v = 0
 
 (* ------------------------------------------------------------------------- *)
@@ -332,6 +354,7 @@ module Hol : Hol_kernel = struct
     | Const(_,ty)      -> tyvars ty
     | Comb(s,t)        -> union (type_vars_in_term s) (type_vars_in_term t)
     | Abs(Var(_,ty),t) -> union (tyvars ty) (type_vars_in_term t)
+    | Quote(_)         -> tyvars (Tyapp ("epsilon",[]))
 
 (* ------------------------------------------------------------------------- *)
 (* For name-carrying syntax, we need this early.                             *)
@@ -563,6 +586,60 @@ module Hol : Hol_kernel = struct
   let INST theta (Sequent(asl,c)) =
     let inst_fun = vsubst theta in
     Sequent(term_image inst_fun asl,inst_fun c)
+
+(* ------------------------------------------------------------------------- *)
+(* Quotation handling.                                                       *)
+(* ------------------------------------------------------------------------- *)
+
+(*First a bunch of definitions normally defined later during HOL's startup process must be defined*)
+(*The purpose of all these is to implement an early version of mk_string so that epsilon's type types may be constructed*)
+  let makeConstructedType name list = (Tyapp (name,list));;
+  let makeBasicType name = makeConstructedType name [];;
+  let makeFalse = Const("F",(makeBasicType "bool"));;
+  let makeTrue = Const("T",(makeBasicType "bool"));;
+  (*This makes a function called ASCII of type bool->bool->bool->bool->bool->bool->bool->bool->char*)
+  let makeAscii = Const("ASCII",(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [
+(makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [
+(makeBasicType "bool");(makeBasicType "char")])])])])
+])])])]));;
+  (*Converts a char value to a combination of T's and F's representing the binary of it's ASCII value (HOL stores it this way)*)
+
+  let numToBool = function
+    | 1 -> makeTrue
+    | 0 -> makeFalse
+    | _ -> failwith "Cannot convert this number to a boolean value"
+
+  let rec charToHOL c depth = if depth < 8 then Comb((charToHOL (c / 2) (depth + 1)),(numToBool (c mod 2)))
+else Comb(makeAscii,(numToBool (c mod 2)));;
+
+
+
+  (*Need a temporary implementation of mk_string and related functions*)
+
+
+(*
+  (*Helper functions to make vital functions more readable*)
+  let makeGenericComb constName ty firstArg secondArg = Comb(Comb(Const(constName,ty),firstArg),secondArg);;
+
+  let makeQuoVarComb a b = makeGenericComb "QuoVar" (makeBasicType "epsilon") (mk_string a) b;;
+  let makeQuoConstComb a b = makeGenericComb "QuoConst" (mk_string a) b;;
+  let makeAppComb a b = makeGenericComb "App" a b;;
+  let makeAbsComb a b = makeGenericComb "Abs" a b;;
+  let makeTyVarComb a = mk_comb(mk_const("TyVar",[]),mk_var((string_of_type a),mk_type("list",[`:char`])));;
+  let makeTyBaseComb a  = mk_comb(mk_const("TyBase",[]),(mk_string a));;
+  let makeTyMonoConsComb a b = makeGenericComb "TyMonoCons" (mk_string a) b;;
+  let makeTyBiConsComb a b c= mk_comb((makeGenericComb "TyBiCons" (mk_string a) b),c);;
+  let makeFunComb a b = makeTyBiConsComb "fun" a b;;
+*)
+
+  (*Currently in development - will always return a quoted False for now for testing purposes*)
+  let rec quoConvert = function
+      |  _ -> Const("F",(Tyapp ("bool",[])))
+
+    let QUOTE tm = match tm with
+      |  Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),qtm) -> Sequent([],safe_mk_eq tm (Quote (quoConvert qtm)))
+      |  _ -> failwith "QUOTE"
+
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)
