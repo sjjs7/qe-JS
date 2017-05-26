@@ -131,6 +131,7 @@ type preterm = Varp of string * pretype       (* Variable           - v      *)
              | Constp of string * pretype     (* Constant           - c      *)
              | Combp of preterm * preterm     (* Combination        - f x    *)
              | Absp of preterm * preterm      (* Lambda-abstraction - \x. t  *)
+             | Quotep of preterm              (* Quotation                   *)
              | Typing of preterm * pretype;;  (* Type constraint    - t : ty *)
 
 (* ------------------------------------------------------------------------- *)
@@ -146,9 +147,12 @@ let rec preterm_of_term tm =
   with Failure _ -> try
       let v,bod = dest_abs tm in
       Absp(preterm_of_term v,preterm_of_term bod)
-  with Failure _ ->
+  with Failure _ -> try
       let l,r = dest_comb tm in
-      Combp(preterm_of_term l,preterm_of_term r);;
+      Combp(preterm_of_term l,preterm_of_term r)
+  with Failure _ ->
+      let l = dest_quote tm in
+      Quotep(preterm_of_term l);;
 
 (* ------------------------------------------------------------------------- *)
 (* Main pretype->type, preterm->term and retypechecking functions.           *)

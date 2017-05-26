@@ -9,6 +9,7 @@ let makeTyBaseComb a  = mk_comb(mk_const("TyBase",[]),(mk_string a));;
 let makeTyMonoConsComb a b = makeGenericComb "TyMonoCons" (mk_string a) b;;
 let makeTyBiConsComb a b c= mk_comb((makeGenericComb "TyBiCons" (mk_string a) b),c);;
 let makeFunComb a b = makeTyBiConsComb "fun" a b;;
+let makeQuoComb a = mk_comb(mk_const("Quo",[]),a);;
 
 (*Converts HOL's types into the types defined inside the 'type' type*)
 let rec matchTypes hType = 
@@ -28,10 +29,8 @@ let rec quoteRecursion = function
 	| Const (cName, cType) -> makeQuoConstComb cName (matchTypes cType)
 	| Comb(E1,E2) -> makeAppComb (quoteRecursion E1) (quoteRecursion E2)
 	| Abs(E1, E2) -> makeAbsComb (quoteRecursion E1) (quoteRecursion E2)
-	| Quote E -> mk_quote E;;
+	| Quote E -> makeQuoComb (quoteRecursion E);;
 
 (*Function to take an expression, and convert it into a type of epsilon wrapped inside of a Quote*)
-let quote = function
-	| Quote(a) -> mk_quote (mk_comb(mk_const("Quote",[]),a))
-	| unmatched -> mk_quote (mk_comb(mk_const("Quote",[]),(quoteRecursion unmatched)));;	
+let quote a = makeQuoComb (quoteRecursion a);;
 

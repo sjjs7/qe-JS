@@ -1,8 +1,10 @@
 (*** Type Definitions ***)
 
 (*Defines type and term as is defined in John Harisson's paper
-TyBar -> String representing a type variable
-TyCons -> String representing a constructed type, followed by a type and a list of types.*) 
+TyVar -> String representing a type variable
+TyBase -> A basic type that cannot be constructed with other types, such as num, bool, etc.
+TyMonoCons -> A type that takes a single type as an argument
+TyBiCons -> A type that takes two types as an argument*) 
 let lt, rt = define_type "type = 
 				    TyVar string
 			 	  | TyBase string
@@ -10,11 +12,11 @@ let lt, rt = define_type "type =
 			 	  | TyBiCons string type type";;    
 
 (*
-QuoVar -> Variable named after the string represented by the type (could this also be used to represent a constant?)
-QuoConst -> A constant with the given type
-App -> Function application
-Abs -> Marks the first epsilon as a bound variable inside the other epsilon
-Quote -> Representation of an expression as a type of epsilon
+QuoVar -> Syntactic representation of a variable named after the string represented by the type
+QuoConst -> Syntactic representation of a constant constant with the given type
+App -> Syntactic representation of a function application
+Abs -> Syntactic representation of an abastraction which marks the first epsilon as a bound variable inside the other epsilon
+Quo -> Representation of the structure of an application of quote
 *)
 
 let lth, rth = define_type "epsilon = 
@@ -22,7 +24,7 @@ let lth, rth = define_type "epsilon =
 				  	 | QuoConst string type
 				     | Abs epsilon epsilon
 				     | App epsilon epsilon
-				     | Quote epsilon";;
+				     | Quo epsilon";;
 
 (*Distinctness operator can do what strings were implemented to do: Prove that different types of terms and types are unequal*)
 let typeDistinct = distinctness "type";;
@@ -39,7 +41,7 @@ let ep_constructor = define
  (ep_constructor (QuoConst str ty) = "QuoConst") /\
  (ep_constructor (Abs eps eps2) = "Abs") /\
  (ep_constructor (App eps eps2) = "App") /\
- (ep_constructor (Quote eps) = "Quote")`;;
+ (ep_constructor (Quo eps) = "Quo")`;;
 
  (*This function returns true if the given expression f appears free anywhere in e*)
 (*Regarding abstractions: I assume that the structure of an abstraction will contain the variable to
@@ -50,13 +52,13 @@ let isFreeIn = define
  (isFreeIn qv (QuoConst str ty) = F) /\ 
  (isFreeIn qv (App eps eps2) = ((isFreeIn qv eps) \/ (isFreeIn qv eps2))) /\
  (isFreeIn qv (Abs eps eps2) = (~(isFreeIn qv eps) /\ (isFreeIn qv eps2))) /\
- (isFreeIn qv (Quote eps) = F)`;; 
+ (isFreeIn qv (Quo eps) = F)`;; 
 
  (*Mathematical function to inspect a member of epsilon's type*)
 let ep_type = define
-`(ep_type (QuoVar str ty) = (ty)) /\
+`(ep_type (QuoVar str ty) = (ty)) /\	
  (ep_type (QuoConst str ty) = (ty)) /\
- (ep_type (Quote eps) = (TyBase "epsilon"))`;;
+ (ep_type (Quo eps) = (TyBase "epsilon"))`;;
 
 (*This function takes a Fun type and takes off the first part of it - for use in calculating types of Abs/App*)
 let stripFunc = define `stripFunc (TyBiCons "fun" T1 T2) = T2`
@@ -71,7 +73,7 @@ let combinatoryType = define
 combinatoryType (QuoConst str ty) = ty /\
 combinatoryType (Abs (QuoVar str ty) e2) = (TyBiCons "fun" ty (combinatoryType e2)) /\
 combinatoryType (QuoVar str ty) = ty /\
-combinatoryType (Quote e) = combinatoryType e`;;
+combinatoryType (Quo e) = combinatoryType e`;;
 
 (*Mathematical definition of what constitutes a variable*)
 let isVar = define `isVar e = ((ep_constructor e) = "QuoVar")`;;
@@ -90,7 +92,7 @@ let isFunction = define `isFunction ty = (?a0 a1. ty = (TyBiCons "fun" a0 a1))`;
 
 (*Checks that the constant name is valid*)
 let isValidConstName = define `
-	isValidConstName name = EX (\x. x = name) ["isValidConstNameDev"; "eqTypes"; "quo"; "app"; "e_abs"; "isProperSubexpressionOf"; "isPartOf"; "isExprType"; "isConstType"; "isVarType"; "isExpr"; "typeMismatch"; "isValidConstName"; "isFunction"; "isApp"; "isAbs"; "isConst"; "isVar"; "combinatoryType"; "headFunc"; "stripFunc"; "ep_type"; "isFreeIn"; "ep_constructor"; "Quote"; "App"; "Abs"; "QuoConst"; "QuoVar"; "_dest_epsilon"; "_mk_epsilon"; "TyCons"; "TyBase"; "TyVar"; "_dest_type"; "_mk_type"; "superadmissible"; "tailadmissible"; "admissible"; "CASEWISE"; "PCROSS"; "vector"; "dest_auto_define_finite_type_4"; "mk_auto_define_finite_type_4"; "dest_auto_define_finite_type_3"; "mk_auto_define_finite_type_3"; "dest_auto_define_finite_type_2"; "mk_auto_define_finite_type_2"; "dest_finite_prod"; "mk_finite_prod"; "dest_finite_diff"; "mk_finite_diff"; "sndcart"; "fstcart"; "pastecart"; "dest_finite_sum"; "mk_finite_sum"; "lambda"; "$"; "dest_cart"; "mk_cart"; "dest_finite_image"; "finite_index"; "dimindex"; "polynomial_function"; "sum"; "nsum"; "iterate"; "support"; "monoidal"; "neutral"; ".."; "has_sup"; "has_inf"; "inf"; "sup"; "COUNTABLE"; ">_c"; ">=_c"; "=_c"; "<_c"; "<=_c"; "ARBITRARY"; "INTERSECTION_OF"; "UNION_OF"; "pairwise"; "list_of_set"; "set_of_list"; "cartesian_product"; "EXTENSIONAL"; "ARB"; "CROSS"; "HAS_SIZE"; "CARD"; "ITSET"; "FINREC"; "REST"; "CHOICE"; "BIJ"; "SURJ"; "INJ"; "IMAGE"; "INFINITE"; "FINITE"; "SING"; "DISJOINT"; "PSUBSET"; "SUBSET"; "DELETE"; "DIFF"; "INTERS"; "INTER"; "UNIONS"; "UNION"; "UNIV"; "INSERT"; "EMPTY"; "SETSPEC"; "GSPEC"; "IN"; "num_gcd"; "num_coprime"; "num_mod"; "num_divides"; "num_of_int"; "int_gcd"; "int_coprime"; "int_mod"; "int_divides"; "real_mod"; "=="; "rem"; "div"; "int_pow"; "int_min"; "int_max"; "int_sgn"; "int_abs"; "int_mul"; "int_sub"; "int_add"; "int_neg"; "int_of_num"; "int_gt"; "int_ge"; "int_lt"; "int_le"; "real_of_int"; "int_of_real"; "integer"; "DECIMAL"; "sqrt"; "real_sgn"; "real_min"; "real_max"; "real_div"; "real_pow"; "real_abs"; "real_gt"; "real_ge"; "real_lt"; "real_sub"; "real_inv"; "real_le"; "real_mul"; "real_add"; "real_neg"; "real_of_num"; "dest_real"; "mk_real"; "treal_eq"; "treal_inv"; "treal_le"; "treal_mul"; "treal_add"; "treal_neg"; "treal_of_num"; "hreal_inv"; "hreal_le"; "hreal_mul"; "hreal_add"; "hreal_of_num"; "dest_hreal"; "mk_hreal"; "nadd_inv"; "nadd_rinv"; "nadd_mul"; "nadd_add"; "nadd_le"; "nadd_of_num"; "nadd_eq"; "dest_nadd"; "mk_nadd"; "is_nadd"; "dist"; "ASCII"; "_19631"; "_dest_char"; "_mk_char"; "list_of_seq"; "PAIRWISE"; "ZIP"; "ITLIST2"; "ASSOC"; "FILTER"; "EL"; "MAP2"; "ALL2"; "MEM"; "ITLIST"; "EX"; "ALL"; "NULL"; "REPLICATE"; "BUTLAST"; "LAST"; "MAP"; "LENGTH"; "REVERSE"; "APPEND"; "TL"; "HD"; "ISO"; "CONS"; "NIL"; "_dest_list"; "_mk_list"; "SOME"; "NONE"; "_dest_option"; "_mk_option"; "OUTR"; "OUTL"; "INR"; "INL"; "_dest_sum"; "_mk_sum"; "FNIL"; "FCONS"; "CONSTR"; "BOTTOM"; "_dest_rec"; "_mk_rec"; "ZRECSPACE"; "ZBOT"; "ZCONSTR"; "INJP"; "INJF"; "INJA"; "INJN"; "NUMRIGHT"; "NUMLEFT"; "NUMSUM"; "NUMSND"; "NUMFST"; "NUMPAIR"; "MEASURE"; "WF"; "minimal"; "MOD"; "DIV"; "FACT"; "-"; "ODD"; "EVEN"; "MIN"; "MAX"; ">"; ">="; "<"; "<="; "EXP"; "*"; "+"; "PRE"; "BIT1"; "BIT0"; "NUMERAL"; "SUC"; "_0"; "dest_num"; "mk_num"; "NUM_REP"; "IND_0"; "IND_SUC"; "ONTO"; "ONE_ONE"; "PASSOC"; "UNCURRY"; "CURRY"; "SND"; "FST"; ","; "REP_prod"; "ABS_prod"; "mk_pair"; "_FUNCTION"; "_MATCH"; "_GUARDED_PATTERN"; "_UNGUARDED_PATTERN"; "_SEQPATTERN"; "GEQ"; "GABS"; "LET_END"; "LET"; "one"; "one_REP"; "one_ABS"; "I"; "o"; "COND"; "@"; "_FALSITY_"; "?!"; "~"; "F"; "\\/"; "?"; "!"; "==>"; "/\\"; "T"; "="]
+	isValidConstName name = EX (\x. x = name) ["isValidConstNameDev"; "eqTypes"; "quo"; "app"; "e_abs"; "isProperSubexpressionOf"; "isPartOf"; "isExprType"; "isConstType"; "isVarType"; "isExpr"; "typeMismatch"; "isValidConstName"; "isFunction"; "isApp"; "isAbs"; "isConst"; "isVar"; "combinatoryType"; "headFunc"; "stripFunc"; "ep_type"; "isFreeIn"; "ep_constructor"; "Quo"; "App"; "Abs"; "QuoConst"; "QuoVar"; "_dest_epsilon"; "_mk_epsilon"; "TyCons"; "TyBase"; "TyVar"; "_dest_type"; "_mk_type"; "superadmissible"; "tailadmissible"; "admissible"; "CASEWISE"; "PCROSS"; "vector"; "dest_auto_define_finite_type_4"; "mk_auto_define_finite_type_4"; "dest_auto_define_finite_type_3"; "mk_auto_define_finite_type_3"; "dest_auto_define_finite_type_2"; "mk_auto_define_finite_type_2"; "dest_finite_prod"; "mk_finite_prod"; "dest_finite_diff"; "mk_finite_diff"; "sndcart"; "fstcart"; "pastecart"; "dest_finite_sum"; "mk_finite_sum"; "lambda"; "$"; "dest_cart"; "mk_cart"; "dest_finite_image"; "finite_index"; "dimindex"; "polynomial_function"; "sum"; "nsum"; "iterate"; "support"; "monoidal"; "neutral"; ".."; "has_sup"; "has_inf"; "inf"; "sup"; "COUNTABLE"; ">_c"; ">=_c"; "=_c"; "<_c"; "<=_c"; "ARBITRARY"; "INTERSECTION_OF"; "UNION_OF"; "pairwise"; "list_of_set"; "set_of_list"; "cartesian_product"; "EXTENSIONAL"; "ARB"; "CROSS"; "HAS_SIZE"; "CARD"; "ITSET"; "FINREC"; "REST"; "CHOICE"; "BIJ"; "SURJ"; "INJ"; "IMAGE"; "INFINITE"; "FINITE"; "SING"; "DISJOINT"; "PSUBSET"; "SUBSET"; "DELETE"; "DIFF"; "INTERS"; "INTER"; "UNIONS"; "UNION"; "UNIV"; "INSERT"; "EMPTY"; "SETSPEC"; "GSPEC"; "IN"; "num_gcd"; "num_coprime"; "num_mod"; "num_divides"; "num_of_int"; "int_gcd"; "int_coprime"; "int_mod"; "int_divides"; "real_mod"; "=="; "rem"; "div"; "int_pow"; "int_min"; "int_max"; "int_sgn"; "int_abs"; "int_mul"; "int_sub"; "int_add"; "int_neg"; "int_of_num"; "int_gt"; "int_ge"; "int_lt"; "int_le"; "real_of_int"; "int_of_real"; "integer"; "DECIMAL"; "sqrt"; "real_sgn"; "real_min"; "real_max"; "real_div"; "real_pow"; "real_abs"; "real_gt"; "real_ge"; "real_lt"; "real_sub"; "real_inv"; "real_le"; "real_mul"; "real_add"; "real_neg"; "real_of_num"; "dest_real"; "mk_real"; "treal_eq"; "treal_inv"; "treal_le"; "treal_mul"; "treal_add"; "treal_neg"; "treal_of_num"; "hreal_inv"; "hreal_le"; "hreal_mul"; "hreal_add"; "hreal_of_num"; "dest_hreal"; "mk_hreal"; "nadd_inv"; "nadd_rinv"; "nadd_mul"; "nadd_add"; "nadd_le"; "nadd_of_num"; "nadd_eq"; "dest_nadd"; "mk_nadd"; "is_nadd"; "dist"; "ASCII"; "_19631"; "_dest_char"; "_mk_char"; "list_of_seq"; "PAIRWISE"; "ZIP"; "ITLIST2"; "ASSOC"; "FILTER"; "EL"; "MAP2"; "ALL2"; "MEM"; "ITLIST"; "EX"; "ALL"; "NULL"; "REPLICATE"; "BUTLAST"; "LAST"; "MAP"; "LENGTH"; "REVERSE"; "APPEND"; "TL"; "HD"; "ISO"; "CONS"; "NIL"; "_dest_list"; "_mk_list"; "SOME"; "NONE"; "_dest_option"; "_mk_option"; "OUTR"; "OUTL"; "INR"; "INL"; "_dest_sum"; "_mk_sum"; "FNIL"; "FCONS"; "CONSTR"; "BOTTOM"; "_dest_rec"; "_mk_rec"; "ZRECSPACE"; "ZBOT"; "ZCONSTR"; "INJP"; "INJF"; "INJA"; "INJN"; "NUMRIGHT"; "NUMLEFT"; "NUMSUM"; "NUMSND"; "NUMFST"; "NUMPAIR"; "MEASURE"; "WF"; "minimal"; "MOD"; "DIV"; "FACT"; "-"; "ODD"; "EVEN"; "MIN"; "MAX"; ">"; ">="; "<"; "<="; "EXP"; "*"; "+"; "PRE"; "BIT1"; "BIT0"; "NUMERAL"; "SUC"; "_0"; "dest_num"; "mk_num"; "NUM_REP"; "IND_0"; "IND_SUC"; "ONTO"; "ONE_ONE"; "PASSOC"; "UNCURRY"; "CURRY"; "SND"; "FST"; ","; "REP_prod"; "ABS_prod"; "mk_pair"; "_FUNCTION"; "_MATCH"; "_GUARDED_PATTERN"; "_UNGUARDED_PATTERN"; "_SEQPATTERN"; "GEQ"; "GABS"; "LET_END"; "LET"; "one"; "one_REP"; "one_ABS"; "I"; "o"; "COND"; "@"; "_FALSITY_"; "?!"; "~"; "F"; "\\/"; "?"; "!"; "==>"; "/\\"; "T"; "="]
 `;;
 
 (*Checks that a type is a valid type*)
@@ -103,13 +105,12 @@ let isValidType = define `
 
 (*This function will take a variable term, and another term of type epsilon, and return whether or not the types mismatch. If the term is not found, false is returned.
 i.e. true means that two variables of the same name but different types exist inside these terms*)
-(*Todo: Prove some things with this function to test it for correctness*)
 let typeMismatch = define `
 (typeMismatch (QuoVar name ty) (QuoVar name2 ty2) = (name = name2 /\ ~(ty = ty2))) /\
 (typeMismatch (QuoVar name ty) (QuoConst name2 ty2) = F) /\ 
 (typeMismatch (QuoVar name ty) (App e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
 (typeMismatch (QuoVar name ty) (Abs e1 e2) = ((typeMismatch (QuoVar name ty) e1) \/ (typeMismatch (QuoVar name ty) e2))) /\
-(typeMismatch (QuoVar name ty) (Quote e) = (typeMismatch (QuoVar name ty) e))`;;
+(typeMismatch (QuoVar name ty) (Quo e) = (typeMismatch (QuoVar name ty) e))`;;
 
 (*
 (*Mathematical definition of what constitutes a correct expression*)
@@ -118,7 +119,7 @@ Variable -> Always a valid expression
 Constant -> Always a valid expression (except for when name is invalid?)
 App -> Valid when left side is constant of type function and right side's type matches that function OR left side is app and right side's type aligns 
 Abs -> Valid when variable types match (variable doesn't need to be in function, but if it is, the types must match)
-Quote -> Valid if the quoted expression is valid
+Quo -> Valid if the quoted expression is valid
 *)
 
 let isExpr = define 
@@ -127,7 +128,7 @@ let isExpr = define
 	(isExpr (QuoConst str ty) = ((isValidConstName str) /\ (isValidType ty))) /\
 	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isValidType (combinatoryType e1)) /\ (isExpr e2)))  /\
 	(isExpr (Abs e1 e2) = ((isVar e1) /\ ~(typeMismatch e1 e2) /\ (isExpr e2) /\ (isExpr e1))) /\ 
-	(isExpr (Quote e) = (isExpr e))
+	(isExpr (Quo e) = (isExpr e))
 `;;
 	
 (*Mathematical definition for isVarType *)
@@ -145,7 +146,7 @@ isPartOf (exp:epsilon) (QuoVar str ty) = (exp = (QuoVar str ty)) /\
 isPartOf (exp:epsilon) (QuoConst str ty) = (exp = (QuoConst str ty)) /\
 isPartOf (exp:epsilon) (App exp1 exp2) = ((isPartOf exp exp1) \/ (isPartOf exp exp2) \/ (exp = (App exp1 exp2))) /\
 isPartOf (exp:epsilon) (Abs exp1 exp2) = ((isPartOf exp exp1) \/ (isPartOf exp exp2) \/ (exp = (Abs exp1 exp2))) /\
-isPartOf (exp:epsilon) (Quote exp1) = ((isPartOf exp exp1) \/ (exp = (Quote exp1))) 
+isPartOf (exp:epsilon) (Quo exp1) = ((isPartOf exp exp1) \/ (exp = (Quo exp1))) 
 `;;
 
 (*This defines the check to see if something is a proper subexpression of another expression*)
@@ -159,7 +160,7 @@ let e_abs = define `e_abs e1 e2 = Abs e1 e2`;;
 let app = define `app e1 e2 = App e1 e2`;;
 
 (*Definition of quo for epsilon types*)
-let quo = define `quo eps = Quote eps`;;
+let quo = define `quo eps = Quo eps`;;
 
 (*Comparison to see if two types are equal*)
 let eqTypes = define `eqTypes t1 t2 = (t1 = t2)`;;
@@ -206,11 +207,11 @@ prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Abs (QuoVar "x" (TyBase "real")) (
 );;
 
 (*The next two proofs show that wrapping the previous two expressions inside a quotation makes them false*)
-prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Quote (Abs (QuoVar "y" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))))) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Quo (Abs (QuoVar "y" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))))) <=> F`,
 	REWRITE_TAC[isFreeIn]
 );;
 
-prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Quote (Abs (QuoVar "x" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))))) <=> F`,
+prove(`isFreeIn (QuoVar "x" (TyBase "real")) (Quo (Abs (QuoVar "x" (TyBase "real")) ((App (App (QuoVar "x" (TyBase "real")) (QuoConst "+" (TyBiCons "fun" (TyBase "real") (TyBiCons "fun" (TyBase "real") (TyBase "real"))))) (QuoVar "y" (TyBase "real")))))) <=> F`,
 	REWRITE_TAC[isFreeIn] 
 );;
 
@@ -600,7 +601,7 @@ prove(`isProperSubexpressionOf (App (QuoConst "+" (TyBiCons "fun" (TyBase "num")
 );;
 
 (*Final tests for this type - making sure that quote does not interfere with previous proofs*)
-prove(`isExpr (Quote (Abs (QuoVar "x" (TyBase "num")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num")))))`,
+prove(`isExpr (Quo (Abs (QuoVar "x" (TyBase "num")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num")))))`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -616,7 +617,7 @@ prove(`isExpr (Quote (Abs (QuoVar "x" (TyBase "num")) (App(App (QuoConst "+" (Ty
 	REFL_TAC
 );;
 
-prove(`isExpr (Quote (Abs (QuoVar "x" (TyBase "bool")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num"))))) <=> F`,
+prove(`isExpr (Quo (Abs (QuoVar "x" (TyBase "bool")) (App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "3" (TyBase "num"))) (QuoVar "x" (TyBase "num"))))) <=> F`,
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isVar;ep_constructor] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -629,7 +630,7 @@ prove(`isExpr (Quote (Abs (QuoVar "x" (TyBase "bool")) (App(App (QuoConst "+" (T
 	REWRITE_TAC[STRING_EQ_CONV `"bool" = "num"`]
 );;
 
-prove(`isExprType (Quote ((App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))))) (TyBiCons "fun" (TyBase "bool") (TyBase "num"))`,
+prove(`isExprType (Quo ((App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))))) (TyBiCons "fun" (TyBase "bool") (TyBase "num"))`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
@@ -645,7 +646,7 @@ prove(`isExprType (Quote ((App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyB
 	REFL_TAC
 );;
 
-prove(`isExprType (Quote(App (QuoConst "2" (TyBase "num")) (QuoConst "3" (TyBase "num")))) (TyBiCons "fun" (TyBase "bool") (TyBase "num")) <=> F`,
+prove(`isExprType (Quo(App (QuoConst "2" (TyBase "num")) (QuoConst "3" (TyBase "num")))) (TyBiCons "fun" (TyBase "bool") (TyBase "num")) <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[combinatoryType] THEN
@@ -653,7 +654,7 @@ prove(`isExprType (Quote(App (QuoConst "2" (TyBase "num")) (QuoConst "3" (TyBase
 	REWRITE_TAC[typeDistinct]
 );;
 
-prove(`isExprType (Quote (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num")))) (TyBase "bool") <=> F`,
+prove(`isExprType (Quo (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "bool") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num")))) (TyBase "bool") <=> F`,
 	REWRITE_TAC[isExprType] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isConst;ep_constructor] THEN
@@ -667,7 +668,7 @@ prove(`isExprType (Quote (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBi
 	REWRITE_TAC[typeDistinct]
 );;
 
-prove(`isProperSubexpressionOf (QuoVar "x" (TyBase "bool")) (Quote (QuoVar "y" (TyBase "bool"))) <=> F`,
+prove(`isProperSubexpressionOf (QuoVar "x" (TyBase "bool")) (Quo (QuoVar "y" (TyBase "bool"))) <=> F`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isPartOf] THEN
 	REWRITE_TAC[isExpr] THEN
@@ -676,7 +677,7 @@ prove(`isProperSubexpressionOf (QuoVar "x" (TyBase "bool")) (Quote (QuoVar "y" (
 	REWRITE_TAC[STRING_EQ_CONV `"x" = "y"`]
 );;
 
-prove(`isProperSubexpressionOf (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (Quote(App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (QuoVar "x" (TyBase "num"))))`,
+prove(`isProperSubexpressionOf (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (Quo(App(App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "NUMERAL" (TyBase "num"))) (QuoVar "x" (TyBase "num"))))`,
 	REWRITE_TAC[isProperSubexpressionOf] THEN
 	REWRITE_TAC[isExpr] THEN
 	REWRITE_TAC[isPartOf] THEN
@@ -720,13 +721,13 @@ prove(`(e_abs (QuoVar "x" (TyBase "bool")) (App (App (QuoVar "x" (TyBase "bool")
 
 (*Proof that quoting works as intended*)
 prove(`quo (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num"))) = 
-	Quote (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num")))`,
+	Quo (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num")))`,
 	REWRITE_TAC[quo]
 );;
 
 (*Proof that quotes can be quoted*)
 prove(`quo (quo (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num")))) = 
-	Quote (Quote (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num"))))`,
+	Quo (Quo (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoConst "3" (TyBase "num"))))`,
 	REWRITE_TAC[quo]
 );;
 

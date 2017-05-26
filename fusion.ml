@@ -70,14 +70,12 @@ module type Hol_kernel =
       val rator: term -> term
       val dest_eq: term -> term * term
 
-
-      val charToHOL : int -> int -> term
-
       val dest_thm : thm -> term list * term
       val hyp : thm -> term list
       val concl : thm -> term
       val REFL : term -> thm
       val QUOTE : term -> thm
+      val TERM_TO_CONSTRUCTION : term -> thm
       val TRANS : thm -> thm -> thm
       val MK_COMB : thm * thm -> thm
       val ABS : term -> thm -> thm
@@ -284,9 +282,7 @@ module Hol : Hol_kernel = struct
         -> Comb(f,a)
     | _ -> failwith "mk_comb: types do not agree"
 
-  let mk_quote t = match type_of t with
-      Tyapp("epsilon",[]) -> Quote(t)
-    | _ -> failwith "mk_quote: not of type epsilon"
+  let mk_quote t = Quote(t)
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive destructors.                                                    *)
@@ -602,42 +598,66 @@ module Hol : Hol_kernel = struct
 (makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [(makeBasicType "bool");(makeConstructedType "fun" [
 (makeBasicType "bool");(makeBasicType "char")])])])])
 ])])])]));;
-  (*Converts a char value to a combination of T's and F's representing the binary of it's ASCII value (HOL stores it this way)*)
-
+  (*This makes a function called CONS of type char -> (list)char -> list(char)*)
+  let makeCONS = Const("CONS",makeConstructedType "fun" [makeBasicType "char"; makeConstructedType "fun" [makeConstructedType "list" [makeBasicType "char"];makeConstructedType "list" [makeBasicType "char"]]]);;
+  
   let numToBool = function
     | 1 -> makeTrue
     | 0 -> makeFalse
     | _ -> failwith "Cannot convert this number to a boolean value"
 
-  let rec charToHOL c depth = if depth < 8 then Comb((charToHOL (c / 2) (depth + 1)),(numToBool (c mod 2)))
-else Comb(makeAscii,(numToBool (c mod 2)));;
+(*Converts a char value to a combination of T's and F's representing the binary form of it's ASCII value (HOL stores it this way)*)
 
+  let rec charToHOL c depth = if depth < 8 then Comb((charToHOL (c / 2) (depth + 1)),(numToBool (c mod 2)))
+  else Comb(makeAscii,(numToBool (c mod 2)));;
+
+(*Takes an exploded string and turns it into a HOL string*)
+  let rec tmp_mk_string = function
+    | [] -> Const("NIL",makeConstructedType "list" [makeBasicType "char"])
+    | a :: rest -> Comb(Comb(makeCONS,(charToHOL (Char.code (a.[0])) 1)),(tmp_mk_string rest));;
 
 
   (*Need a temporary implementation of mk_string and related functions*)
 
-
-(*
   (*Helper functions to make vital functions more readable*)
   let makeGenericComb constName ty firstArg secondArg = Comb(Comb(Const(constName,ty),firstArg),secondArg);;
-
-  let makeQuoVarComb a b = makeGenericComb "QuoVar" (makeBasicType "epsilon") (mk_string a) b;;
-  let makeQuoConstComb a b = makeGenericComb "QuoConst" (mk_string a) b;;
-  let makeAppComb a b = makeGenericComb "App" a b;;
-  let makeAbsComb a b = makeGenericComb "Abs" a b;;
-  let makeTyVarComb a = mk_comb(mk_const("TyVar",[]),mk_var((string_of_type a),mk_type("list",[`:char`])));;
-  let makeTyBaseComb a  = mk_comb(mk_const("TyBase",[]),(mk_string a));;
-  let makeTyMonoConsComb a b = makeGenericComb "TyMonoCons" (mk_string a) b;;
-  let makeTyBiConsComb a b c= mk_comb((makeGenericComb "TyBiCons" (mk_string a) b),c);;
+  let makeQuoVarComb a b = makeGenericComb "QuoVar" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b;;
+  let makeQuoConstComb a b = makeGenericComb "QuoConst" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b;;
+  let makeAppComb a b = makeGenericComb "App" (makeBasicType "epsilon") a b;;
+  let makeAbsComb a b = makeGenericComb "Abs" (makeBasicType "epsilon") a b;;
+  let makeTyVarComb a = Comb(Const("TyVar",makeConstructedType "fun" [makeConstructedType "list" [makeBasicType "char"];makeBasicType "type"]),(tmp_mk_string (explode a)));;
+  let makeTyBaseComb a  = Comb(Const("TyBase",makeBasicType "epsilon"),(tmp_mk_string (explode a)));;
+  let makeTyMonoConsComb a b = makeGenericComb "TyMonoCons" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b;;
+  let makeTyBiConsComb a b c= Comb((makeGenericComb "TyBiCons" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b),c);;
   let makeFunComb a b = makeTyBiConsComb "fun" a b;;
-*)
+  let makeQuoComb a = Comb(Const("Quote",makeBasicType "epsilon"),a);;
 
-  (*Currently in development - will always return a quoted False for now for testing purposes*)
-  let rec quoConvert = function
-      |  _ -> Const("F",(Tyapp ("bool",[])))
+  let rec matchType ty = 
+      if (is_vartype ty) then makeTyVarComb (dest_vartype ty) else
+        let a,b = (dest_type ty) in
+        match length b with
+          | 0 -> makeTyBaseComb a
+          | 1 -> makeTyMonoConsComb a (matchType (hd b))
+          | 2 -> makeTyBiConsComb a (matchType (hd b)) (matchType (hd (tl b)))
+          | _ -> failwith "This is not a valid type";;
 
-    let QUOTE tm = match tm with
-      |  Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),qtm) -> Sequent([],safe_mk_eq tm (Quote (quoConvert qtm)))
+
+  (*Currently in development - will always return False for now for testing purposes*)
+  let rec termToConstruction = function
+      |  Const(cName,cType) -> makeQuoConstComb cName (matchType cType)
+      |  Var(vName,vType) -> makeQuoVarComb vName (matchType vType)
+      |  Comb(exp1, exp2) -> makeAppComb (termToConstruction exp1) (termToConstruction exp2)
+      |  Abs(exp1, exp2) -> makeAbsComb (termToConstruction exp1) (termToConstruction exp2)
+      |  Quote(e) -> makeQuoComb e
+
+  let TERM_TO_CONSTRUCTION tm = match tm with
+      |  Quote(exp) -> Sequent([],safe_mk_eq tm (termToConstruction exp))
+      | _ -> failwith "TERM_TO_CONSTRUCTION"
+  
+  (*Returns a theorem asserting that the quotation of a term is equivelant to wrapping Quote around it*)
+  (*i.e. _Q_ P <=> (Q(P)Q)*)   
+  let QUOTE tm = match tm with
+      |  Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),qtm) -> Sequent([],safe_mk_eq tm (Quote (qtm)))
       |  _ -> failwith "QUOTE"
 
 
