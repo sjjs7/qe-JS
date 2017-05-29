@@ -256,6 +256,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       |Combp(l,r) -> mk_comb(untyped_t_of_pt l,untyped_t_of_pt r)
       |Absp(v,bod) -> mk_gabs(untyped_t_of_pt v,untyped_t_of_pt bod)
       |Typing(ptm,pty) -> untyped_t_of_pt ptm
+      |Quotep(e) -> mk_quote(untyped_t_of_pt e)
     in
     string_of_term o untyped_t_of_pt
   in
@@ -358,6 +359,9 @@ let type_of_pretype,term_of_preterm,retypecheck =
         in
         let bod',venv2,uenv2 = typify ty'' (bod,venv1@venv,uenv1) in
         Absp(v',bod'),venv2,uenv2
+    |Quotep(a) -> let ty' = new_type_var() in
+      let f,venv1, uenv1 = typify ty' (a,venv,uenv) in
+      Quotep(f), venv1, uenv1
     |_ -> failwith "typify: unexpected constant at this stage"
   in
 
@@ -370,6 +374,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       Combp(f,x) -> resolve_interface f (resolve_interface x cont) env
     | Absp(v,bod) -> resolve_interface v (resolve_interface bod cont) env
     | Varp(_,_) -> cont env
+    | Quotep(a) -> resolve_interface a cont env
     | Constp(s,ty) ->
           let maps = filter (fun (s',_) -> s' = s) (!the_interface) in
           if maps = [] then cont env else
@@ -387,6 +392,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       Varp(s,ty) -> Varp(s,solve env ty)
     | Combp(f,x) -> Combp(solve_preterm env f,solve_preterm env x)
     | Absp(v,bod) -> Absp(solve_preterm env v,solve_preterm env bod)
+    | Quotep(a) -> Quotep(solve_preterm env a)
     | Constp(s,ty) -> let tys = solve env ty in
           try let _,(c',_) = find
                 (fun (s',(c',ty')) ->
@@ -425,6 +431,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       | Constp(s,pty) -> mk_mconst(s,type_of_pretype pty)
       | Combp(l,r) -> mk_comb(term_of_preterm l,term_of_preterm r)
       | Absp(v,bod) -> mk_gabs(term_of_preterm v,term_of_preterm bod)
+      | Quotep(a) -> mk_quote(term_of_preterm a)
       | Typing(ptm,pty) -> term_of_preterm ptm in
     let report_type_invention () =
       if !stvs_translated then

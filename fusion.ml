@@ -245,6 +245,7 @@ module Hol : Hol_kernel = struct
     | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty)
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
     | Quote(e) -> Tyapp("epsilon",[])
+    | _ -> failwith "TYPE_OF: Invalid term. You should not see this error under normal use, if you do, the parser has allowed an ill formed term to be created."
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive discriminators.                                                 *)
@@ -280,7 +281,7 @@ module Hol : Hol_kernel = struct
     match type_of f with
       Tyapp("fun",[ty;_]) when Pervasives.compare ty (type_of a) = 0
         -> Comb(f,a)
-    | _ -> failwith "mk_comb: types do not agree"
+    | _ -> failwith (*"mk_comb: types do not agree"*)  ((dest_vartype(hd (snd (dest_type (type_of f))))))
 
   let mk_quote t = Quote(t)
 
@@ -351,6 +352,7 @@ module Hol : Hol_kernel = struct
     | Comb(s,t)        -> union (type_vars_in_term s) (type_vars_in_term t)
     | Abs(Var(_,ty),t) -> union (tyvars ty) (type_vars_in_term t)
     | Quote(_)         -> tyvars (Tyapp ("epsilon",[]))
+    | _                -> failwith "TYPE_VARS_IN_TERM: Invalid type."
 
 (* ------------------------------------------------------------------------- *)
 (* For name-carrying syntax, we need this early.                             *)
@@ -371,6 +373,7 @@ module Hol : Hol_kernel = struct
       match tm with
         Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
+      | Quote(_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
       | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
@@ -467,12 +470,15 @@ module Hol : Hol_kernel = struct
     | Abs(Var(_,ty1) as x1,t1),Abs(Var(_,ty2) as x2,t2) ->
           let c = Pervasives.compare ty1 ty2 in
           if c <> 0 then c else orda ((x1,x2)::env) t1 t2
+    | Quote(e1),Quote(e2) -> orda env e1 e2
     | Const(_,_),_ -> -1
     | _,Const(_,_) -> 1
     | Var(_,_),_ -> -1
     | _,Var(_,_) -> 1
     | Comb(_,_),_ -> -1
     | _,Comb(_,_) -> 1
+    | Quote(_),_ -> 1
+    | _,Quote(_) -> -1  
 
   let alphaorder = orda []
 
@@ -630,7 +636,7 @@ module Hol : Hol_kernel = struct
   let makeTyMonoConsComb a b = makeGenericComb "TyMonoCons" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b;;
   let makeTyBiConsComb a b c= Comb((makeGenericComb "TyBiCons" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b),c);;
   let makeFunComb a b = makeTyBiConsComb "fun" a b;;
-  let makeQuoComb a = Comb(Const("Quote",makeBasicType "epsilon"),a);;
+  let makeQuoComb a = Comb(Const("Quo",makeBasicType "epsilon"),a);;
 
   let rec matchType ty = 
       if (is_vartype ty) then makeTyVarComb (dest_vartype ty) else
@@ -648,7 +654,7 @@ module Hol : Hol_kernel = struct
       |  Var(vName,vType) -> makeQuoVarComb vName (matchType vType)
       |  Comb(exp1, exp2) -> makeAppComb (termToConstruction exp1) (termToConstruction exp2)
       |  Abs(exp1, exp2) -> makeAbsComb (termToConstruction exp1) (termToConstruction exp2)
-      |  Quote(e) -> makeQuoComb e
+      |  Quote(e) -> makeQuoComb (termToConstruction e)
 
   let TERM_TO_CONSTRUCTION tm = match tm with
       |  Quote(exp) -> Sequent([],safe_mk_eq tm (termToConstruction exp))

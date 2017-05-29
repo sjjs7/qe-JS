@@ -276,7 +276,8 @@ let NUM_SUC_CONV,NUM_ADD_CONV,NUM_MULT_CONV,NUM_EXP_CONV,
       | Comb(Const("BIT0",_),mt),Comb(Const("BIT1",_),nt) ->
           if orderrelation mt nt > 0 then 1 else -1
       | Comb(Const("BIT1",_),mt),Comb(Const("BIT0",_),nt) ->
-          if orderrelation mt nt < 0 then -1 else 1 in
+          if orderrelation mt nt < 0 then -1 else 1 
+      | _ -> failwith "Malformed numeral" in
   let doublebn tm = if tm = zero_tm then tm else mk_comb(BIT0_tm,tm) in
   let rec subbn mtm ntm =
     match (mtm,ntm) with
