@@ -192,12 +192,23 @@ module Hol : Hol_kernel = struct
 (* repeated many times), as are repetitions (first possibility is taken).    *)
 (* ------------------------------------------------------------------------- *)
 
-  let rec type_subst i ty =
+(*Todo: Remove the  prefix to restore normal operations*)
+
+let rec type_subst i ty =
     match ty with
       Tyapp(tycon,args) ->
           let args' = qmap (type_subst i) args in
           if args' == args then ty else Tyapp(tycon,args')
       | _ -> rev_assocd ty i ty
+
+(*Temporary type of string implementation for debugging purposes*)
+let rec dbg_soty ty = 
+  if (is_vartype ty) then "Type Variable: " ^ (dest_vartype ty) else
+  let a,b = dest_type ty in
+  match a with
+    | "fun" -> (dbg_soty (hd b)) ^ "->" ^ (dbg_soty (hd (tl b)))
+    | _ -> a
+
 
   let bool_ty = Tyapp("bool",[])
 
@@ -211,7 +222,7 @@ module Hol : Hol_kernel = struct
 (* ------------------------------------------------------------------------- *)
 
   let the_term_constants =
-     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])])]
+     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])])]
 
 (* ------------------------------------------------------------------------- *)
 (* Return all the defined constants with generic types.                      *)
@@ -277,11 +288,12 @@ module Hol : Hol_kernel = struct
       Var(_,_) -> Abs(bvar,bod)
     | _ -> failwith "mk_abs: not a variable"
 
+
   let mk_comb(f,a) =
     match type_of f with
       Tyapp("fun",[ty;_]) when Pervasives.compare ty (type_of a) = 0
         -> Comb(f,a)
-    | _ -> failwith (*"mk_comb: types do not agree"*)  ((dest_vartype(hd (snd (dest_type (type_of f))))))
+    | _ -> failwith (*"mk_comb: types do not agree"*) (dbg_soty (type_of a))
 
   let mk_quote t = Quote(t)
 
@@ -406,6 +418,7 @@ module Hol : Hol_kernel = struct
                        else raise (Clash tm')
       | Const(c,ty) -> let ty' = type_subst tyin ty in
                        if ty' == ty then tm else Const(c,ty')
+      | Quote(e)    -> tm
       | Comb(f,x)   -> let f' = inst env tyin f and x' = inst env tyin x in
                        if f' == f && x' == x then tm else Comb(f',x')
       | Abs(y,t)    -> let y' = inst [] tyin y in

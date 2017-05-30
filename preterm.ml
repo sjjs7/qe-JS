@@ -131,7 +131,7 @@ type preterm = Varp of string * pretype       (* Variable           - v      *)
              | Constp of string * pretype     (* Constant           - c      *)
              | Combp of preterm * preterm     (* Combination        - f x    *)
              | Absp of preterm * preterm      (* Lambda-abstraction - \x. t  *)
-             | Quotep of preterm              (* Quotation                   *)
+             | Quotep of preterm * pretype    (* Quotation                   *)
              | Typing of preterm * pretype;;  (* Type constraint    - t : ty *)
 
 (* ------------------------------------------------------------------------- *)
@@ -152,13 +152,13 @@ let rec preterm_of_term tm =
       Combp(preterm_of_term l,preterm_of_term r)
   with Failure _ ->
       let l = dest_quote tm in
-      Quotep(preterm_of_term l);;
+      Quotep(preterm_of_term l,Ptycon("epsilon",[]));;
 
 (* ------------------------------------------------------------------------- *)
 (* Main pretype->type, preterm->term and retypechecking functions.           *)
 (* ------------------------------------------------------------------------- *)
 
-let type_of_pretype,term_of_preterm,retypecheck =
+let pretype_subst,pretype_instance,get_generic_type,get_var_type,solve,free_stvs,string_of_pretype,string_of_preterm,string_of_ty_error,istrivial,unify,  typify,resolve_interface,solve_preterm,type_of_pretype,term_of_preterm,retypecheck =
   let tyv_num = ref 0 in
   let new_type_var() = let n = !tyv_num in (tyv_num := n + 1; Stv(n)) in
 
@@ -256,7 +256,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       |Combp(l,r) -> mk_comb(untyped_t_of_pt l,untyped_t_of_pt r)
       |Absp(v,bod) -> mk_gabs(untyped_t_of_pt v,untyped_t_of_pt bod)
       |Typing(ptm,pty) -> untyped_t_of_pt ptm
-      |Quotep(e) -> mk_quote(untyped_t_of_pt e)
+      |Quotep(e,ty) -> mk_quote(untyped_t_of_pt e)
     in
     string_of_term o untyped_t_of_pt
   in
@@ -359,9 +359,9 @@ let type_of_pretype,term_of_preterm,retypecheck =
         in
         let bod',venv2,uenv2 = typify ty'' (bod,venv1@venv,uenv1) in
         Absp(v',bod'),venv2,uenv2
-    |Quotep(a) -> let ty' = new_type_var() in
+    |Quotep(a,ty) -> let ty' = new_type_var() in
       let f,venv1, uenv1 = typify ty' (a,venv,uenv) in
-      Quotep(f), venv1, uenv1
+      Quotep(f,ty), venv1, uenv1
     |_ -> failwith "typify: unexpected constant at this stage"
   in
 
@@ -374,7 +374,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       Combp(f,x) -> resolve_interface f (resolve_interface x cont) env
     | Absp(v,bod) -> resolve_interface v (resolve_interface bod cont) env
     | Varp(_,_) -> cont env
-    | Quotep(a) -> resolve_interface a cont env
+    | Quotep(a,ty) -> resolve_interface a cont env
     | Constp(s,ty) ->
           let maps = filter (fun (s',_) -> s' = s) (!the_interface) in
           if maps = [] then cont env else
@@ -392,7 +392,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       Varp(s,ty) -> Varp(s,solve env ty)
     | Combp(f,x) -> Combp(solve_preterm env f,solve_preterm env x)
     | Absp(v,bod) -> Absp(solve_preterm env v,solve_preterm env bod)
-    | Quotep(a) -> Quotep(solve_preterm env a)
+    | Quotep(a,ty) -> Quotep(solve_preterm env a,ty)
     | Constp(s,ty) -> let tys = solve env ty in
           try let _,(c',_) = find
                 (fun (s',(c',ty')) ->
@@ -431,7 +431,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       | Constp(s,pty) -> mk_mconst(s,type_of_pretype pty)
       | Combp(l,r) -> mk_comb(term_of_preterm l,term_of_preterm r)
       | Absp(v,bod) -> mk_gabs(term_of_preterm v,term_of_preterm bod)
-      | Quotep(a) -> mk_quote(term_of_preterm a)
+      | Quotep(a,ty) -> mk_quote(term_of_preterm a)
       | Typing(ptm,pty) -> term_of_preterm ptm in
     let report_type_invention () =
       if !stvs_translated then
@@ -445,7 +445,6 @@ let type_of_pretype,term_of_preterm,retypecheck =
   (* ----------------------------------------------------------------------- *)
   (* Overall typechecker: initial typecheck plus overload resolution pass.   *)
   (* ----------------------------------------------------------------------- *)
-
   let retypecheck venv ptm =
     let ty = new_type_var() in
     let ptm',_,env =
@@ -458,4 +457,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
     let ptm'' = solve_preterm env' ptm' in
     ptm'' in
 
-  type_of_pretype,term_of_preterm,retypecheck;;
+pretype_subst,pretype_instance,get_generic_type,get_var_type,solve,free_stvs,string_of_pretype,string_of_preterm,string_of_ty_error,istrivial,unify,typify,resolve_interface,solve_preterm,type_of_pretype,term_of_preterm,retypecheck;;
+
+ (*) DEBUG: DELETE TYPIFY, RESOLVE_INTERFACE, AND SOLVE_PRETERM FROM HERE AND ABOVE WHEN DONE*)
+ (*) type_of_pretype,term_of_preterm,retypecheck;; *)

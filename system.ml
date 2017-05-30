@@ -53,3 +53,7 @@ let print_num n =
   Format.close_box();;
 
 #install_printer print_num;;
+
+
+(*This is the first file loaded, so the flag will be placed here, this controls whether or not debug functions will print to avoid increasing startup times by lots of prints*)
+let DBG_PRINT = ref false;;
