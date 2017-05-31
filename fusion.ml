@@ -70,6 +70,7 @@ module type Hol_kernel =
       val rator: term -> term
       val dest_eq: term -> term * term
 
+
       val dest_thm : thm -> term list * term
       val hyp : thm -> term list
       val concl : thm -> term
@@ -201,14 +202,6 @@ let rec type_subst i ty =
           if args' == args then ty else Tyapp(tycon,args')
       | _ -> rev_assocd ty i ty
 
-(*Temporary type of string implementation for debugging purposes*)
-let rec dbg_soty ty = 
-  if (is_vartype ty) then "Type Variable: " ^ (dest_vartype ty) else
-  let a,b = dest_type ty in
-  match a with
-    | "fun" -> (dbg_soty (hd b)) ^ "->" ^ (dbg_soty (hd (tl b)))
-    | _ -> a
-
 
   let bool_ty = Tyapp("bool",[])
 
@@ -293,7 +286,7 @@ let rec dbg_soty ty =
     match type_of f with
       Tyapp("fun",[ty;_]) when Pervasives.compare ty (type_of a) = 0
         -> Comb(f,a)
-    | _ -> failwith (*"mk_comb: types do not agree"*) (dbg_soty (type_of a))
+    | _ -> failwith "mk_comb: types do not agree"
 
   let mk_quote t = Quote(t)
 
