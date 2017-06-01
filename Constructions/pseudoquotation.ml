@@ -29,7 +29,7 @@ let rec quoteRecursion = function
 	| Const (cName, cType) -> makeQuoConstComb cName (matchTypes cType)
 	| Comb(E1,E2) -> makeAppComb (quoteRecursion E1) (quoteRecursion E2)
 	| Abs(E1, E2) -> makeAbsComb (quoteRecursion E1) (quoteRecursion E2)
-	| Quote E -> makeQuoComb (quoteRecursion E);;
+	| Quote(E,T) -> makeQuoComb (quoteRecursion E);;
 
 (*Function to take an expression, and convert it into a type of epsilon wrapped inside of a Quote*)
 let quote a = makeQuoComb (quoteRecursion a);;

@@ -20,7 +20,7 @@ module type Hol_kernel =
       | Const of string * hol_type
       | Comb of term * term
       | Abs of term * term
-      | Quote of term
+      | Quote of term * hol_type
 
       type thm
 
@@ -107,7 +107,7 @@ module Hol : Hol_kernel = struct
             | Const of string * hol_type
             | Comb of term * term
             | Abs of term * term
-            | Quote of term
+            | Quote of term * hol_type
 
   type thm = Sequent of (term list * term)
 
@@ -248,7 +248,7 @@ let rec type_subst i ty =
     | Const(_,ty) -> ty
     | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty)
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
-    | Quote(e) -> Tyapp("epsilon",[])
+    | Quote(e,_) -> Tyapp("epsilon",[])
     | _ -> failwith "TYPE_OF: Invalid term. You should not see this error under normal use, if you do, the parser has allowed an ill formed term to be created."
 
 (* ------------------------------------------------------------------------- *)
@@ -263,7 +263,7 @@ let rec type_subst i ty =
 
   let is_comb = function (Comb(_,_)) -> true | _ -> false
 
-  let is_quote = function (Quote(_)) -> true | _ -> false
+  let is_quote = function (Quote(_,_)) -> true | _ -> false
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive constructors.                                                   *)
@@ -288,7 +288,7 @@ let rec type_subst i ty =
         -> Comb(f,a)
     | _ -> failwith "mk_comb: types do not agree"
 
-  let mk_quote t = Quote(t)
+  let mk_quote t = Quote(t,type_of t)
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive destructors.                                                    *)
@@ -307,7 +307,7 @@ let rec type_subst i ty =
     function (Abs(v,b)) -> v,b | _ -> failwith "dest_abs: not an abstraction"
 
   let dest_quote =
-    function (Quote(e)) -> e | _ -> failwith "dest_quote: not a quotation"
+    function (Quote(e,ty)) when type_of e = ty -> e | _ -> failwith "dest_quote: not a quotation or type mismatch"
 
 (* ------------------------------------------------------------------------- *)
 (* Finds the variables free in a term (list of terms).                       *)
@@ -319,7 +319,7 @@ let rec type_subst i ty =
     | Const(_,_) -> []
     | Abs(bv,bod) -> subtract (frees bod) [bv]
     | Comb(s,t) -> union (frees s) (frees t)
-    | Quote(_) -> []
+    | Quote(_,_) -> []
 
   let freesl tml = itlist (union o frees) tml []
 
@@ -333,7 +333,7 @@ let rec type_subst i ty =
     | Const(_,_) -> true
     | Abs(bv,bod) -> freesin (bv::acc) bod
     | Comb(s,t) -> freesin acc s && freesin acc t
-    | Quote(_) -> true (*Quotes have no free variables, [] is a subset of every list, therefore this should be true*)
+    | Quote(_,_) -> true (*Quotes have no free variables, [] is a subset of every list, therefore this should be true*)
 
 (* ------------------------------------------------------------------------- *)
 (* Whether a variable (or constant in fact) is free in a term.               *)
@@ -343,7 +343,7 @@ let rec type_subst i ty =
     match tm with
       Abs(bv,bod) -> v <> bv && vfree_in v bod
     | Comb(s,t) -> vfree_in v s || vfree_in v t
-    | Quote(_) -> false
+    | Quote(_,_) -> false
     | _ -> Pervasives.compare tm v = 0
 
 (* ------------------------------------------------------------------------- *)
@@ -356,7 +356,7 @@ let rec type_subst i ty =
     | Const(_,ty)      -> tyvars ty
     | Comb(s,t)        -> union (type_vars_in_term s) (type_vars_in_term t)
     | Abs(Var(_,ty),t) -> union (tyvars ty) (type_vars_in_term t)
-    | Quote(_)         -> tyvars (Tyapp ("epsilon",[]))
+    | Quote(_,_)         -> tyvars (Tyapp ("epsilon",[]))
     | _                -> failwith "TYPE_VARS_IN_TERM: Invalid type."
 
 (* ------------------------------------------------------------------------- *)
@@ -378,7 +378,7 @@ let rec type_subst i ty =
       match tm with
         Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
-      | Quote(_) -> tm
+      | Quote(_,_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
       | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
@@ -411,7 +411,7 @@ let rec type_subst i ty =
                        else raise (Clash tm')
       | Const(c,ty) -> let ty' = type_subst tyin ty in
                        if ty' == ty then tm else Const(c,ty')
-      | Quote(e)    -> tm
+      | Quote(e,_)    -> tm
       | Comb(f,x)   -> let f' = inst env tyin f and x' = inst env tyin x in
                        if f' == f && x' == x then tm else Comb(f',x')
       | Abs(y,t)    -> let y' = inst [] tyin y in
@@ -476,15 +476,15 @@ let rec type_subst i ty =
     | Abs(Var(_,ty1) as x1,t1),Abs(Var(_,ty2) as x2,t2) ->
           let c = Pervasives.compare ty1 ty2 in
           if c <> 0 then c else orda ((x1,x2)::env) t1 t2
-    | Quote(e1),Quote(e2) -> orda env e1 e2
+    | Quote(e1,_),Quote(e2,_) -> orda env e1 e2
     | Const(_,_),_ -> -1
     | _,Const(_,_) -> 1
     | Var(_,_),_ -> -1
     | _,Var(_,_) -> 1
     | Comb(_,_),_ -> -1
     | _,Comb(_,_) -> 1
-    | Quote(_),_ -> 1
-    | _,Quote(_) -> -1  
+    | Quote(_,_),_ -> 1
+    | _,Quote(_,_) -> -1  
 
   let alphaorder = orda []
 
@@ -632,17 +632,19 @@ let rec type_subst i ty =
   (*Need a temporary implementation of mk_string and related functions*)
 
   (*Helper functions to make vital functions more readable*)
+  let makeHolFunction a b = Tyapp("fun",[a;b]);;
+  let makeHolType a b = Tyapp(a,b)
   let makeGenericComb constName ty firstArg secondArg = Comb(Comb(Const(constName,ty),firstArg),secondArg);;
-  let makeQuoVarComb a b = makeGenericComb "QuoVar" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b;;
-  let makeQuoConstComb a b = makeGenericComb "QuoConst" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b;;
-  let makeAppComb a b = makeGenericComb "App" (makeBasicType "epsilon") a b;;
-  let makeAbsComb a b = makeGenericComb "Abs" (makeBasicType "epsilon") a b;;
+  let makeQuoVarComb a b = makeGenericComb "QuoVar" (makeHolFunction (makeHolType "list" [makeHolType "char" []]) (makeHolFunction (makeHolType "type" []) (makeHolType "epsilon" [])) ) (tmp_mk_string (explode a)) b;;
+  let makeQuoConstComb a b = makeGenericComb "QuoConst" (makeHolFunction (makeHolType "list" [makeHolType "char" []]) (makeHolFunction (makeHolType "type" []) (makeHolType "epsilon" [])) ) (tmp_mk_string (explode a)) b;;
+  let makeAppComb a b = makeGenericComb "App" (makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))) a b;;
+  let makeAbsComb a b = makeGenericComb "Abs" (makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))) a b;;
   let makeTyVarComb a = Comb(Const("TyVar",makeConstructedType "fun" [makeConstructedType "list" [makeBasicType "char"];makeBasicType "type"]),(tmp_mk_string (explode a)));;
-  let makeTyBaseComb a  = Comb(Const("TyBase",makeBasicType "epsilon"),(tmp_mk_string (explode a)));;
-  let makeTyMonoConsComb a b = makeGenericComb "TyMonoCons" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b;;
-  let makeTyBiConsComb a b c= Comb((makeGenericComb "TyBiCons" (makeBasicType "epsilon") (tmp_mk_string (explode a)) b),c);;
+  let makeTyBaseComb a  = Comb(Const("TyBase",makeConstructedType "fun" [makeConstructedType "list" [makeBasicType "char"];makeBasicType "type"]),(tmp_mk_string (explode a)));;
+  let makeTyMonoConsComb a b = makeGenericComb "TyMonoCons" (makeHolFunction (makeHolType "list" [makeHolType "char" []]) (makeHolFunction (makeHolType "type" []) (makeHolType "type" []))) (tmp_mk_string (explode a)) b;;
+  let makeTyBiConsComb a b c= Comb((makeGenericComb "TyBiCons" (makeHolFunction (makeHolType "list" [makeHolType "char" []]) (makeHolFunction (makeHolType "type" []) (makeHolFunction (makeHolType "type" []) (makeHolType "type" [])))) (tmp_mk_string (explode a)) b),c);;
   let makeFunComb a b = makeTyBiConsComb "fun" a b;;
-  let makeQuoComb a = Comb(Const("Quo",makeBasicType "epsilon"),a);;
+  let makeQuoComb a = Comb(Const("Quo",(makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),a);;
 
   let rec matchType ty = 
       if (is_vartype ty) then makeTyVarComb (dest_vartype ty) else
@@ -660,16 +662,18 @@ let rec type_subst i ty =
       |  Var(vName,vType) -> makeQuoVarComb vName (matchType vType)
       |  Comb(exp1, exp2) -> makeAppComb (termToConstruction exp1) (termToConstruction exp2)
       |  Abs(exp1, exp2) -> makeAbsComb (termToConstruction exp1) (termToConstruction exp2)
-      |  Quote(e) -> makeQuoComb (termToConstruction e)
+      |  Quote(e,t) when type_of e = t -> makeQuoComb (termToConstruction e)
+      |  _ -> failwith "Malformed term cannot be made into a construction"
 
   let TERM_TO_CONSTRUCTION tm = match tm with
-      |  Quote(exp) -> Sequent([],safe_mk_eq tm (termToConstruction exp))
+      |  Quote(exp,t) when type_of exp = t -> Sequent([],safe_mk_eq tm (termToConstruction exp))
+      |  Quote(_,_) -> failwith "TERM_TO_CONSTRUCTION: BAD QUOTE"
       | _ -> failwith "TERM_TO_CONSTRUCTION"
   
   (*Returns a theorem asserting that the quotation of a term is equivelant to wrapping Quote around it*)
   (*i.e. _Q_ P <=> (Q(P)Q)*)   
   let QUOTE tm = match tm with
-      |  Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),qtm) -> Sequent([],safe_mk_eq tm (Quote (qtm)))
+      |  Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),qtm) -> Sequent([],safe_mk_eq tm (Quote (qtm,type_of qtm)))
       |  _ -> failwith "QUOTE"
 
 

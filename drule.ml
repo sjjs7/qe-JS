@@ -196,7 +196,7 @@ let (term_match:term list -> term -> term -> instantiation) =
         let sofar' = safe_insert
           (mk_dummy(snd(dest_var cv)),mk_dummy(snd(dest_var vv))) insts,homs in
         term_pmatch lconsts ((cv,vv)::env) vbod cbod sofar'
-    | Quote(e),Quote(e2) -> if Pervasives.compare e e2 = 0 then sofar else failwith "term_pmatch" 
+    | Quote(e,t),Quote(e2,t2) -> if Pervasives.compare e e2 = 0 && Pervasives.compare t t2 = 0 then sofar else failwith "term_pmatch" 
     | _ ->
       let vhop = repeat rator vtm in
       if is_var vhop && not (mem vhop lconsts) &&
