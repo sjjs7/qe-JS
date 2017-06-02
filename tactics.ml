@@ -394,6 +394,7 @@ let SUBST_ALL_TAC rth =
 
 let BETA_TAC = CONV_TAC(REDEPTH_CONV BETA_CONV);;
 
+
 (* ------------------------------------------------------------------------- *)
 (* Just use an equation to substitute if possible and uninstantiable.        *)
 (* ------------------------------------------------------------------------- *)

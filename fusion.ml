@@ -77,6 +77,8 @@ module type Hol_kernel =
       val REFL : term -> thm
       val QUOTE : term -> thm
       val TERM_TO_CONSTRUCTION : term -> thm
+      val QUOTE_CONV : term -> thm
+      val TERM_TO_CONSTRUCTION_CONV : term -> thm
       val TRANS : thm -> thm -> thm
       val MK_COMB : thm * thm -> thm
       val ABS : term -> thm -> thm
@@ -379,6 +381,7 @@ let rec type_subst i ty =
         Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
       | Quote(_,_) -> tm
+      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
       | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
@@ -411,7 +414,8 @@ let rec type_subst i ty =
                        else raise (Clash tm')
       | Const(c,ty) -> let ty' = type_subst tyin ty in
                        if ty' == ty then tm else Const(c,ty')
-      | Quote(e,_)    -> tm
+      | Quote(_,_)    -> tm
+      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(f,x)   -> let f' = inst env tyin f and x' = inst env tyin x in
                        if f' == f && x' == x then tm else Comb(f',x')
       | Abs(y,t)    -> let y' = inst [] tyin y in
@@ -676,6 +680,20 @@ let rec type_subst i ty =
       |  Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),qtm) -> Sequent([],safe_mk_eq tm (Quote (qtm,type_of qtm)))
       |  _ -> failwith "QUOTE"
 
+  (*These conversion functions can be used on their own but mainly will be used to construct tactics. They will search through a term for the first applicable instance and return the result of applying
+  the relevant function to it*)
+
+  let rec QUOTE_CONV tm = match tm with
+    | Const(a,b) -> failwith "QUOTE_CONV"
+    | Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),_) -> QUOTE tm
+    | Comb(a,b) -> try QUOTE_CONV a with Failure _ -> try QUOTE_CONV b with Failure _ -> failwith "QUOTE_CONV"
+    | _ -> failwith "QUOTE_CONV"
+
+  let rec TERM_TO_CONSTRUCTION_CONV tm = match tm with
+    | Const(a,b) -> failwith "TERM_TO_CONSTRUCTION_CONV"
+    | Quote(_,_) -> TERM_TO_CONSTRUCTION tm
+    | Comb(a,b) -> try TERM_TO_CONSTRUCTION_CONV a with Failure _ -> try TERM_TO_CONSTRUCTION_CONV b with Failure _ -> failwith "TERM_TO_CONSTRUCTION_CONV"
+    | _ -> failwith "TERM_TO_CONSTRUCTION_CONV"
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)

@@ -94,11 +94,11 @@ let rec variants av vs =
 let variables =
   let rec vars(acc,tm) =
     if is_var tm then insert tm acc
-    else if is_const tm then acc
+    else if is_const tm || is_quote tm then acc
     else if is_abs tm then
       let v,bod = dest_abs tm in
       vars(insert v acc,bod)
-    else
+    else 
       let l,r = dest_comb tm in
       vars(vars(acc,l),r) in
   fun tm -> vars([],tm);;
@@ -112,7 +112,8 @@ let subst =
     if ilist = [] then tm else
     try fst (find ((aconv tm) o snd) ilist) with Failure _ ->
     match tm with
-      Comb(f,x) -> let f' = ssubst ilist f and x' = ssubst ilist x in
+    | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
+    | Comb(f,x) -> let f' = ssubst ilist f and x' = ssubst ilist x in
                    if f' == f && x' == x then tm else mk_comb(f',x')
     | Abs(v,bod) ->
           let ilist' = filter (not o (vfree_in v) o snd) ilist in
