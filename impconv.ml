@@ -262,7 +262,7 @@ let module Tset =
     let rec frees acc = function
       |Var _ as t -> insert acc t
       |Const _ -> acc
-      |Quote _ -> acc
+      |Quote (_,_) -> acc
       |Abs(v,b) -> remove (frees acc b) v
       |Comb(u,v) -> frees (frees acc u) v
     let freesl ts = itlist (C frees) ts empty
@@ -276,14 +276,14 @@ let module Type_annoted_term =
       |Const_ of string * hol_type * term
       |Comb_ of t * t * hol_type
       |Abs_ of t * t * hol_type
-      |Quote_ of t
+      |Quote_ of t * hol_type
 
     let type_of = function
       |Var_(_,ty) -> ty
       |Const_(_,ty,_) -> ty
       |Comb_(_,_,ty) -> ty
       |Abs_(_,_,ty) -> ty
-      |Quote_(_) -> mk_type("epsilon",[])
+      |Quote_(_,_) -> mk_type("epsilon",[])
 
     let rec of_term = function
       |Var(s,ty) -> Var_(s,ty)
@@ -294,7 +294,7 @@ let module Type_annoted_term =
       |Abs(x,b) ->
           let x' = of_term x and b' = of_term b in
           Abs_(x',b',mk_fun_ty (type_of x') (type_of b'))
-      |Quote(e) -> Quote_(of_term e)
+      |Quote(e,ty) -> Quote_(of_term e,ty)
 
     let rec equal t1 t2 =
       match t1,t2 with
@@ -302,6 +302,7 @@ let module Type_annoted_term =
       |Const_(s1,ty1,_),Const_(s2,ty2,_) -> s1 = s2 && ty1 = ty2
       |Comb_(u1,v1,_),Comb_(u2,v2,_) -> equal u1 u2 && equal v1 v2
       |Abs_(v1,b1,_),Abs_(v2,b2,_) -> equal v1 v2 && equal b1 b2
+      |Quote_(e1,ty1),Quote_(e2,ty2) -> equal e1 e2
       |_ -> false
 
     let rec to_term = function
@@ -309,16 +310,18 @@ let module Type_annoted_term =
       |Const_(_,_,t) -> t
       |Comb_(u,v,_) -> mk_comb(to_term u,to_term v)
       |Abs_(v,b,_) -> mk_abs(to_term v,to_term b)
-      |Quote_(e) -> mk_quote(to_term e)
+      |Quote_(e,ty) -> mk_quote(to_term e)
 
     let dummy = Var_("",aty)
 
     let rec find_term p t =
       if p t then t else
         match t with
+        |Quote_ _ -> failwith "Annot.find_term"
+        |Var_ _ -> failwith "Annot.find_term"
+        |Const_ _ -> failwith "Annot.find_term"
         |Abs_(_,b,_) -> find_term p b
         |Comb_(u,v,_) -> try find_term p u with Failure _ -> find_term p v
-        |_ -> failwith "Annot.find_term"
   end in
 
 let module Annot = Type_annoted_term in

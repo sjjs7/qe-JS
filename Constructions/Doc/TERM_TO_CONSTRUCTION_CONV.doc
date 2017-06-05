@@ -1,0 +1,29 @@
+\DOC TERM_TO_CONSTRUCTION_CONV
+
+\TYPE {TERM_TO_CONSTRUCTION_CONV : term -> thm}
+
+\SYNOPSIS
+Applies {TERM_TO_CONSTRUCTION} to the first applicable term it finds.
+
+\KEYWORDS
+quotation, equality, construction.
+
+\DESCRIBE
+{TERM_TO_CONSTRUCTION_CONV} descends down a term and maps the first instance of {`Q_ t _Q`} to the corresponding theorem {|- Q_ t _Q = EpsilonConstruction(t)} where {EpsilonConstruction} are elements of the {Epsilon} type that represent the syntax of {t}.
+
+\FAILURE
+Fails with {TERM_TO_CONSTRUCTION_CONV} if there are no quoted subexpressions inside the given term.
+
+\EXAMPLE
+{
+  # TERM_TO_CONSTRUCTION_CONV `Q_ F _Q = Q_ T _Q`;;
+  val it : thm = |- Q_ (F) _Q = QuoConst "F" (TyBase "bool")
+}
+
+\COMMENTS
+This can be used to apply the {TERM_TO_CONSTRUCTION} axiom on a given term without manually rewriting parts of the term. {TERM_TO_CONSTRUCTION} should still be used if control over which term is selected is desirable. 
+
+\SEEALSO
+TERM_TO_CONSTRUCTION_CONV, TERM_TO_CONSTRUCTION_TAC.
+
+\ENDDOC

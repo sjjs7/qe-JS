@@ -1,0 +1,20 @@
+\DOC mk_quote
+
+\TYPE {term -> term : epsilon}
+
+\SYNOPSIS
+Takes any term and applies the quotation operation to it
+
+\DESCRIBE
+The call {mk_quote e} contructs the expression {Quote(e,type_of e)}. 
+
+\FAILURE
+Never fails.
+
+\COMMENTS
+{mk_quote e} achieves the exact same result as if one directly entered {Q_ e _Q} as a term. 
+
+\SEEALSO
+QUOTE, TERM_TO_CONSTRUCTION, dest_quote, is_quote
+
+\ENDDOC

@@ -50,4 +50,3 @@ assert (subst [`2`,`x:num`] (`Q_ x + 3 _Q`) = `Q_ x + 3 _Q`);;
 
 assert (inst [`:num`,`:A`] (`_Q_ (x:A)`) = `_Q_ (x:A)`);;
 assert (inst [`:num`,`:A`] (`Q_ (x:A) _Q`) = `Q_ (x:A) _Q`);;
-

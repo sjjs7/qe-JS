@@ -1,0 +1,36 @@
+\DOC TERM_TO_CONSTRUCTION_TAC
+
+\TYPE {TERM_TO_CONSTRUCTION_TAC : tactic}
+
+\SYNOPSIS
+Rewrites the goal with the first possible application of TERM_TO_CONSTRUCTION.
+
+\KEYWORDS
+tactic, quotation, equality, construction.
+
+\DESCRIBE
+When applied to a goal {A ?- t}, where {Q_ t' _Q} is a subexpression of {t},
+{TERM_TO_CONSTRUCTION_TAC} rewrites this subexpression using the theorem obtained from {TERM_TO_CONSTRUCTION t'}.
+
+
+\FAILURE
+Will fail if a quoted term does not appear in {t}.
+
+\EXAMPLE
+{
+  # g(` Q_ T _Q = QuoConst "T" (TyBase "bool")`);;
+  val it : goalstack = 1 subgoal (1 total)
+
+  `Q_ (T) _Q = QuoConst "T" (TyBase "bool")`
+
+  # e(TERM_TO_CONSTRUCTION_TAC);;
+  val it : goalstack = 1 subgoal (1 total)
+
+  `QuoConst "T" (TyBase "bool") = QuoConst "T" (TyBase "bool")`
+
+}
+
+\SEEALSO
+TERM_TO_CONSTRUCTION_CONV, TERM_TO_CONSTRUCTION
+
+\ENDDOC

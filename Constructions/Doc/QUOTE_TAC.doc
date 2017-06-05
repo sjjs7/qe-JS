@@ -1,0 +1,37 @@
+\DOC QUOTE_TAC
+
+\TYPE {QUOTE_TAC : tactic}
+
+\SYNOPSIS
+Rewrites the goal with the first possible application of QUOTE.
+
+\KEYWORDS
+tactic, quotation, equality.
+
+\DESCRIBE
+When applied to a goal {A ?- t}, where {_Q_ t'} is a subexpression of {t},
+{QUOTE_TAC} rewrites this subexpression using the theorem obtained from {QUOTE t'}.
+
+
+\FAILURE
+Will fail if an application of `_Q_` does not appear in {t}.
+
+\EXAMPLE
+{
+  # g(`_Q_ (x + 3) = Q_ x + 3 _Q`);;
+	Warning: Free variables in goal: x
+	val it : goalstack = 1 subgoal (1 total)
+
+	`_Q_ (x + 3) = Q_ (x + 3) _Q`
+
+	# e(QUOTE_TAC);;
+	val it : goalstack = 1 subgoal (1 total)
+
+	`Q_ (x + 3) _Q = Q_ (x + 3) _Q`
+
+}
+
+\SEEALSO
+QUOTE_CONV, QUOTE
+
+\ENDDOC

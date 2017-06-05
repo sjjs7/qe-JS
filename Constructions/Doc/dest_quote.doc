@@ -1,0 +1,27 @@
+\DOC dest_quote
+
+\TYPE {dest_quote : term : epsilon -> term}
+
+\SYNOPSIS
+Takes the quotation operator off of a quoted term
+
+\DESCRIBE
+{dest_quote} is a term destructor for quotations:
+{
+   dest_quote `Q_ e _Q`
+}
+\noindent returns {e}.
+
+\FAILURE
+Fails with {dest_quote: not a quotation or type mismatch} if there is a type mismatch between the quoted term and what the quotation believes this term's type to be. This should not be a concern with well formed quotations. Also fails if the given term is not a quotation.
+
+\EXAMPLE
+{
+  # dest_quote `Q_ (x + 3) _Q`;;
+  val it : term = `x + 3`
+}
+
+\SEEALSO
+mk_quote,is_quote
+
+\ENDDOC

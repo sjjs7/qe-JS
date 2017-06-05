@@ -1,0 +1,35 @@
+\DOC QUOTE_CONV
+
+\TYPE {QUOTE_CONV : term -> thm}
+
+\SYNOPSIS
+Applies {QUOTE} to the first applicable term it finds.
+
+\KEYWORDS
+quotation, equality.
+
+\DESCRIBE
+{QUOTE_CONV} descends down a term and maps the first instance of {`_Q_ t`} to the corresponding theorem {|- _Q_ t = Q_ t _Q}.
+
+\FAILURE
+Fails with {QUOTE_CONV} if there is no application of the {_Q_} operator in the given term
+
+\EXAMPLE
+{
+  # QUOTE_CONV `_Q_ 2`;;
+  val it : thm = |- _Q_ 2 = Q_ (2) _Q
+  
+  # QUOTE_CONV `_Q_ (x + 3) = _Q_ (x + 2)`;;
+  val it : thm = |- _Q_ (x + 3) = Q_ (x + 3) _Q
+
+  # QUOTE_CONV `1 + 2 = 3`;;
+  Exception: Failure "QUOTE_CONV".
+}
+
+\COMMENTS
+This can be used to apply the {QUOTE} axiom on a given term without manually rewriting parts of the term. {QUOTE} should still be used if control over which term is selected is desirable. 
+
+\SEEALSO
+QUOTE_CONV, QUOTE_TAC.
+
+\ENDDOC

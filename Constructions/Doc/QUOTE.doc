@@ -1,0 +1,32 @@
+\DOC QUOTE
+
+\TYPE {QUOTE : term -> thm}
+
+\SYNOPSIS
+Returns theorem asserting that the _Q_ constant prefixed before a term is equivelant to that term in it's quoted forum.
+
+\KEYWORDS
+quotation, equality.
+
+\DESCRIBE
+{QUOTE} maps any term {`_Q_ t`} to the corresponding theorem {|- _Q_ t = Q_ t _Q}.
+
+\FAILURE
+Fails if the given term is not an application of the _Q_ operator.
+
+\EXAMPLE
+{
+  # QUOTE `_Q_ 2`;;
+  val it : thm = |- _Q_ 2 = Q_ (2) _Q
+  
+  # QUOTE `_Q_ (x + 3)`;;
+  val it : thm = |- _Q_ (x + 3) = Q_ (x + 3) _Q
+}
+
+\COMMENTS
+This can be used to translate quotations back and forth between {_Q_} which does not use the Quote term, and {Q_ _Q} which does use the Quote term. 
+
+\SEEALSO
+QUOTE_CONV, QUOTE_TAC.
+
+\ENDDOC
