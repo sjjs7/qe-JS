@@ -45,7 +45,7 @@ let enter =
                  else bod in
       Lnet(length args),bod'::args
     else if mem op lconsts then Lcnet(fst(dest_var op),length args),args
-    else if is_quote op then (Qnet (type_of (dest_quote op))) ,args
+    else if is_quote op then (Qnet (type_of (fst (dest_quote op)))) ,args
     else Vnet,[] in
   let canon_eq x y =
     try Pervasives.compare x y = 0 with Invalid_argument _ -> false
@@ -79,7 +79,7 @@ let lookup =
     let op,args = strip_comb tm in
     if is_const op then Cnet(fst(dest_const op),length args),args
     else if is_abs op then Lnet(length args),(body op)::args
-    else if is_quote op then (Qnet (type_of (dest_quote op))),args
+    else if is_quote op then (Qnet (type_of (fst (dest_quote op)))),args
     else Lcnet(fst(dest_var op),length args),args in
   let rec follow (tms,Netnode(edges,tips)) =
     match tms with

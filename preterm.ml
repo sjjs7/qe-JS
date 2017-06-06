@@ -68,7 +68,7 @@ let prioritize_overload ty =
   do_list
    (fun (s,gty) ->
       try let _,(n,t) = find
-            (fun (s',(n,t)) -> s' = s && mem ty (map fst (type_match gty t [])))
+            (fun (s',(n,t)) -> s' = s && mem ty (List.map fst (type_match gty t [])))
             (!the_interface) in
           overload_interface(s,mk_var(n,t))
       with Failure _ -> ())
@@ -130,7 +130,7 @@ type preterm = Varp of string * pretype       (* Variable           - v      *)
              | Constp of string * pretype     (* Constant           - c      *)
              | Combp of preterm * preterm     (* Combination        - f x    *)
              | Absp of preterm * preterm      (* Lambda-abstraction - \x. t  *)
-             | Quotep of preterm              (* Quotation                   *)
+             | Quotep of preterm * (hol_type * preterm) list (* Quotation    *)
              | Typing of preterm * pretype;;  (* Type constraint    - t : ty *)
 
 (* ------------------------------------------------------------------------- *)
@@ -150,8 +150,8 @@ let rec preterm_of_term tm =
       let l,r = dest_comb tm in
       Combp(preterm_of_term l,preterm_of_term r)
   with Failure _ ->
-      let l = dest_quote tm in
-      Quotep(preterm_of_term l);;
+      let l,h = dest_quote tm in
+      Quotep(preterm_of_term l,map (fun a -> (fst a, preterm_of_term (snd a))) h);;
 
 (* ------------------------------------------------------------------------- *)
 (* Main pretype->type, preterm->term and retypechecking functions.           *)
@@ -255,7 +255,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       |Combp(l,r) -> mk_comb(untyped_t_of_pt l,untyped_t_of_pt r)
       |Absp(v,bod) -> mk_gabs(untyped_t_of_pt v,untyped_t_of_pt bod)
       |Typing(ptm,pty) -> untyped_t_of_pt ptm
-      |Quotep(e) -> mk_quote(untyped_t_of_pt e)
+      |Quotep(e,h) -> mk_quote((untyped_t_of_pt e),List.map (fun a -> (fst a, untyped_t_of_pt (snd a))) h)
     in
     string_of_term o untyped_t_of_pt
   in
@@ -367,10 +367,10 @@ let type_of_pretype,term_of_preterm,retypecheck =
         in
         let bod',venv2,uenv2 = typify ty'' (bod,venv1@venv,uenv1) in
         Absp(v',bod'),venv2,uenv2
-    |Quotep(a) -> let ty' = new_type_var() in
+    |Quotep(a,h) -> let ty' = new_type_var() in
       let uenv' = itlist I [stripStvNum ty |-> Ptycon("epsilon",[])] uenv in (*Define Quotep's Stv as an epsilon type*)
       let f,venv1, uenv1 = typify ty' (a,venv,uenv') in
-      Quotep(f), venv1, uenv1
+      Quotep(f,h), venv1, uenv1
     |_ -> failwith "typify: unexpected constant at this stage"
   in
 
@@ -383,7 +383,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       Combp(f,x) -> resolve_interface f (resolve_interface x cont) env
     | Absp(v,bod) -> resolve_interface v (resolve_interface bod cont) env
     | Varp(_,_) -> cont env
-    | Quotep(a) -> resolve_interface a cont env
+    | Quotep(a,h) -> resolve_interface a cont env
     | Constp(s,ty) ->
           let maps = filter (fun (s',_) -> s' = s) (!the_interface) in
           if maps = [] then cont env else
@@ -401,7 +401,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       Varp(s,ty) -> Varp(s,solve env ty)
     | Combp(f,x) -> Combp(solve_preterm env f,solve_preterm env x)
     | Absp(v,bod) -> Absp(solve_preterm env v,solve_preterm env bod)
-    | Quotep(a) -> Quotep(solve_preterm env a)
+    | Quotep(a,h) -> Quotep(solve_preterm env a, List.map (fun a -> (fst a, solve_preterm env (snd a))) h)
     | Constp(s,ty) -> let tys = solve env ty in
           try let _,(c',_) = find
                 (fun (s',(c',ty')) ->
@@ -440,7 +440,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       | Constp(s,pty) -> mk_mconst(s,type_of_pretype pty)
       | Combp(l,r) -> mk_comb(term_of_preterm l,term_of_preterm r)
       | Absp(v,bod) -> mk_gabs(term_of_preterm v,term_of_preterm bod)
-      | Quotep(a) -> mk_quote(term_of_preterm a)
+      | Quotep(a,h) -> mk_quote(term_of_preterm a, List.map (fun a -> (fst a, term_of_preterm (snd a))) h)
       | Typing(ptm,pty) -> term_of_preterm ptm in
     let report_type_invention () =
       if !stvs_translated then

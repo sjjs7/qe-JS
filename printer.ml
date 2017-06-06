@@ -47,7 +47,7 @@ let reserve_words,unreserve_words,is_reserved_word,reserved_words =
   let reswords = ref ["(";  ")"; "[";   "]";  "{";   "}";
                       ":";  ";";  ".";  "|";
                       "let"; "in"; "and"; "if"; "then"; "else";
-                      "match"; "with"; "function"; "->"; "when"; "Q_" ; "_Q"] in
+                      "match"; "with"; "function"; "->"; "when"; "Q_" ; "_Q" ; "H_" ; "_H"] in
   (fun ns  -> reswords := union (!reswords) ns),
   (fun ns  -> reswords := subtract (!reswords) ns),
   (fun n  -> mem n (!reswords)),
@@ -546,7 +546,7 @@ let string_of_thm = print_to_string pp_print_thm;;
 (*Configures the term printer to print out quoted terms (for now, they will be wrapped in Q_ _Q*)
 (*This doesn't clear up the epsilon term's AST format, it just enables the terms to be printed at all since Quote breaks the default printer*)
 let print_quoted fmt tm = 
-  let e = dest_quote tm in
+  let e,_ = dest_quote tm in
   pp_print_string fmt ("Q_ (" ^ string_of_term e ^ ") _Q");;
 
 install_user_printer("print_quoted",print_quoted);;
