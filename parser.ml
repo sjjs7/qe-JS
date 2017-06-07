@@ -176,7 +176,6 @@ let lex =
 (*                                                                           *)
 (*  o Antiquotation is not supported.                                        *)
 (* ------------------------------------------------------------------------- *)
-
 let parse_pretype =
   let btyop n n' x y = Ptycon(n,[x;y])
   and mk_apptype =
@@ -365,7 +364,8 @@ let parse_preterm =
   and lmk_binder ((((s,h),t),_),p) = pmk_binder(s,h::t,p)
   and lmk_setenum(l,_) = pmk_set_enum l
   and lmk_setabs(((l,_),r),_) = pmk_setabs(l,r)
-  and lmk_quote (_,preterm),_ = Quotep(preterm,[]) (*Todo: Parse holes*)
+  and lmk_quote (_,preterm),_ = Quotep(preterm,[])
+  and lmk_hole (_,preterm),_ =  Holep(preterm,Utv "match")
   and lmk_setcompr(((((f,_),vs),_),b),_) =
      pmk_setcompr(f,pfrees vs [],b)
   and lmk_decimal ((_,l0),ropt) =
@@ -472,9 +472,10 @@ let parse_preterm =
        >> lmk_decimal)
 
   (*Enable parsing support for inputting quotations directly in the form of Q_ <term> _Q*)
-  ||| (a (Resword "Q_") ++ preterm ++ many (a (Resword "H_") ++ preterm ++ a (Resword "_H") ++ preterm) ++ preterm ++ a (Resword "_Q")
+  ||| (a (Resword "Q_") ++ preterm ++ a (Resword "_Q")
       >> lmk_quote)
-
+  ||| (a (Resword "H_") ++ preterm ++ a (Resword "_H")
+      >> lmk_hole)
   ||| (identifier >> (fun s -> Varp(s,dpty)))) i
   and pattern i =
     (preterm ++ possibly (a (Resword "when") ++ preterm >> snd)) i

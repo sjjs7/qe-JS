@@ -93,6 +93,10 @@ module type Hol_kernel =
       val new_basic_definition : term -> thm
       val new_basic_type_definition :
               string -> string * string -> thm -> thm * thm
+      val hole_lookup : (hol_type * term) list ref
+      val match_hole : hol_type -> (hol_type * term) list -> term
+      val add_hole_def : hol_type -> term -> (hol_type * term) list -> unit
+      val modify_hole_def : hol_type -> term -> (hol_type * term) list -> (hol_type * term) list -> unit
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -218,7 +222,23 @@ let rec type_subst i ty =
 (* ------------------------------------------------------------------------- *)
 
   let the_term_constants =
-     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])])]
+     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])]);"HOLE",Tyvar "match"]
+
+  let hole_lookup = ref [];;
+
+  let rec match_hole ty l = match l with
+    | a :: rest -> if (fst a) = ty then (snd a) else match_hole ty rest
+    | [] -> failwith "Undefined hole" 
+
+  let rec add_hole_def ty tm l = match l with
+    | a :: rest -> if ty <> (fst a) then add_hole_def ty tm rest else failwith "Cannot add two definitions for a single hole"
+    | [] -> let () = hole_lookup := List.append !hole_lookup [(ty,tm)] in ();;
+
+  let rec modify_hole_def ty tm l past = match l with
+    | a :: rest -> if ty <> (fst a) then modify_hole_def ty tm rest (a :: past) else let () = hole_lookup := (List.append ((ty,tm) :: past) rest) in ()
+    | [] -> failwith "Undefined hole";;
+
+
 
 (* ------------------------------------------------------------------------- *)
 (* Return all the defined constants with generic types.                      *)
@@ -248,6 +268,7 @@ let rec type_subst i ty =
   let rec type_of tm =
     match tm with
       Var(_,ty) -> ty
+    | Const("HOLE",ty) -> type_of (match_hole ty !hole_lookup)  
     | Const(_,ty) -> ty
     | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty)
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
