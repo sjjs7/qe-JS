@@ -130,7 +130,7 @@ type preterm = Varp of string * pretype       (* Variable           - v      *)
              | Constp of string * pretype     (* Constant           - c      *)
              | Combp of preterm * preterm     (* Combination        - f x    *)
              | Absp of preterm * preterm      (* Lambda-abstraction - \x. t  *)
-             | Quotep of preterm * (hol_type * preterm) list (* Quotation    *)
+             | Quotep of preterm * (hol_type) list (* Quotation    *)
              | Holep of preterm  * pretype    (* Stores holes from parser    *)
              | Typing of preterm * pretype;;  (* Type constraint    - t : ty *)
 
@@ -152,7 +152,7 @@ let rec preterm_of_term tm =
       Combp(preterm_of_term l,preterm_of_term r)
   with Failure _ ->
       let l,h = dest_quote tm in
-      Quotep(preterm_of_term l,map (fun a -> (fst a, preterm_of_term (snd a))) h);;
+      Quotep(preterm_of_term l,h);;
 
 (* ------------------------------------------------------------------------- *)
 (* Main pretype->type, preterm->term and retypechecking functions.           *)
@@ -160,7 +160,7 @@ let rec preterm_of_term tm =
 
 let type_of_pretype,term_of_preterm,retypecheck =
   let tyv_num = ref 0 in
-  let new_type_var() = let n = !tyv_num in (tyv_num := n + 1; Stv(n)) in
+  let new_type_var() = let n = getTyv() in (Stv(n)) in
 
   let pmk_cv(s,pty) =
     if can get_const_type s then Constp(s,pty)
@@ -256,7 +256,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       |Combp(l,r) -> mk_comb(untyped_t_of_pt l,untyped_t_of_pt r)
       |Absp(v,bod) -> mk_gabs(untyped_t_of_pt v,untyped_t_of_pt bod)
       |Typing(ptm,pty) -> untyped_t_of_pt ptm
-      |Quotep(e,h) -> mk_quote((untyped_t_of_pt e),List.map (fun a -> (fst a, untyped_t_of_pt (snd a))) h)
+      |Quotep(e,h) -> mk_quote((untyped_t_of_pt e),h)
     in
     string_of_term o untyped_t_of_pt
   in
@@ -406,7 +406,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       Varp(s,ty) -> Varp(s,solve env ty)
     | Combp(f,x) -> Combp(solve_preterm env f,solve_preterm env x)
     | Absp(v,bod) -> Absp(solve_preterm env v,solve_preterm env bod)
-    | Quotep(a,h) -> Quotep(solve_preterm env a, List.map (fun a -> (fst a, solve_preterm env (snd a))) h)
+    | Quotep(a,h) -> Quotep(solve_preterm env a, h)
     | Holep(a,t) -> Holep(solve_preterm env a,t)
     | Constp(s,ty) -> let tys = solve env ty in
           try let _,(c',_) = find
@@ -439,7 +439,6 @@ let type_of_pretype,term_of_preterm,retypecheck =
   (* Maps preterms to terms.                                                 *)
   (* ----------------------------------------------------------------------- *)
 
-
   let term_of_preterm =
     let rec term_of_preterm ptm =
 
@@ -455,7 +454,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       | Combp(l,r) -> mk_comb(term_of_preterm l,term_of_preterm r)
       | Absp(v,bod) -> mk_gabs(term_of_preterm v,term_of_preterm bod)
       | Quotep(a,h) -> let swaps = solveHoles a in let global = map (fun a -> add_hole_def (fst a) (snd a) !hole_lookup) swaps in
-                        mk_quote(term_of_preterm a, List.append (List.map (fun a -> (fst a, term_of_preterm (snd a))) h) (swaps))
+                        mk_quote(term_of_preterm a, List.append (h) (List.map (fun a -> fst a) swaps))
       | Holep(a,t) -> mk_mconst("HOLE",mk_vartype("?"^(string_of_int (stripStvNum t))))
       | Typing(ptm,pty) -> term_of_preterm ptm in
     let report_type_invention () =
