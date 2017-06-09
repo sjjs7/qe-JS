@@ -100,6 +100,7 @@ module type Hol_kernel =
       val match_type : term -> (hol_type * term) list -> (hol_type list)
       val HOLE_CONV : term -> thm -> unit
       val getTyv : unit -> int
+      val HOLE_THM_CONV : term -> thm -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -495,6 +496,15 @@ let rec type_subst i ty =
 (* Useful to have term union modulo alpha-conversion for assumption lists.   *)
 (* ------------------------------------------------------------------------- *)
 
+  (*Attempts to look up the thm's hole resolutions, *)
+  let rec checkHole tm1 tm2 =
+  let ty1 = snd (dest_const (tm1)) in
+  let ty2 = snd (dest_const (tm2)) in
+  let res1 = match_hole ty1 !hole_lookup in
+  let res2 = match_hole ty2 !hole_lookup in
+  Pervasives.compare res1 res2;;
+
+
   let rec ordav env x1 x2 =
     match env with
       [] -> Pervasives.compare x1 x2
@@ -508,7 +518,7 @@ let rec type_subst i ty =
     if tm1 == tm2 && forall (fun (x,y) -> x = y) env then 0 else
     match (tm1,tm2) with
       Var(x1,ty1),Var(x2,ty2) -> ordav env tm1 tm2
-    | Const(x1,ty1),Const(x2,ty2) -> Pervasives.compare tm1 tm2
+    | Const(x1,ty1),Const(x2,ty2) -> if x1 = "HOLE" && x2 = "HOLE" then checkHole tm1 tm2 else Pervasives.compare tm1 tm2
     | Comb(s1,t1),Comb(s2,t2) ->
           let c = orda env s1 s2 in if c <> 0 then c else orda env t1 t2
     | Abs(Var(_,ty1) as x1,t1),Abs(Var(_,ty2) as x2,t2) ->
@@ -705,7 +715,7 @@ let rec type_subst i ty =
       |  _ -> failwith "Malformed term cannot be made into a construction"
 
   let TERM_TO_CONSTRUCTION tm = match tm with
-      |  Quote(exp,t,[]) when type_of exp = t -> Sequent([],safe_mk_eq tm (termToConstruction exp))
+      |  Quote(exp,t,h) when type_of exp = t -> Sequent([],safe_mk_eq tm (termToConstruction exp))
       |  Quote(_,_,_) -> failwith "TERM_TO_CONSTRUCTION: BAD QUOTE"
       | _ -> failwith "TERM_TO_CONSTRUCTION"
   
@@ -741,12 +751,25 @@ let rec type_subst i ty =
     let matches = List.filter (fun a -> mem a locals) (match_type (fst (dest_eq (concl tm))) !hole_lookup) in
     replace_thm (fst (dest_eq (concl tm))) (snd (dest_eq (concl tm))) matches
 
-    (*
+  let rec twoListsToPairs l1 l2 = 
+    let () = assert (List.length l1 = List.length l2) in
+      match l1 with 
+        | a :: rest -> (List.hd l1, List.hd l2) :: (twoListsToPairs (List.tl l1) (List.tl l2))
+        | [] -> [];; 
 
-  WIP - commented out so latest version keeps working
+  let rec lookupReplacementType t1 l = match l with
+    | a :: rest -> if (fst a) = t1 then snd a else lookupReplacementType t1 rest
+    | [] -> failwith "Could not find match for type";;
+
+  let rec mkUpdatedQuote expr updates = match expr with
+    | Quote (a,ty,h) -> Quote (a,ty,h)
+    | Var (a,ty) -> Var (a,ty)
+    | Comb(l,r) -> Comb(mkUpdatedQuote l updates, mkUpdatedQuote r updates)
+    | Abs(l,r) -> Abs(mkUpdatedQuote l updates, mkUpdatedQuote r updates)   
+    | Const(a,ty) -> Const(a, (lookupReplacementType ty updates));;
 
   (*For making a theorem out of hole conversion*)
-  let HOLE_THM_CONV quote tm = 
+  let HOLE_THM_CONV quote (tm:thm) = 
     (*Need to take apart the given quote*)
     let e,tys = dest_quote quote in
     (*Assign new types to the new HOLE constants*)
@@ -755,11 +778,16 @@ let rec type_subst i ty =
      let () = add_hole_def newvar (match_hole a !hole_lookup) !hole_lookup in
      newvar
      ) tys in
-     (*Create new quotation - TODO: Map old constant types to new constant types*)
-     let newQuote = mk_quote e,newL in
-     ()
+    let consMapping = twoListsToPairs tys newL in
+    (*Create new quotation*)
+    let newquo = mk_quote(mkUpdatedQuote e consMapping,newL) in
+    (*Overwrite the cloned type variables with the applied theorem*)
+    let () = HOLE_CONV newquo tm in 
+    (*Generate and return theorem*)
+    Sequent([],safe_mk_eq quote newquo)
+     
+     
 
-   *)
 
 
 (* ------------------------------------------------------------------------- *)
