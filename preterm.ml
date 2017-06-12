@@ -130,7 +130,7 @@ type preterm = Varp of string * pretype       (* Variable           - v      *)
              | Constp of string * pretype     (* Constant           - c      *)
              | Combp of preterm * preterm     (* Combination        - f x    *)
              | Absp of preterm * preterm      (* Lambda-abstraction - \x. t  *)
-             | Quotep of preterm * (hol_type) list (* Quotation    *)
+             | Quotep of preterm * (hol_type) list (* Quotation              *)
              | Holep of preterm  * pretype    (* Stores holes from parser    *)
              | Typing of preterm * pretype;;  (* Type constraint    - t : ty *)
 
@@ -455,7 +455,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       | Absp(v,bod) -> mk_gabs(term_of_preterm v,term_of_preterm bod)
       | Quotep(a,h) -> let swaps = solveHoles a in let global = map (fun a -> add_hole_def (fst a) (snd a) !hole_lookup) swaps in
                         mk_quote(term_of_preterm a, List.append (h) (List.map (fun a -> fst a) swaps))
-      | Holep(a,t) -> mk_mconst("HOLE",mk_vartype("?"^(string_of_int (stripStvNum t))))
+      | Holep(a,t) ->  if type_of (term_of_preterm a) = mk_type("epsilon",[]) then mk_mconst("HOLE",mk_vartype("?"^(string_of_int (stripStvNum t)))) else failwith "Holed term is not of type epsilon"
       | Typing(ptm,pty) -> term_of_preterm ptm in
     let report_type_invention () =
       if !stvs_translated then

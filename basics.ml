@@ -161,7 +161,7 @@ let mk_mconst(c,ty) =
   try let uty = get_const_type c in
       let mat = type_match uty ty [] in
       let con = mk_const(c,mat) in
-      if type_of con = ty or c = "HOLE" && type_of con = type_of (match_hole ty !hole_lookup) then con else fail()
+      if type_of con = ty or c = "HOLE" then con else fail()
   with Failure _ -> failwith "mk_const: generic type cannot be instantiated";;
 
 (* ------------------------------------------------------------------------- *)

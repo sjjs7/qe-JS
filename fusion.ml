@@ -101,6 +101,7 @@ module type Hol_kernel =
       val HOLE_CONV : term -> thm -> unit
       val getTyv : unit -> int
       val HOLE_THM_CONV : term -> thm -> thm
+      val HOLE_THM_CONV_FIND : term -> thm -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -281,7 +282,7 @@ let rec type_subst i ty =
   let rec type_of tm =
     match tm with
       Var(_,ty) -> ty
-    | Const("HOLE",ty) -> type_of (match_hole ty !hole_lookup)  
+    | Const("HOLE",ty) -> (match (match_hole ty !hole_lookup) with Quote(e,t,h) -> t | _ -> failwith "Invalid hole")
     | Const(_,ty) -> ty
     | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty)
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
@@ -768,8 +769,9 @@ let rec type_subst i ty =
     | Abs(l,r) -> Abs(mkUpdatedQuote l updates, mkUpdatedQuote r updates)   
     | Const(a,ty) -> Const(a, (lookupReplacementType ty updates));;
 
-  (*For making a theorem out of hole conversion*)
+  (*For making a theorem out of hole conversion - CURRENTLY BUGGY, NEEDS FIXING*)
   let HOLE_THM_CONV quote (tm:thm) = 
+    if type_of (rand (rator (concl tm))) = mk_type("epsilon",[]) && type_of (rand (concl tm)) = mk_type("epsilon",[]) then
     (*Need to take apart the given quote*)
     let e,tys = dest_quote quote in
     (*Assign new types to the new HOLE constants*)
@@ -785,7 +787,15 @@ let rec type_subst i ty =
     let () = HOLE_CONV newquo tm in 
     (*Generate and return theorem*)
     Sequent([],safe_mk_eq quote newquo)
+  else failwith "HOLE_THM_CONV: THEOREM MUST EQUATE TWO EPSILON TERMS"
      
+  (*In development, not yet working*)  
+  let rec HOLE_THM_CONV_FIND trm (tm:thm) = if type_of (rand (rator (concl tm))) = mk_type("epsilon",[]) && type_of (rand (concl tm)) = mk_type("epsilon",[]) then
+    (match trm with
+    | Quote(e,t,h) -> HOLE_THM_CONV trm tm
+    | Comb(l,r) -> try (HOLE_THM_CONV_FIND l tm) with Failure _ -> HOLE_THM_CONV_FIND r tm
+    | _ -> failwith "HOLE_THM_CONV_FIND")
+  else failwith "HOLE_THM_CONV_FIND: THEOREM MUST EQUATE TWO EPSILON TERMS"
      
 
 

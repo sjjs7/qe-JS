@@ -365,7 +365,7 @@ let parse_preterm =
   and lmk_setenum(l,_) = pmk_set_enum l
   and lmk_setabs(((l,_),r),_) = pmk_setabs(l,r)
   and lmk_quote (_,preterm),_ = Quotep(preterm,[])
-  and lmk_hole (_,preterm),_ =  Holep(preterm,Utv "match")
+  and lmk_hole (_,preterm),_ =  Holep(preterm,Utv "match") 
   and lmk_setcompr(((((f,_),vs),_),b),_) =
      pmk_setcompr(f,pfrees vs [],b)
   and lmk_decimal ((_,l0),ropt) =

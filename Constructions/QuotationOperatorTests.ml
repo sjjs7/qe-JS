@@ -50,3 +50,15 @@ assert (subst [`2`,`x:num`] (`Q_ x + 3 _Q`) = `Q_ x + 3 _Q`);;
 
 assert (inst [`:num`,`:A`] (`_Q_ (x:A)`) = `_Q_ (x:A)`);;
 assert (inst [`:num`,`:A`] (`Q_ (x:A) _Q`) = `Q_ (x:A) _Q`);;
+
+(*Tests that hole terms can be created*)
+`Q_ H_ Q_ x + 3 _Q _H _Q`;;
+
+(*Tests that hole terms not of type epsilon cannot be created*)
+try `Q_ H_ x + 3 _H _Q` with Failure _ -> `HOLE_EPSILON_TEST_SUCCESS:unit`;;
+
+(*Tests that holes can be created and combined with non-hole terms*)
+`Q_ H_ Q_ x + 3 _Q _H + 2 _Q`;
+
+(*Tests that mistypes are still not allowed*)
+try `Q_ H_ Q_ x + 3 _Q _H /\ T _Q` with Failure _ -> `HOLE_MISTYPE_TEST_SUCCESS:unit`;;
