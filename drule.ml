@@ -9,6 +9,19 @@
 
 needs "bool.ml";;
 
+  (*This function will be used for pmatch since basic comparisons do not properly handle holes*)
+  (*Todo: Make this private once it's debugged*)
+  let rec compQuotedTerm t1 t2 = 
+    match t1,t2 with
+      | Const(a,b),Const(c,d) -> if a = "HOLE" then
+          c = "HOLE" && compQuotedTerm (match_hole b !hole_lookup) (match_hole d !hole_lookup)
+      else a = c && b = d
+      | Var(a,b),Var(c,d) -> a = c && b = d
+      | Comb(l1,r1),Comb(l2,r2) -> compQuotedTerm l1 l2 && compQuotedTerm r1 r2
+      | Abs(v1,t1),Abs(v2,t2) -> compQuotedTerm v1 v2 && compQuotedTerm t1 t2
+      | Quote(e1,t1,h1),Quote(e2,t2,h2) -> compQuotedTerm e1 e2
+      | _ -> false;;
+
 (* ------------------------------------------------------------------------- *)
 (* Type of instantiations, with terms, types and higher-order data.          *)
 (* ------------------------------------------------------------------------- *)
@@ -176,6 +189,8 @@ let (term_match:term list -> term -> term -> instantiation) =
     let name = fst(dest_var(genvar aty)) in
     fun ty -> mk_var(name,ty) in
 
+
+
   let rec term_pmatch lconsts env vtm ctm ((insts,homs) as sofar) =
     match (vtm,ctm) with
       Var(_,_),_ ->
@@ -196,7 +211,7 @@ let (term_match:term list -> term -> term -> instantiation) =
         let sofar' = safe_insert
           (mk_dummy(snd(dest_var cv)),mk_dummy(snd(dest_var vv))) insts,homs in
         term_pmatch lconsts ((cv,vv)::env) vbod cbod sofar'
-    | Quote(e,t,h),Quote(e2,t2,h2) -> if Pervasives.compare e e2 = 0 && Pervasives.compare t t2 = 0 && Pervasives.compare h h2 = 0 then sofar else failwith "term_pmatch" 
+    | Quote(e,t,h),Quote(e2,t2,h2) -> if compQuotedTerm e e2 then sofar else failwith "term_pmatch" 
     | _ ->
       let vhop = repeat rator vtm in
       if is_var vhop && not (mem vhop lconsts) &&

@@ -65,6 +65,7 @@ module type Hol_kernel =
       val type_vars_in_term : term -> hol_type list
       val variant : term list -> term -> term
       val vsubst : (term * term) list -> term -> term
+      val qsubst : (term * term) list -> term -> term
       val inst : (hol_type * hol_type) list -> term -> term
       val rand: term -> term
       val rator: term -> term
@@ -282,7 +283,7 @@ let rec type_subst i ty =
   let rec type_of tm =
     match tm with
       Var(_,ty) -> ty
-    | Const("HOLE",ty) -> (match (match_hole ty !hole_lookup) with Quote(e,t,h) -> t | _ -> failwith "Invalid hole")
+    | Const("HOLE",ty) -> (match (match_hole ty !hole_lookup) with Quote(e,t,h) -> t | _ -> type_of (match_hole ty !hole_lookup))
     | Const(_,ty) -> ty
     | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty)
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
@@ -410,13 +411,43 @@ let rec type_subst i ty =
 (* ------------------------------------------------------------------------- *)
 (* Substitution primitive (substitution for variables only!)                 *)
 (* ------------------------------------------------------------------------- *)
+  
+      (*Function to handle substitutions in holes in quotations*)
+  let rec qsubst ilist tm =
 
-  let vsubst =
     let rec vsubst ilist tm =
       match tm with
-        Var(_,_) -> rev_assocd tm ilist tm
+      | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
       | Quote(_,_,_) -> tm
+      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
+      | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
+                     if s' == s && t' == t then tm else Comb(s',t')
+      | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
+                    if ilist' = [] then tm else
+                    let s' = vsubst ilist' s in
+                    if s' == s then tm else
+                    if exists (fun (t,x) -> vfree_in v t && vfree_in x s) ilist'
+                    then let v' = variant [s'] v in
+                         Abs(v',vsubst ((v',v)::ilist') s)
+                    else Abs(v,s') in
+    match tm with
+    | Quote(e,ty,h) -> Quote(qsubst ilist e,ty,h)
+    | Comb(s,t) -> let s' = qsubst ilist s and t' = qsubst ilist t in
+                     if s' == s && t' == t then tm else Comb(s',t')
+    | Const("HOLE",ty) -> let h' = vsubst ilist (match_hole ty !hole_lookup) in
+                          let nt = mk_vartype ("?" ^ string_of_int (getTyv ())) in
+                          let () = add_hole_def nt h' !hole_lookup in
+                          Const("HOLE",nt)
+    | _ -> tm 
+
+  let vsubst =
+
+    let rec vsubst ilist tm =
+      match tm with
+      | Var(_,_) -> rev_assocd tm ilist tm
+      | Const(_,_) -> tm
+      | Quote(e,ty,h) -> Quote(qsubst ilist e,ty,h)
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')

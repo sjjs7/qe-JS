@@ -62,3 +62,9 @@ try `Q_ H_ x + 3 _H _Q` with Failure _ -> `HOLE_EPSILON_TEST_SUCCESS:unit`;;
 
 (*Tests that mistypes are still not allowed*)
 try `Q_ H_ Q_ x + 3 _Q _H /\ T _Q` with Failure _ -> `HOLE_MISTYPE_TEST_SUCCESS:unit`;;
+
+(*For testing, defines a function that takes an integer and recursively adds quotations until n is 0*)
+let testFun = define `
+	(testFun 0 = Q_ 0 _Q) /\
+	(testFun (n + 1) = (Q_ H_ testFun(n) _H _Q))
+`;;
