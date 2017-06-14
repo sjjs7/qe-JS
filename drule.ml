@@ -17,6 +17,7 @@ needs "bool.ml";;
           c = "HOLE" && compQuotedTerm (match_hole b !hole_lookup) (match_hole d !hole_lookup)
       else a = c && b = d
       | Var(a,b),Var(c,d) -> a = c && b = d
+      | Comb(Var(a,Tyapp("fun",f1)),Var(c,d)),Comb(Var(e,Tyapp("fun",f2)),Var(g,h)) -> a = e && f1 = f2 
       | Comb(l1,r1),Comb(l2,r2) -> compQuotedTerm l1 l2 && compQuotedTerm r1 r2
       | Abs(v1,t1),Abs(v2,t2) -> compQuotedTerm v1 v2 && compQuotedTerm t1 t2
       | Quote(e1,t1,h1),Quote(e2,t2,h2) -> compQuotedTerm e1 e2

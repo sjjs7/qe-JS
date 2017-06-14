@@ -227,6 +227,7 @@ let rec type_subst i ty =
 (* operator is added. All other new constants are defined.                   *)
 (* ------------------------------------------------------------------------- *)
 
+
   let the_term_constants =
      ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])]);"HOLE",Tyvar "match"]
 
@@ -235,6 +236,15 @@ let rec type_subst i ty =
   let rec match_hole ty l = match l with
     | a :: rest -> if (fst a) = ty then (snd a) else match_hole ty rest
     | [] -> failwith "Undefined hole" 
+
+  (*Check if two quotes are equal for use in match_type*)
+  let rec isQuoteSame tm tm2 = match tm,tm2 with
+    | Quote(e1,t,h),Quote(e2,t2,h2) -> isQuoteSame e1 e2
+    | Comb(l,r),Comb(l2,r2) -> isQuoteSame l l2 && isQuoteSame r r2
+    | Var(a,b),Var(c,d) -> a = c && b = d
+    | Abs(a,b),Abs(c,d) -> a = c && b = d
+    | Const(a,b),Const(c,d) -> if a = "HOLE" then c = "HOLE" && (match_hole b !hole_lookup) = (match_hole d !hole_lookup) else a = c && b = d
+    | _ -> false
 
   let rec add_hole_def ty tm l = match l with
     | a :: rest -> if ty <> (fst a) then add_hole_def ty tm rest else failwith "Cannot add two definitions for a single hole"
@@ -247,7 +257,7 @@ let rec type_subst i ty =
   (*Given a term, returns list of all types matching that term. *)
 
   let rec match_type trm l = match l with
-    | a :: rest -> if (snd a) = trm then List.append (match_type trm rest) [(fst a)] else match_type trm rest
+    | a :: rest -> if (isQuoteSame (snd a) trm) then List.append (match_type trm rest) [(fst a)] else match_type trm rest
     | [] -> [];;
 
   (*Need to move the faculties for generating variable types from preterm to here for quote conversion to work*)
@@ -780,6 +790,7 @@ let rec type_subst i ty =
       | [] -> failwith "HOLE_CONV" 
     in
     let locals = snd (dest_quote quote) in
+    (*match_type returning no results?*)
     let matches = List.filter (fun a -> mem a locals) (match_type (fst (dest_eq (concl tm))) !hole_lookup) in
     replace_thm (fst (dest_eq (concl tm))) (snd (dest_eq (concl tm))) matches
 
@@ -802,7 +813,6 @@ let rec type_subst i ty =
 
   (*For making a theorem out of hole conversion - CURRENTLY BUGGY, NEEDS FIXING*)
   let HOLE_THM_CONV quote (tm:thm) = 
-    if type_of (rand (rator (concl tm))) = mk_type("epsilon",[]) && type_of (rand (concl tm)) = mk_type("epsilon",[]) then
     (*Need to take apart the given quote*)
     let e,tys = dest_quote quote in
     (*Assign new types to the new HOLE constants*)
@@ -818,15 +828,13 @@ let rec type_subst i ty =
     let () = HOLE_CONV newquo tm in 
     (*Generate and return theorem*)
     Sequent([],safe_mk_eq quote newquo)
-  else failwith "HOLE_THM_CONV: THEOREM MUST EQUATE TWO EPSILON TERMS"
      
   (*In development, not yet working*)  
-  let rec HOLE_THM_CONV_FIND trm (tm:thm) = if type_of (rand (rator (concl tm))) = mk_type("epsilon",[]) && type_of (rand (concl tm)) = mk_type("epsilon",[]) then
+  let rec HOLE_THM_CONV_FIND trm (tm:thm) = 
     (match trm with
     | Quote(e,t,h) -> HOLE_THM_CONV trm tm
     | Comb(l,r) -> try (HOLE_THM_CONV_FIND l tm) with Failure _ -> HOLE_THM_CONV_FIND r tm
     | _ -> failwith "HOLE_THM_CONV_FIND")
-  else failwith "HOLE_THM_CONV_FIND: THEOREM MUST EQUATE TWO EPSILON TERMS"
      
 
 
