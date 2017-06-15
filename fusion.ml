@@ -71,6 +71,8 @@ module type Hol_kernel =
       val rator: term -> term
       val dest_eq: term -> term * term
 
+      val isQuoteSame: term -> term -> bool
+
       val dest_thm : thm -> term list * term
       val hyp : thm -> term list
       val concl : thm -> term
@@ -103,6 +105,7 @@ module type Hol_kernel =
       val getTyv : unit -> int
       val HOLE_THM_CONV : term -> thm -> thm
       val HOLE_THM_CONV_FIND : term -> thm -> thm
+      val unquote : term -> term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -290,6 +293,17 @@ let rec type_subst i ty =
 (* Finds the type of a term (assumes it is well-typed).                      *)
 (* ------------------------------------------------------------------------- *)
 
+  (*This is used when checking quote types match the term types as holes should always be of type epsilon - type_of returns the type of the thing inside the quote so that they can be used more easily
+  in the parser*)
+  let rec qcheck_type_of tm = match tm with
+      Var(_,ty) -> ty
+    | Const("HOLE",ty) -> Tyapp("epsilon",[])
+    | Const(_,ty) -> ty
+    | Comb(s,_) -> (match qcheck_type_of s with Tyapp("fun",[dty;rty]) -> rty)
+    | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;qcheck_type_of t])
+    | Quote(e,_,_) -> Tyapp("epsilon",[])
+    | _ -> failwith "TYPE_OF: Invalid term. You should not see this error under normal use, if you do, the parser has allowed an ill formed term to be created."
+
   let rec type_of tm =
     match tm with
       Var(_,ty) -> ty
@@ -337,7 +351,7 @@ let rec type_subst i ty =
         -> Comb(f,a)
     | _ -> failwith "mk_comb: types do not agree"
 
-  let mk_quote t,h = Quote(t,type_of t,h)
+  let mk_quote t,h = Quote(t,qcheck_type_of t,h)
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive destructors.                                                    *)
@@ -356,7 +370,7 @@ let rec type_subst i ty =
     function (Abs(v,b)) -> v,b | _ -> failwith "dest_abs: not an abstraction"
 
   let dest_quote =
-    function (Quote(e,ty,sl)) when type_of e = ty -> e,sl | _ -> failwith "dest_quote: not a quotation or type mismatch"
+    function (Quote(e,ty,sl)) when qcheck_type_of e = ty -> e,sl | _ -> failwith "dest_quote: not a quotation or type mismatch"
 
 (* ------------------------------------------------------------------------- *)
 (* Finds the variables free in a term (list of terms).                       *)
@@ -790,7 +804,6 @@ let rec type_subst i ty =
       | [] -> failwith "HOLE_CONV" 
     in
     let locals = snd (dest_quote quote) in
-    (*match_type returning no results?*)
     let matches = List.filter (fun a -> mem a locals) (match_type (fst (dest_eq (concl tm))) !hole_lookup) in
     replace_thm (fst (dest_eq (concl tm))) (snd (dest_eq (concl tm))) matches
 
@@ -809,10 +822,12 @@ let rec type_subst i ty =
     | Var (a,ty) -> Var (a,ty)
     | Comb(l,r) -> Comb(mkUpdatedQuote l updates, mkUpdatedQuote r updates)
     | Abs(l,r) -> Abs(mkUpdatedQuote l updates, mkUpdatedQuote r updates)   
-    | Const(a,ty) -> Const(a, (lookupReplacementType ty updates));;
+    | Const("HOLE",ty) -> Const("HOLE", (lookupReplacementType ty updates))
+    | Const(a,ty) -> Const(a,ty);;
 
   (*For making a theorem out of hole conversion - CURRENTLY BUGGY, NEEDS FIXING*)
   let HOLE_THM_CONV quote (tm:thm) = 
+    try
     (*Need to take apart the given quote*)
     let e,tys = dest_quote quote in
     (*Assign new types to the new HOLE constants*)
@@ -828,14 +843,31 @@ let rec type_subst i ty =
     let () = HOLE_CONV newquo tm in 
     (*Generate and return theorem*)
     Sequent([],safe_mk_eq quote newquo)
-     
-  (*In development, not yet working*)  
+  with Failure _ -> failwith "HOLE_THM_CONV"
+  
+  (*Works when given a theorem*)   
   let rec HOLE_THM_CONV_FIND trm (tm:thm) = 
     (match trm with
-    | Quote(e,t,h) -> HOLE_THM_CONV trm tm
-    | Comb(l,r) -> try (HOLE_THM_CONV_FIND l tm) with Failure _ -> HOLE_THM_CONV_FIND r tm
+    | Quote(e,t,h) -> (try HOLE_THM_CONV trm tm with Failure _ -> HOLE_THM_CONV_FIND e tm)
+    | Comb(l,r) -> (try HOLE_THM_CONV_FIND l tm with Failure _ -> HOLE_THM_CONV_FIND r tm)
     | _ -> failwith "HOLE_THM_CONV_FIND")
-     
+
+  let rec makeUnquotedQuote quo qty = match quo with
+    | Const("HOLE",ty) when ty = qty -> fst (dest_quote (match_hole qty !hole_lookup)) (*If this is a construction, the hole will be "filled in", so it will have to be a Quote, this should trigger an exception if this is not the case*)
+    | Const(a,ty) -> Const(a,ty)    
+    | Var(a,ty) -> Var(a,ty)
+    | Comb(l,r) -> Comb(makeUnquotedQuote l qty,makeUnquotedQuote r qty)
+    | Abs(l,r) -> Abs(makeUnquotedQuote l qty, makeUnquotedQuote r qty)
+    | Quote(a,ty,h) -> let muq = makeUnquotedQuote a qty in
+        Quote(muq,type_of muq, List.filter (fun a -> a <> ty) h) 
+
+  (*Unquote will "cancel" out the hole and quotation operators*)
+  (*ttu = term to unquote -> unquote (Q_ H_ Q_ 3 _Q _H _Q) (Q_ 3 _Q) = Q_ 3 _Q*)
+  let unquote trm ttu = match trm with
+    | Quote(e,t,h) -> let reslist = List.filter (fun a -> List.mem a h) (match_type ttu !hole_lookup) in
+      if reslist <> [] then Sequent([],safe_mk_eq trm (makeUnquotedQuote trm (List.hd reslist))) else failwith "No matching holed terms inside the term"
+    | _ -> failwith "UNQUOTE: THIS IS NOT A QUOTE"
+
 
 
 
@@ -945,3 +977,4 @@ let aconv s t = alphaorder s t = 0;;
 (* ------------------------------------------------------------------------- *)
 
 let equals_thm th th' = dest_thm th = dest_thm th';;
+
