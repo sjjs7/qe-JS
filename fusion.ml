@@ -72,6 +72,7 @@ module type Hol_kernel =
       val dest_eq: term -> term * term
 
       val isQuoteSame: term -> term -> bool
+      val getHolesInTerm: term -> (hol_type list)
 
       val dest_thm : thm -> term list * term
       val hyp : thm -> term list
@@ -105,7 +106,7 @@ module type Hol_kernel =
       val getTyv : unit -> int
       val HOLE_THM_CONV : term -> thm -> thm
       val HOLE_THM_CONV_FIND : term -> thm -> thm
-      val unquote : term -> term -> thm
+      val UNQUOTE : term -> term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -436,6 +437,16 @@ let rec type_subst i ty =
 (* Substitution primitive (substitution for variables only!)                 *)
 (* ------------------------------------------------------------------------- *)
   
+
+  let rec getHolesInTerm = function
+    | Const("HOLE",ty) -> [ty]
+    | Const(_,_) -> []
+    | Var(_,_) -> []
+    | Comb(l,r) -> List.append (getHolesInTerm l) (getHolesInTerm r)
+    | Abs(l,r) -> List.append (getHolesInTerm l) (getHolesInTerm r)
+    | Quote(e,t,h) -> getHolesInTerm e
+
+
       (*Function to handle substitutions in holes in quotations*)
   let rec qsubst ilist tm =
 
@@ -443,7 +454,7 @@ let rec type_subst i ty =
       match tm with
       | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
-      | Quote(_,_,_) -> tm
+      | Quote(e,ty,h) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo,getHolesInTerm newquo)
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
@@ -456,7 +467,7 @@ let rec type_subst i ty =
                          Abs(v',vsubst ((v',v)::ilist') s)
                     else Abs(v,s') in
     match tm with
-    | Quote(e,ty,h) -> Quote(qsubst ilist e,ty,h)
+    | Quote(e,ty,h) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo,getHolesInTerm newquo)
     | Comb(s,t) -> let s' = qsubst ilist s and t' = qsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
     | Const("HOLE",ty) -> let h' = vsubst ilist (match_hole ty !hole_lookup) in
@@ -471,7 +482,7 @@ let rec type_subst i ty =
       match tm with
       | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
-      | Quote(e,ty,h) -> Quote(qsubst ilist e,ty,h)
+      | Quote(e,ty,h) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo,getHolesInTerm newquo)
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
@@ -495,7 +506,47 @@ let rec type_subst i ty =
 
   exception Clash of term
 
+  let rec qinst =
+
+   let rec oinst env tyin tm =
+      match tm with
+        Var(n,ty)   -> let ty' = type_subst tyin ty in
+                       let tm' = if ty' == ty then tm else Var(n,ty') in
+                       if Pervasives.compare (rev_assocd tm' env tm) tm = 0
+                       then tm'
+                       else raise (Clash tm')
+      | Const(c,ty) -> let ty' = type_subst tyin ty in
+                       if ty' == ty then tm else Const(c,ty')
+      | Quote(e,_,_)    -> let newquo = (qinst tyin e) in Quote(newquo,(type_of newquo),(getHolesInTerm newquo)) 
+      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
+      | Comb(f,x)   -> let f' = oinst env tyin f and x' = oinst env tyin x in
+                       if f' == f && x' == x then tm else Comb(f',x')
+      | Abs(y,t)    -> let y' = oinst [] tyin y in
+                       let env' = (y,y')::env in
+                       try let t' = oinst env' tyin t in
+                           if y' == y && t' == t then tm else Abs(y',t')
+                       with (Clash(w') as ex) ->
+                       if w' <> y' then raise ex else
+                       let ifrees = map (oinst [] tyin) (frees t) in
+                       let y'' = variant ifrees y' in
+                       let z = Var(fst(dest_var y''),snd(dest_var y)) in
+                       oinst env tyin (Abs(z,vsubst[z,y] t)) in
+
+    let rec qinst env tyin tm =
+       match tm with
+        | Const("HOLE",ty) -> let newTyv = (mk_vartype ("?" ^ (string_of_int (getTyv ())))) in
+        let () = (add_hole_def newTyv (oinst env tyin (match_hole ty !hole_lookup)) !hole_lookup) in
+        Const("HOLE",newTyv)
+        | Comb(l,r) -> Comb(qinst env tyin l, qinst env tyin r)
+        | _ -> tm
+    in
+
+    fun tyin -> if tyin = [] then fun tm -> tm else qinst [] tyin
+
+
+
   let inst =
+
     let rec inst env tyin tm =
       match tm with
         Var(n,ty)   -> let ty' = type_subst tyin ty in
@@ -505,7 +556,7 @@ let rec type_subst i ty =
                        else raise (Clash tm')
       | Const(c,ty) -> let ty' = type_subst tyin ty in
                        if ty' == ty then tm else Const(c,ty')
-      | Quote(_,_,_)    -> tm
+      | Quote(e,_,h)-> let newquo = (qinst tyin e) in Quote(newquo,(qcheck_type_of newquo),getHolesInTerm newquo)
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(f,x)   -> let f' = inst env tyin f and x' = inst env tyin x in
                        if f' == f && x' == x then tm else Comb(f',x')
@@ -863,7 +914,7 @@ let rec type_subst i ty =
 
   (*Unquote will "cancel" out the hole and quotation operators*)
   (*ttu = term to unquote -> unquote (Q_ H_ Q_ 3 _Q _H _Q) (Q_ 3 _Q) = Q_ 3 _Q*)
-  let unquote trm ttu = match trm with
+  let UNQUOTE trm ttu = match trm with
     | Quote(e,t,h) -> let reslist = List.filter (fun a -> List.mem a h) (match_type ttu !hole_lookup) in
       if reslist <> [] then Sequent([],safe_mk_eq trm (makeUnquotedQuote trm (List.hd reslist))) else failwith "No matching holed terms inside the term"
     | _ -> failwith "UNQUOTE: THIS IS NOT A QUOTE"

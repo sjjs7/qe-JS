@@ -19,8 +19,12 @@ let HOLE_DEF_CONV_FIND trm dList =
 	HOLE_DEF_CONV_FIND_INTERNAL trm dList trm;;
 
 
-(*Two tactics to make use of quotation easier inside proofs*)
-let (QUOTE_TAC: tactic) = fun (asm,gl) -> PURE_ASM_REWRITE_TAC[QUOTE_CONV gl] (asm,gl);;
-let (TERM_TO_CONSTRUCTION_TAC: tactic) = fun (asm,gl) -> PURE_ASM_REWRITE_TAC[TERM_TO_CONSTRUCTION_CONV gl] (asm,gl);;  
-let (HOLE_THM_TAC) = fun tm (asm, gl) -> PURE_ASM_REWRITE_TAC[HOLE_THM_CONV_FIND gl tm] (asm,gl);;
-let (HOLE_DEF_TAC) = fun tm (asm, gl) -> PURE_ASM_REWRITE_TAC[HOLE_DEF_CONV_FIND gl tm] (asm,gl);; 
+let (QUOTE_TAC: tactic) = fun (asm,gl) -> PURE_REWRITE_TAC[QUOTE_CONV gl] (asm,gl);;
+let (TERM_TO_CONSTRUCTION_TAC: tactic) = fun (asm,gl) -> PURE_REWRITE_TAC[TERM_TO_CONSTRUCTION_CONV gl] (asm,gl);;  
+let (HOLE_THM_TAC) = fun tm (asm, gl) -> PURE_REWRITE_TAC[HOLE_THM_CONV_FIND gl tm] (asm,gl);;
+let (HOLE_DEF_TAC) = fun tm (asm, gl) -> PURE_REWRITE_TAC[HOLE_DEF_CONV_FIND gl tm] (asm,gl);; 
+(*These tactics do the same as their original counterparts, but make use of the assumptions in the goal stack*)
+let (ASM_QUOTE_TAC: tactic) = fun (asm,gl) -> PURE_ASM_REWRITE_TAC[QUOTE_CONV gl] (asm,gl);;
+let (ASM_TERM_TO_CONSTRUCTION_TAC: tactic) = fun (asm,gl) -> PURE_ASM_REWRITE_TAC[TERM_TO_CONSTRUCTION_CONV gl] (asm,gl);;  
+let (ASM_HOLE_THM_TAC) = fun tm (asm, gl) -> PURE_ASM_REWRITE_TAC[HOLE_THM_CONV_FIND gl tm] (asm,gl);;
+let (ASM_HOLE_DEF_TAC) = fun tm (asm, gl) -> PURE_ASM_REWRITE_TAC[HOLE_DEF_CONV_FIND gl tm] (asm,gl);; 

@@ -1,0 +1,39 @@
+\DOC HOLE_DEF_CONV_FIND
+
+\TYPE {HOLE_DEF_CONV_FIND : term -> list thm -> thm}
+
+\SYNOPSIS
+Given a list of definitions, attempts to guess the theorem to use with {HOLE_THM_CONV} and returns the application of {HOLE_THM_CONV} to the term with that theorem.
+
+\KEYWORDS
+quotation, equality, quasiquotation.
+
+\DESCRIBE
+{HOLE_DEF_CONV_FIND} descends down a term and attempts to find a valid theorem to use with {HOLE_THM_CONV}, if such a term exists, 
+
+\FAILURE
+Fails with {HOLE_DEF_CONV_FIND} if no theorem can be found.
+
+\EXAMPLE
+{
+  # let test = define `test 0 = Q_ (3) _Q /\ test 1 = Q_ (4) _Q /\ test (n + 2) = Q_ (5) _Q`;;
+  val test : thm =
+  |- test 0 = Q_ (3) _Q /\ test 1 = Q_ (4) _Q /\ test (n + 2) = Q_ (5) _Q
+
+  # HOLE_THM_CONV `Q_ H_ (test 0) _H _Q` test;;
+	Warning: inventing type variables
+	Exception: Failure "HOLE_THM_CONV".
+
+  # HOLE_DEF_CONV_FIND `Q_ H_ (test 0) _H _Q` [test];;
+Warning: inventing type variables
+val it : thm = |- Q_ (H_ (test 0) _H) _Q = Q_ (H_ (Q_ (3) _Q) _H) _Q
+
+}
+
+\COMMENTS
+This can be used to apply theorems to fill in holes inside quotations. This has similair functionality to the internal function {HOLE_THM_CONV_FIND}, which takes a single theorem in place of a list of theorems. However, {HOLE_THM_CONV_FIND} uses a much more primitive matching system and will have a far lower success rate than {HOLE_DEF_CONV_FIND}, so this should always be used as the primary definition matching method.
+
+\SEEALSO
+HOLE_THM_CONV
+
+\ENDDOC

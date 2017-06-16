@@ -1,0 +1,34 @@
+\DOC HOLE_THM_CONV
+
+\TYPE {HOLE_THM_CONV : term -> thm -> thm}
+
+\SYNOPSIS
+Applies the first {thm} to the first applicable term it finds
+
+\KEYWORDS
+quotation, equality, quasiquotation.
+
+\DESCRIBE
+{HOLE_THM_CONV} descends down a term and maps the first applicable use of the given theorem to a theorem equating both sides.
+
+\FAILURE
+Fails with {HOLE_THM_CONV} if there is no applicable term to use the given theorem on.
+
+\EXAMPLE
+{
+  # define `test = Q_ 3 _Q`;;
+  val it : thm = |- test = Q_ (3) _Q
+
+  # HOLE_THM_CONV `Q_ H_ test _H _Q` it;;
+  Warning: inventing type variables
+  val it : thm = |- Q_ (H_ (test) _H) _Q = Q_ (H_ (Q_ (3) _Q) _H) _Q
+
+}
+
+\COMMENTS
+This can be used to apply theorems to fill in holes inside quotations. 
+
+\SEEALSO
+HOLE_DEF_CONV_FIND
+
+\ENDDOC

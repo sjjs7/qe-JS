@@ -1,0 +1,27 @@
+\DOC UNQUOTE
+
+\TYPE {UNQUOTE : term -> term -> thm}
+
+\SYNOPSIS
+Returns theorem asserting that a holed quotation "cancels". The first argument is the entire term and the second argument is the subterm to attempt to unquote.
+
+\KEYWORDS
+quotation, equality, quasiquotation.
+
+\DESCRIBE
+{UNQUOTE} maps any term {`Q_ H_ Q_ t _Q _H _Q`} to the corresponding theorem {|- Q_ H_ Q_ t _Q _H _Q = Q_ t _Q}.
+
+\FAILURE
+Fails if attempting to unquote an incomplete term, or if the second argument does not exist in the term.
+
+\EXAMPLE
+{
+#  UNQUOTE `Q_ H_ Q_ 3 _Q _H _Q` `Q_ 3 _Q`;;
+Warning: inventing type variables
+val it : thm = |- Q_ (H_ (Q_ (3) _Q) _H) _Q = Q_ (3) _Q
+}
+
+\COMMENTS
+This can be used to eliminate holes once the epsilon term inside them has been evaluated. 
+
+\ENDDOC

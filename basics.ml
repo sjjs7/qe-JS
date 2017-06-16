@@ -107,7 +107,32 @@ let variables =
 (* General substitution (for any free expression).                           *)
 (* ------------------------------------------------------------------------- *)
 
+
+
+
 let subst =
+  let rec qssubs ilist tm =
+    let rec osubs ilist tm = 
+      if ilist = [] then tm else
+      try fst (find ((aconv tm) o snd) ilist) with Failure _ ->
+      match tm with
+      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
+      | Comb(f,x) -> let f' = osubs ilist f and x' = osubs ilist x in
+                     if f' == f && x' == x then tm else mk_comb(f',x')
+      | Abs(v,bod) ->
+            let ilist' = filter (not o (vfree_in v) o snd) ilist in
+            mk_abs(v,osubs ilist' bod)
+      | Quote(e,_,h) -> let newquo = qssubs ilist e in mk_quote(newquo, getHolesInTerm newquo)
+      | _ -> tm in
+    if ilist = [] then tm else
+    match tm with
+      | Quote(e,_,h) -> let newquo = qssubs ilist e in mk_quote(newquo, getHolesInTerm newquo)
+      | Const("HOLE",ty) -> let newTyv = (mk_vartype ("?" ^ (string_of_int (getTyv ())))) in
+        let () = (add_hole_def newTyv (osubs ilist (match_hole ty !hole_lookup)) !hole_lookup) in
+        mk_const("HOLE",[newTyv,mk_vartype "match"])
+      | Comb(l,r) -> mk_comb(qssubs ilist l, qssubs ilist r) 
+      | _ -> tm in
+
   let rec ssubst ilist tm =
     if ilist = [] then tm else
     try fst (find ((aconv tm) o snd) ilist) with Failure _ ->
@@ -118,6 +143,7 @@ let subst =
     | Abs(v,bod) ->
           let ilist' = filter (not o (vfree_in v) o snd) ilist in
           mk_abs(v,ssubst ilist' bod)
+    | Quote(e,_,h) -> let newquo = qssubs ilist e in mk_quote(newquo, getHolesInTerm newquo)
     | _ -> tm in
   fun ilist ->
     let theta = filter (fun (s,t) -> Pervasives.compare s t <> 0) ilist in
