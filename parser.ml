@@ -270,7 +270,7 @@ let parse_preterm =
                 || exists (fun (w,_) -> v = w) (!the_interface) then acc
         else insert ptm acc
     | Constp(_,_) -> acc
-    | Quotep(_,_) -> acc
+    | Quotep(_) -> acc
     | Combp(p1,p2) -> pfrees p1 (pfrees p2 acc)
     | Absp(p1,p2) -> subtract (pfrees p2 acc) (pfrees p1 [])
     | Typing(p,_) -> pfrees p acc in
@@ -364,8 +364,8 @@ let parse_preterm =
   and lmk_binder ((((s,h),t),_),p) = pmk_binder(s,h::t,p)
   and lmk_setenum(l,_) = pmk_set_enum l
   and lmk_setabs(((l,_),r),_) = pmk_setabs(l,r)
-  and lmk_quote (_,preterm),_ = Quotep(preterm,[])
-  and lmk_hole (_,preterm),_ =  Holep(preterm,Utv "match") 
+  and lmk_quote (_,preterm),_ = Quotep(preterm)
+  and lmk_hole (_,preterm),_ =  Holep(preterm) 
   and lmk_setcompr(((((f,_),vs),_),b),_) =
      pmk_setcompr(f,pfrees vs [],b)
   and lmk_decimal ((_,l0),ropt) =

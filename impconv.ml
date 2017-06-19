@@ -294,7 +294,7 @@ let module Type_annoted_term =
       |Abs(x,b) ->
           let x' = of_term x and b' = of_term b in
           Abs_(x',b',mk_fun_ty (type_of x') (type_of b'))
-      |Quote(e,ty,h) -> Quote_(of_term e,List.map (fun a -> (fst a, of_term (snd a))) h)
+      |Quote(e,ty) -> Quote_(of_term e)
 
     let rec equal t1 t2 =
       match t1,t2 with
@@ -302,7 +302,7 @@ let module Type_annoted_term =
       |Const_(s1,ty1,_),Const_(s2,ty2,_) -> s1 = s2 && ty1 = ty2
       |Comb_(u1,v1,_),Comb_(u2,v2,_) -> equal u1 u2 && equal v1 v2
       |Abs_(v1,b1,_),Abs_(v2,b2,_) -> equal v1 v2 && equal b1 b2
-      |Quote_(e1,ty1,h1),Quote_(e2,ty2,h2) -> equal e1 e2 && equal h1 h2
+      |Quote_(e1,ty1),Quote_(e2,ty2) -> equal e1 e2
       |_ -> false
 
     let rec to_term = function
@@ -310,7 +310,7 @@ let module Type_annoted_term =
       |Const_(_,_,t) -> t
       |Comb_(u,v,_) -> mk_comb(to_term u,to_term v)
       |Abs_(v,b,_) -> mk_abs(to_term v,to_term b)
-      |Quote_(e,ty,h) -> mk_quote(to_term e,List.map (fun a -> (fst a, term_of (snd a))) h)
+      |Quote_(e,ty) -> mk_quote(to_term e)
 
     let dummy = Var_("",aty)
 

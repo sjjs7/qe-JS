@@ -546,11 +546,11 @@ let string_of_thm = print_to_string pp_print_thm;;
 (*Configures the term printer to print out quoted terms (for now, they will be wrapped in Q_ _Q*)
 (*This doesn't clear up the epsilon term's AST format, it just enables the terms to be printed at all since Quote breaks the default printer*)
 let print_quoted fmt tm = 
-  let e,_ = dest_quote tm in
+  let e = dest_quote tm in
   pp_print_string fmt ("Q_ (" ^ (print_to_string pp_print_term) e ^ ") _Q");;
 
 let print_hole fmt tm = match tm with
-  | Const("HOLE",ty) -> pp_print_string fmt ("H_ (" ^ (print_to_string pp_print_term) (match_hole ty !hole_lookup) ^ ") _H")
+  | Hole(e,ty) -> pp_print_string fmt ("H_ (" ^ (print_to_string pp_print_term) e ^ ") _H")
   | _ -> failwith "Not a hole";;
 
 install_user_printer("print_quoted",print_quoted);;

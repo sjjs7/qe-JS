@@ -1,6 +1,6 @@
 (*** Type Definitions ***)
 
-(*Defines type and term as is defined in John Harisson's paper
+(*Defines type and term as is defined in John Harrison's paper
 TyVar -> String representing a type variable
 TyBase -> A basic type that cannot be constructed with other types, such as num, bool, etc.
 TyMonoCons -> A type that takes a single type as an argument

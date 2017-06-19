@@ -122,14 +122,11 @@ let subst =
       | Abs(v,bod) ->
             let ilist' = filter (not o (vfree_in v) o snd) ilist in
             mk_abs(v,osubs ilist' bod)
-      | Quote(e,_,h) -> let newquo = qssubs ilist e in mk_quote(newquo, getHolesInTerm newquo)
+      | Quote(e,_) -> let newquo = qssubs ilist e in mk_quote newquo
       | _ -> tm in
     if ilist = [] then tm else
     match tm with
-      | Quote(e,_,h) -> let newquo = qssubs ilist e in mk_quote(newquo, getHolesInTerm newquo)
-      | Const("HOLE",ty) -> let newTyv = (mk_vartype ("?" ^ (string_of_int (getTyv ())))) in
-        let () = (add_hole_def newTyv (osubs ilist (match_hole ty !hole_lookup)) !hole_lookup) in
-        mk_const("HOLE",[newTyv,mk_vartype "match"])
+      | Quote(e,_) -> let newquo = qssubs ilist e in mk_quote newquo
       | Comb(l,r) -> mk_comb(qssubs ilist l, qssubs ilist r) 
       | _ -> tm in
 
@@ -143,7 +140,7 @@ let subst =
     | Abs(v,bod) ->
           let ilist' = filter (not o (vfree_in v) o snd) ilist in
           mk_abs(v,ssubst ilist' bod)
-    | Quote(e,_,h) -> let newquo = qssubs ilist e in mk_quote(newquo, getHolesInTerm newquo)
+    | Quote(e,_) -> let newquo = qssubs ilist e in mk_quote newquo
     | _ -> tm in
   fun ilist ->
     let theta = filter (fun (s,t) -> Pervasives.compare s t <> 0) ilist in
@@ -187,7 +184,7 @@ let mk_mconst(c,ty) =
   try let uty = get_const_type c in
       let mat = type_match uty ty [] in
       let con = mk_const(c,mat) in
-      if type_of con = ty or c = "HOLE" then con else fail()
+      if type_of con = ty then con else fail()
   with Failure _ -> failwith "mk_const: generic type cannot be instantiated";;
 
 (* ------------------------------------------------------------------------- *)
