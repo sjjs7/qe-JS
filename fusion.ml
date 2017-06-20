@@ -43,6 +43,7 @@ module type Hol_kernel =
       val get_const_type : string -> hol_type
       val new_constant : string * hol_type -> unit
       val type_of : term -> hol_type
+      val fun_type_of : term -> hol_type
       val alphaorder : term -> term -> int
       val is_var : term -> bool
       val is_const : term -> bool
@@ -301,6 +302,19 @@ let rec type_subst i ty =
     | Hole(e,ty) -> ty
     | _ -> failwith "TYPE_OF: Invalid term. You should not see this error under normal use, if you do, the parser has allowed an ill formed term to be created."
 
+  (*Internal function to grab the type of an applied function*)
+  let fun_type_of tm = 
+    let rec ftype_of trm = match trm with
+    | Comb(l,_) -> ftype_of l
+    | Const(n,t) | Var(n,t) when not (is_vartype t) && fst (dest_type t) = "fun" -> t  
+    | _ -> failwith "Not a function"
+
+  in
+
+  match tm with
+    | Comb(l,r) when type_of tm = Tyapp("epsilon",[]) -> ftype_of l 
+    | _ -> failwith "Incomplete or mistyped function" 
+
 (* ------------------------------------------------------------------------- *)
 (* Primitive discriminators.                                                 *)
 (* ------------------------------------------------------------------------- *)
@@ -347,18 +361,13 @@ let rec type_subst i ty =
   (*This allows any function of type A -> epsilon - therefore it is possible for ill formed terms to be constructed. The alternative - checking through all definitions to find what a function will return and 
   verifying it's type - would be too inefficient to be feasible*)
 
-  (*
-
-  Commented out - in development
-
-  let holefunctioncheck a = if is_hole a then let ty3 = snd (dest_hole a) in if is_vartype ty3 then false else
-    if (fst (dest_type ty3)) = "fun" && (hd (tl (snd(dest_type ty3)))) = "epsilon" then true else false 
+  let holefunctioncheck a = if is_hole a then let ty3 = fun_type_of (fst (dest_hole a)) in if is_vartype ty3 then false else
+    if (fst (dest_type ty3)) = "fun" && (hd (tl (snd(dest_type ty3)))) = Tyapp("epsilon",[]) then true else false 
   else false 
-  *)
 
   let mk_comb(f,a) =
     match type_of f with
-      Tyapp("fun",[ty;ty2]) when Pervasives.compare ty (type_of a) = 0 || holequotecheck ty a (* || holefunctioncheck a*)
+      Tyapp("fun",[ty;ty2]) when Pervasives.compare ty (type_of a) = 0 || holequotecheck ty a || holefunctioncheck a
         -> Comb(f,a)
     | _ -> failwith "mk_comb: types do not agree"
 
@@ -660,17 +669,17 @@ let rec type_subst i ty =
           let c = Pervasives.compare ty1 ty2 in
           if c <> 0 then c else orda ((x1,x2)::env) t1 t2
     | Quote(e1,_),Quote(e2,_) -> orda env e1 e2
+    | Hole(e1,_),Hole(e2,_) -> orda env e1 e2
     | Const(_,_),_ -> -1
     | _,Const(_,_) -> 1
     | Var(_,_),_ -> -1
     | _,Var(_,_) -> 1
     | Comb(_,_),_ -> -1
     | _,Comb(_,_) -> 1
-    | Quote(_,_),_ -> 1
-    | _,Quote(_,_) -> -1  
-    | Hole(e1,_),Hole(e2,_) -> orda env e1 e2
-    | Hole(_,_),_ -> 1
-    | _,Hole(_,_) -> -1
+    | Quote(_,_),_ -> -1
+    | _,Quote(_,_) -> 1  
+    | Hole(_,_),_ -> -1
+    | _,Hole(_,_) -> 1
 
   let alphaorder = orda []
 
@@ -876,6 +885,7 @@ let rec type_subst i ty =
     | Quote(_,_) -> TERM_TO_CONSTRUCTION tm
     | Comb(a,b) -> try TERM_TO_CONSTRUCTION_CONV a with Failure _ -> try TERM_TO_CONSTRUCTION_CONV b with Failure _ -> failwith "TERM_TO_CONSTRUCTION_CONV"
     | _ -> failwith "TERM_TO_CONSTRUCTION_CONV"
+
 (*Commented out because these will not work until modified for new Hole operator
 
 

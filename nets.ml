@@ -22,7 +22,8 @@ type term_label = Vnet                          (* variable (instantiable)   *)
                  | Lcnet of (string * int)      (* local constant            *)
                  | Cnet of (string * int)       (* constant                  *)
                  | Lnet of int                  (* lambda term (abstraction) *)
-                 | Qnet of hol_type;;           (* quoted term               *) 
+                 | Qnet of hol_type             (* quoted term               *) 
+                 | Hnet of hol_type;;           (* holed term                *)
 type 'a net = Netnode of (term_label * 'a net) list * 'a list;;
 
 (* ------------------------------------------------------------------------- *)
@@ -46,6 +47,7 @@ let enter =
       Lnet(length args),bod'::args
     else if mem op lconsts then Lcnet(fst(dest_var op),length args),args
     else if is_quote op then (Qnet (type_of (dest_quote op))) ,args
+    else if is_hole op then (Hnet (snd (dest_hole op))) , args
     else Vnet,[] in
   let canon_eq x y =
     try Pervasives.compare x y = 0 with Invalid_argument _ -> false
@@ -74,12 +76,18 @@ let enter =
 (* Look up a term in a net and return possible matches.                      *)
 (* ------------------------------------------------------------------------- *)
 
+(*Potential cause for define bug is in here:
+  define uses REWRITE_CONV
+  REWRITE_CONV uses lookup
+  Lookup is not working properly for anything inside a hole
+  *)
+
 let lookup =
-  let label_for_lookup tm =
     let op,args = strip_comb tm in
     if is_const op then Cnet(fst(dest_const op),length args),args
     else if is_abs op then Lnet(length args),(body op)::args
     else if is_quote op then (Qnet (type_of (dest_quote op))),args
+  else if is_hole op then (Hnet (snd (dest_hole op))),args
     else Lcnet(fst(dest_var op),length args),args in
   let rec follow (tms,Netnode(edges,tips)) =
     match tms with

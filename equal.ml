@@ -209,9 +209,16 @@ let (ONCE_DEPTH_CONV: conv->conv),
          with Failure _ -> AP_TERM l (conv r)) 
     | _ -> failwith "COMB_QCONV: Not a combination" in
   let rec REPEATQC conv tm = THENCQC conv (REPEATQC conv) tm in
-  let SUB_QCONV conv tm =
+  let rec SUB_QCONV conv tm =
+      let rec QSUB_CONV conv tm = match tm with
+    | Comb(l,r) -> (try QSUB_CONV conv l with Failure _ -> QSxUB_CONV conv r)
+    | Quote(e,ty) -> QSUB_CONV conv e
+    | Hole(e,ty) -> SUB_QCONV conv e
+    | _ -> failwith "QSUB_CONV"
+    in
     match tm with
-      Abs(_,_) -> ABS_CONV conv tm
+    | Abs(_,_) -> ABS_CONV conv tm
+    | Quote(_,_) -> QSUB_CONV conv tm
     | _ -> COMB_QCONV conv tm in
   let rec ONCE_DEPTH_QCONV conv tm =
       (conv ORELSEC (SUB_QCONV (ONCE_DEPTH_QCONV conv))) tm
