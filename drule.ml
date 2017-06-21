@@ -365,6 +365,14 @@ let PART_MATCH,GEN_PART_MATCH =
         let l1,r1 = dest_comb t1
         and l2,r2 = dest_comb t2 in
         match_bvs l1 l2 (match_bvs r1 r2 acc)
+    with Failure _ -> try
+        let l1 = dest_quote t1
+        and r1 = dest_quote t2 in
+        match_bvs l1 r1 acc
+    with Failure _ -> try
+        let l1,_ = dest_hole t1
+        and r1,_ = dest_hole t2 in
+        match_bvs l1 r1 acc
     with Failure _ -> acc in
   let PART_MATCH partfn th =
     let sth = SPEC_ALL th in

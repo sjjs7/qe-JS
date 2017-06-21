@@ -77,6 +77,8 @@ module type Hol_kernel =
       val dest_eq: term -> term * term
 
       val isQuoteSame: term -> term -> bool
+      val QSUB_CONV : 'a -> term -> ('a -> term -> thm) -> thm
+      val QBETA_CONV : term -> (term -> thm) -> thm
 
       val dest_thm : thm -> term list * term
       val hyp : thm -> term list
@@ -789,6 +791,49 @@ let rec type_subst i ty =
   let INST theta (Sequent(asl,c)) =
     let inst_fun = vsubst theta in
     Sequent(term_image inst_fun asl,inst_fun c)
+
+  (*Conversion functions to handle hole rewrites on a lower level*)
+  let rec QSUB_CONV conv tm nConv = match tm with
+    | Comb(l,r) -> let ls = (try QSUB_CONV conv l nConv with Failure _ -> REFL l) in
+                   let rs = (try QSUB_CONV conv r nConv with Failure _ -> REFL r) in
+                   let lasl,_ = dest_thm ls in
+                   let rasl,_ = dest_thm ls in
+                   let convedComb = Comb(snd(dest_eq(concl ls)),snd(dest_eq(concl rs))) in
+                   Sequent ((lasl @ rasl),safe_mk_eq tm convedComb)
+    | Quote(e,ty) -> let newThm = (QSUB_CONV conv e nConv) in 
+                     let asl,c = dest_thm newThm in
+                     let ls,rs = dest_eq c in
+                     Sequent (asl,safe_mk_eq (mk_quote ls) (mk_quote rs))
+    | Hole(e,ty) -> let newThm = (nConv conv e) in
+                    let asl,c = dest_thm newThm in
+                    let ls,rs = dest_eq c in
+                    Sequent (asl,safe_mk_eq (mk_hole ls) (mk_hole rs))
+
+    | _ -> failwith "QSUB_CONV"
+
+  (*Conversion function to handle hole rewrites on a lower level*)
+  let rec QBETA_CONV tm nConv = match tm with
+    | Comb(l,r) -> let ls = (try QBETA_CONV l nConv with Failure _ -> REFL l) in
+                   let rs = (try QBETA_CONV r nConv with Failure _ -> REFL r) in
+                   let lasl,cl = dest_thm ls in
+                   let rasl,cr = dest_thm ls in
+                   let clls,clrs = dest_eq cl in
+                   let crls,crrs = dest_eq cr in
+                   if clls = clrs && crls = crrs then failwith "QBETA_CONV" else 
+                   let convedComb = Comb(snd(dest_eq(concl ls)),snd(dest_eq(concl rs))) in
+                   Sequent ((lasl @ rasl),safe_mk_eq tm convedComb)
+    | Quote(e,ty) -> let newThm = (QBETA_CONV e nConv) in 
+                     let asl,c = dest_thm newThm in
+                     let ls,rs = dest_eq c in
+                     Sequent (asl,safe_mk_eq (mk_quote ls) (mk_quote rs))
+    | Hole(e,ty) -> let newThm = (nConv e) in
+                    let asl,c = dest_thm newThm in
+                    let ls,rs = dest_eq c in
+                    Sequent (asl,safe_mk_eq (mk_hole ls) (mk_hole rs))
+
+    | _ -> failwith "QBETA_CONV"
+
+
 
 (* ------------------------------------------------------------------------- *)
 (* Quotation handling.                                                       *)

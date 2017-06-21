@@ -1402,7 +1402,7 @@ let ARITH_RULE =
     let pths = map (fun v -> SPEC (rand v) INT_POS) nim in
     let ibod = itlist (curry mk_imp o concl) pths bod in
     let gbod = subst (zip gvs nim) ibod in
-    let th2 = INST (zip nim gvs) (INT_ARITH gbod) in
+    let th2 = INST (zip nim gvs) (INT_ARITH gbod) in 
     let th3 = GENL avs (rev_itlist (C MP) pths th2) in
     EQ_MP (SYM th1) th3;;
 

@@ -83,6 +83,7 @@ let enter =
   *)
 
 let lookup =
+  let rec label_for_lookup tm = 
     let op,args = strip_comb tm in
     if is_const op then Cnet(fst(dest_const op),length args),args
     else if is_abs op then Lnet(length args),(body op)::args

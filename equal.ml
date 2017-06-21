@@ -43,12 +43,12 @@ let mk_primed_var =
 (* General case of beta-conversion.                                          *)
 (* ------------------------------------------------------------------------- *)
 
-let BETA_CONV tm =
+let rec BETA_CONV tm =
   try BETA tm with Failure _ ->
   try let f,arg = dest_comb tm in
       let v = bndvar f in
       INST [arg,v] (BETA (mk_comb(f,v)))
-  with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
+  with Failure _ -> try let _ = dest_quote tm in QBETA_CONV tm BETA_CONV with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
 
 (* ------------------------------------------------------------------------- *)
 (* A few very basic derived equality rules.                                  *)
@@ -210,15 +210,9 @@ let (ONCE_DEPTH_CONV: conv->conv),
     | _ -> failwith "COMB_QCONV: Not a combination" in
   let rec REPEATQC conv tm = THENCQC conv (REPEATQC conv) tm in
   let rec SUB_QCONV conv tm =
-      let rec QSUB_CONV conv tm = match tm with
-    | Comb(l,r) -> (try QSUB_CONV conv l with Failure _ -> QSxUB_CONV conv r)
-    | Quote(e,ty) -> QSUB_CONV conv e
-    | Hole(e,ty) -> SUB_QCONV conv e
-    | _ -> failwith "QSUB_CONV"
-    in
     match tm with
     | Abs(_,_) -> ABS_CONV conv tm
-    | Quote(_,_) -> QSUB_CONV conv tm
+    | Quote(_,_) -> QSUB_CONV conv tm SUB_QCONV
     | _ -> COMB_QCONV conv tm in
   let rec ONCE_DEPTH_QCONV conv tm =
       (conv ORELSEC (SUB_QCONV (ONCE_DEPTH_QCONV conv))) tm
