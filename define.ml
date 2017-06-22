@@ -4,6 +4,36 @@
 (*              (c) Copyright, John Harrison 1998-2007                       *)
 (* ========================================================================= *)
 
+(*** Type Definitions ***)
+
+(*Defines type and term as is defined in John Harrison's paper
+TyVar -> String representing a type variable
+TyBase -> A basic type that cannot be constructed with other types, such as num, bool, etc.
+TyMonoCons -> A type that takes a single type as an argument
+TyBiCons -> A type that takes two types as an argument*) 
+let lt, rt = define_type "type = 
+            TyVar string
+          | TyBase string
+          | TyMonoCons string type
+          | TyBiCons string type type";;    
+
+(*
+QuoVar -> Syntactic representation of a variable named after the string represented by the type
+QuoConst -> Syntactic representation of a constant constant with the given type
+App -> Syntactic representation of a function application
+Abs -> Syntactic representation of an abastraction which marks the first epsilon as a bound variable inside the other epsilon
+Quo -> Representation of the structure of an application of quote
+*)
+
+let lth, rth = define_type "epsilon = 
+             QuoVar string type 
+             | QuoConst string type
+             | Abs epsilon epsilon
+             | App epsilon epsilon
+             | Quo epsilon";;
+
+(*Type definitions have moved here so that epsilon can be used inside admissibility definitions*)
+
 needs "cart.ml";;
 
 (* ------------------------------------------------------------------------- *)
@@ -82,6 +112,9 @@ let MATCH_SEQPATTERN = prove
 let ADMISSIBLE_CONST = prove
  (`!p s c. admissible(<<) p s (\f. c)`,
   REWRITE_TAC[admissible]);;
+
+(*If this is provable, will need to actually prove it, for now it's added as an axiom*)
+let ADMISSIBLE_QUOTE = mk_thm([],`!p s c. admissible(<<) p s (\c n. Q_ H_ ((c n):epsilon) _H _Q)`);;
 
 let ADMISSIBLE_BASE = prove
  (`!(<<) p s t.
@@ -684,6 +717,7 @@ let instantiate_casewise_recursion,
   let ADMISS_TAC =
     CONJ_TAC ORELSE
     MATCH_ACCEPT_TAC ADMISSIBLE_CONST ORELSE
+    MATCH_ACCEPT_TAC ADMISSIBLE_QUOTE ORELSE
     MATCH_ACCEPT_TAC SUPERADMISSIBLE_CONST ORELSE
     MAIN_ADMISS_TAC ORELSE
     MATCH_MP_TAC ADMISSIBLE_IMP_SUPERADMISSIBLE in

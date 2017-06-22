@@ -1,31 +1,3 @@
-(*** Type Definitions ***)
-
-(*Defines type and term as is defined in John Harrison's paper
-TyVar -> String representing a type variable
-TyBase -> A basic type that cannot be constructed with other types, such as num, bool, etc.
-TyMonoCons -> A type that takes a single type as an argument
-TyBiCons -> A type that takes two types as an argument*) 
-let lt, rt = define_type "type = 
-				    TyVar string
-			 	  | TyBase string
-			 	  | TyMonoCons string type
-			 	  | TyBiCons string type type";;    
-
-(*
-QuoVar -> Syntactic representation of a variable named after the string represented by the type
-QuoConst -> Syntactic representation of a constant constant with the given type
-App -> Syntactic representation of a function application
-Abs -> Syntactic representation of an abastraction which marks the first epsilon as a bound variable inside the other epsilon
-Quo -> Representation of the structure of an application of quote
-*)
-
-let lth, rth = define_type "epsilon = 
-					   QuoVar string type 
-				  	 | QuoConst string type
-				     | Abs epsilon epsilon
-				     | App epsilon epsilon
-				     | Quo epsilon";;
-
 (*Distinctness operator can do what strings were implemented to do: Prove that different types of terms and types are unequal*)
 let typeDistinct = distinctness "type";;
 let epsilonDistinct = distinctness "epsilon";; 
