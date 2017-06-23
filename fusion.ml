@@ -103,20 +103,9 @@ module type Hol_kernel =
       val new_basic_definition : term -> thm
       val new_basic_type_definition :
               string -> string * string -> thm -> thm * thm
-      (*
-      val hole_lookup : (hol_type * term) list ref
-      val match_hole : hol_type -> (hol_type * term) list -> term
-      val add_hole_def : hol_type -> term -> (hol_type * term) list -> unit
-      val modify_hole_def : hol_type -> term -> (hol_type * term) list -> (hol_type * term) list -> unit
-      val match_type : term -> (hol_type * term) list -> (hol_type list)
-      val HOLE_CONV : term -> thm -> unit
-    *)
       val getTyv : unit -> int
-      (*
-      val HOLE_THM_CONV : term -> thm -> thm
-      val HOLE_THM_CONV_FIND : term -> thm -> thm
-      val UNQUOTE : term -> term -> thm
-    *)
+      val UNQUOTE : term -> thm
+      val UNQUOTE_CONV : term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -796,8 +785,11 @@ let rec type_subst i ty =
   let rec QSUB_CONV conv tm nConv = match tm with
     | Comb(l,r) -> let ls = (try QSUB_CONV conv l nConv with Failure _ -> REFL l) in
                    let rs = (try QSUB_CONV conv r nConv with Failure _ -> REFL r) in
-                   let lasl,_ = dest_thm ls in
-                   let rasl,_ = dest_thm ls in
+                   let lasl,cl = dest_thm ls in
+                   let rasl,cr = dest_thm ls in
+                   let clls,clrs = dest_eq cl in
+                   let crls,crrs = dest_eq cr in
+                   if clls = clrs && crls = crrs then failwith "QSUB_CONV" else 
                    let convedComb = Comb(snd(dest_eq(concl ls)),snd(dest_eq(concl rs))) in
                    Sequent ((lasl @ rasl),safe_mk_eq tm convedComb)
     | Quote(e,ty) -> let newThm = (QSUB_CONV conv e nConv) in 
@@ -808,7 +800,6 @@ let rec type_subst i ty =
                     let asl,c = dest_thm newThm in
                     let ls,rs = dest_eq c in
                     Sequent (asl,safe_mk_eq (mk_hole ls) (mk_hole rs))
-
     | _ -> failwith "QSUB_CONV"
 
   (*Conversion function to handle hole rewrites on a lower level*)
@@ -830,7 +821,6 @@ let rec type_subst i ty =
                     let asl,c = dest_thm newThm in
                     let ls,rs = dest_eq c in
                     Sequent (asl,safe_mk_eq (mk_hole ls) (mk_hole rs))
-
     | _ -> failwith "QBETA_CONV"
 
 
@@ -931,83 +921,31 @@ let rec type_subst i ty =
     | Comb(a,b) -> try TERM_TO_CONSTRUCTION_CONV a with Failure _ -> try TERM_TO_CONSTRUCTION_CONV b with Failure _ -> failwith "TERM_TO_CONSTRUCTION_CONV"
     | _ -> failwith "TERM_TO_CONSTRUCTION_CONV"
 
-(*Commented out because these will not work until modified for new Hole operator
-
-
-(*For performing operations on holes inside quotations - this method does not give a theorem but instead directly modifies the quotation, it is meant for quick testing and will be removed from
-  the public interface (i.e. inaccessible to functions outside the kernel) when proper theorem/tactic functions have been introduced*)
-  let HOLE_CONV quote tm =
-    let rec replace_thm old rep l = match l with
-      | a :: rest -> modify_hole_def a rep !hole_lookup []
-      | [] -> failwith "HOLE_CONV" 
-    in
-    let locals = snd (dest_quote quote) in
-    let matches = List.filter (fun a -> mem a locals) (match_type (fst (dest_eq (concl tm))) !hole_lookup) in
-    replace_thm (fst (dest_eq (concl tm))) (snd (dest_eq (concl tm))) matches
-
-  let rec twoListsToPairs l1 l2 = 
-    let () = assert (List.length l1 = List.length l2) in
-      match l1 with 
-        | a :: rest -> (List.hd l1, List.hd l2) :: (twoListsToPairs (List.tl l1) (List.tl l2))
-        | [] -> [];; 
-
-  let rec lookupReplacementType t1 l = match l with
-    | a :: rest -> if (fst a) = t1 then snd a else lookupReplacementType t1 rest
-    | [] -> failwith "Could not find match for type";;
-
-  let rec mkUpdatedQuote expr updates = match expr with
-    | Quote (a,ty,h) -> Quote (a,ty,h)
-    | Var (a,ty) -> Var (a,ty)
-    | Comb(l,r) -> Comb(mkUpdatedQuote l updates, mkUpdatedQuote r updates)
-    | Abs(l,r) -> Abs(mkUpdatedQuote l updates, mkUpdatedQuote r updates)   
-    | Const("HOLE",ty) -> Const("HOLE", (lookupReplacementType ty updates))
-    | Const(a,ty) -> Const(a,ty);;
-
-  (*For making a theorem out of hole conversion - CURRENTLY BUGGY, NEEDS FIXING*)
-  let HOLE_THM_CONV quote (tm:thm) = 
-    try
-    (*Need to take apart the given quote*)
-    let e,tys = dest_quote quote in
-    (*Assign new types to the new HOLE constants*)
-    let newL = List.map (fun a -> 
-     let newvar = mk_vartype ("?" ^ (string_of_int (getTyv ()))) in
-     let () = add_hole_def newvar (match_hole a !hole_lookup) !hole_lookup in
-     newvar
-     ) tys in
-    let consMapping = twoListsToPairs tys newL in
-    (*Create new quotation*)
-    let newquo = mk_quote(mkUpdatedQuote e consMapping,newL) in
-    (*Overwrite the cloned type variables with the applied theorem*)
-    let () = HOLE_CONV newquo tm in 
-    (*Generate and return theorem*)
-    Sequent([],safe_mk_eq quote newquo)
-  with Failure _ -> failwith "HOLE_THM_CONV"
-  
-  (*Works when given a theorem*)   
-  let rec HOLE_THM_CONV_FIND trm (tm:thm) = 
-    (match trm with
-    | Quote(e,t,h) -> (try HOLE_THM_CONV trm tm with Failure _ -> HOLE_THM_CONV_FIND e tm)
-    | Comb(l,r) -> (try HOLE_THM_CONV_FIND l tm with Failure _ -> HOLE_THM_CONV_FIND r tm)
-    | _ -> failwith "HOLE_THM_CONV_FIND")
-
-  let rec makeUnquotedQuote quo qty = match quo with
-    | Const("HOLE",ty) when ty = qty -> fst (dest_quote (match_hole qty !hole_lookup)) (*If this is a construction, the hole will be "filled in", so it will have to be a Quote, this should trigger an exception if this is not the case*)
+  let rec makeUnquotedQuote quo = match quo with
     | Const(a,ty) -> Const(a,ty)    
     | Var(a,ty) -> Var(a,ty)
-    | Comb(l,r) -> Comb(makeUnquotedQuote l qty,makeUnquotedQuote r qty)
-    | Abs(l,r) -> Abs(makeUnquotedQuote l qty, makeUnquotedQuote r qty)
-    | Quote(a,ty,h) -> let muq = makeUnquotedQuote a qty in
-        Quote(muq,type_of muq, List.filter (fun a -> a <> ty) h) 
+    | Comb(l,r) -> Comb(makeUnquotedQuote l,makeUnquotedQuote r)
+    | Abs(l,r) -> Abs(makeUnquotedQuote l, makeUnquotedQuote r)
+    | Quote(a,ty) -> let muq = makeUnquotedQuote a in
+        Quote(muq,type_of muq) 
+    | Hole(e,ty) -> (dest_quote e)
 
   (*Unquote will "cancel" out the hole and quotation operators*)
   (*ttu = term to unquote -> unquote (Q_ H_ Q_ 3 _Q _H _Q) (Q_ 3 _Q) = Q_ 3 _Q*)
-  let UNQUOTE trm ttu = match trm with
-    | Quote(e,t,h) -> let reslist = List.filter (fun a -> List.mem a h) (match_type ttu !hole_lookup) in
-      if reslist <> [] then Sequent([],safe_mk_eq trm (makeUnquotedQuote trm (List.hd reslist))) else failwith "No matching holed terms inside the term"
+  let UNQUOTE trm = match trm with
+    | Quote(e,t) -> Sequent([],safe_mk_eq trm (makeUnquotedQuote trm )) 
     | _ -> failwith "UNQUOTE: THIS IS NOT A QUOTE"
 
-*)
-
+  (*Convert to automatically unquote any possible quotes in first "layer" of a term, will fail if any holes are not "filled in", use UNQUOTE to unquote specific terms*)
+  let rec UNQUOTE_CONV tm = 
+    let rec unqint trm =
+      (match trm with
+        | Comb(a,b) -> Comb(unqint a, unqint b)
+        | Abs(a,b) -> Abs(unqint a, unqint b)
+        | Quote(e,ty) -> makeUnquotedQuote e
+        | Hole(e,ty) -> failwith "UNQUOTE_CONV: Hole outside quotaton"
+        | other -> other) in
+    Sequent([],safe_mk_eq tm (unqint tm))
 
 
 (* ------------------------------------------------------------------------- *)

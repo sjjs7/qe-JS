@@ -186,6 +186,8 @@ let BINOP_CONV conv tm =
 (* version to avoid a great deal of reuilding of terms.                      *)
 (* ------------------------------------------------------------------------- *)
 
+let useConv = ref ((fun a -> ASSUME a));;
+
 let (ONCE_DEPTH_CONV: conv->conv),
     (DEPTH_CONV: conv->conv),
     (REDEPTH_CONV: conv->conv),
@@ -210,9 +212,14 @@ let (ONCE_DEPTH_CONV: conv->conv),
     | _ -> failwith "COMB_QCONV: Not a combination" in
   let rec REPEATQC conv tm = THENCQC conv (REPEATQC conv) tm in
   let rec SUB_QCONV conv tm =
+    let rec TDQR conv tm = 
+        THENQC (REPEATQC conv)
+           (THENCQC (SUB_QCONV (TDQR conv))
+                    (THENCQC conv (TDQR conv))) tm
+    in
     match tm with
     | Abs(_,_) -> ABS_CONV conv tm
-    | Quote(_,_) -> QSUB_CONV conv tm SUB_QCONV
+    | Quote(_,_) -> QSUB_CONV conv tm (TDQR)
     | _ -> COMB_QCONV conv tm in
   let rec ONCE_DEPTH_QCONV conv tm =
       (conv ORELSEC (SUB_QCONV (ONCE_DEPTH_QCONV conv))) tm
@@ -229,11 +236,11 @@ let (ONCE_DEPTH_CONV: conv->conv),
   and TOP_SWEEP_QCONV conv tm =
     THENQC (REPEATQC conv)
            (SUB_QCONV (TOP_SWEEP_QCONV conv)) tm in
-  (fun c -> TRY_CONV (ONCE_DEPTH_QCONV c)),
-  (fun c -> TRY_CONV (DEPTH_QCONV c)),
-  (fun c -> TRY_CONV (REDEPTH_QCONV c)),
-  (fun c -> TRY_CONV (TOP_DEPTH_QCONV c)),
-  (fun c -> TRY_CONV (TOP_SWEEP_QCONV c));;
+  (fun c -> let () = useConv := TRY_CONV (ONCE_DEPTH_QCONV c) in TRY_CONV (ONCE_DEPTH_QCONV c)),
+  (fun c -> let () = useConv := TRY_CONV (DEPTH_QCONV c) in TRY_CONV (DEPTH_QCONV c)),
+  (fun c -> let () = useConv := TRY_CONV (REDEPTH_QCONV c) in TRY_CONV (REDEPTH_QCONV c)),
+  (fun c -> let () = useConv := TRY_CONV (TOP_DEPTH_QCONV c) in TRY_CONV (TOP_DEPTH_QCONV c)),
+  (fun c -> let () = useConv := TRY_CONV (TOP_SWEEP_QCONV c) in TRY_CONV (TOP_SWEEP_QCONV c));;
 
 (* ------------------------------------------------------------------------- *)
 (* Apply at leaves of op-tree; NB any failures at leaves cause failure.      *)

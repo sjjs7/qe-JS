@@ -68,18 +68,3 @@ let testFun = define `
 	(testFun 0 = Q_ 0 _Q) /\
 	(testFun (n + 1) = (Q_ H_ testFun(n) _H _Q))
 `;;
-
-let testFun = prove_general_recursive_function_exists `?testFun. 
-	(testFun 0 = Q_ 0 _Q) /\
-	(testFun (n + 1) = (Q_ H_ testFun(n) _H _Q))
-	`;;
-
-let testFun = prove_general_recursive_function_exists `?testFun. 
-	(testFun 0 0 = Q_ 0 _Q) /\
-	(testFun (n + 1) 0 = (Q_ H_ testFun n 1 _H _Q)) /\
-	(testFun (n + 1) (m + 1) = Q_ H_ testFun n 0 _H _Q)
-	`;;
-
-let testFun = prove_general_recursive_function_exists `?testFun. 
-	(testFun 0 = Q_ 0 _Q) /\
-	(testFun (n + 1) = testFun n)	`;;
