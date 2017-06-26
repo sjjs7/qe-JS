@@ -352,9 +352,11 @@ let rec type_subst i ty =
   (*This allows any function of type A -> epsilon - therefore it is possible for ill formed terms to be constructed. The alternative - checking through all definitions to find what a function will return and 
   verifying it's type - would be too inefficient to be feasible*)
 
-  let holefunctioncheck a = if is_hole a then let ty3 = fun_type_of (fst (dest_hole a)) in if is_vartype ty3 then false else
+  let holefunctioncheck a = try
+  if is_hole a then let ty3 = fun_type_of (fst (dest_hole a)) in if is_vartype ty3 then false else
     if (fst (dest_type ty3)) = "fun" && (hd (tl (snd(dest_type ty3)))) = Tyapp("epsilon",[]) then true else false 
   else false 
+  with Failure _ -> false
 
   let mk_comb(f,a) =
     match type_of f with
@@ -924,10 +926,10 @@ let rec type_subst i ty =
   let rec makeUnquotedQuote quo = match quo with
     | Const(a,ty) -> Const(a,ty)    
     | Var(a,ty) -> Var(a,ty)
-    | Comb(l,r) -> Comb(makeUnquotedQuote l,makeUnquotedQuote r)
+    | Comb(l,r) -> Comb(makeUnquotedQuote l, makeUnquotedQuote r)
     | Abs(l,r) -> Abs(makeUnquotedQuote l, makeUnquotedQuote r)
     | Quote(a,ty) -> let muq = makeUnquotedQuote a in
-        Quote(muq,type_of muq) 
+        Quote(muq,qcheck_type_of muq) 
     | Hole(e,ty) -> (dest_quote e)
 
   (*Unquote will "cancel" out the hole and quotation operators*)
@@ -942,10 +944,12 @@ let rec type_subst i ty =
       (match trm with
         | Comb(a,b) -> Comb(unqint a, unqint b)
         | Abs(a,b) -> Abs(unqint a, unqint b)
-        | Quote(e,ty) -> makeUnquotedQuote e
+        | Quote(e,ty) -> let muq = makeUnquotedQuote e in Quote(muq,qcheck_type_of muq)
         | Hole(e,ty) -> failwith "UNQUOTE_CONV: Hole outside quotaton"
         | other -> other) in
-    Sequent([],safe_mk_eq tm (unqint tm))
+    let ntm = unqint tm in
+    if tm = ntm then failwith "UNQUOTE_CONV" else
+    Sequent([],safe_mk_eq tm ntm)
 
 
 (* ------------------------------------------------------------------------- *)
@@ -965,7 +969,6 @@ let rec type_subst i ty =
 (* ------------------------------------------------------------------------- *)
 (* Handling of (term) definitions.                                           *)
 (* ------------------------------------------------------------------------- *)
-
   let the_definitions = ref ([]:thm list)
 
   let definitions() = !the_definitions

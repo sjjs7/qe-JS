@@ -68,3 +68,9 @@ let testFun = define `
 	(testFun 0 = Q_ 0 _Q) /\
 	(testFun (n + 1) = (Q_ H_ testFun(n) _H _Q))
 `;;
+
+let testFun2 = prove_general_recursive_function_exists `?testFun2.
+	(testFun2 0 = Q_ 0 _Q) /\
+	(testFun2 (n + 1) = (Q_ 2 + H_ testFun2(n) _H _Q))
+
+(*This tests that unquote tactics work even on really *)

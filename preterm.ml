@@ -452,7 +452,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       | Combp(l,r) -> mk_comb(term_of_preterm l,term_of_preterm r)
       | Absp(v,bod) -> mk_gabs(term_of_preterm v,term_of_preterm bod)
       | Quotep(a) -> mk_quote (term_of_preterm a)
-      | Holep(a) ->  let ToP = term_of_preterm a in if type_of (ToP) = mk_type("epsilon",[]) then mk_hole ToP else failwith "Holed term is not of type epsilon"
+      | Holep(a) ->  let ToP = term_of_preterm a in if type_of (ToP) = mk_type("epsilon",[]) or 1 = 1 then mk_hole ToP else failwith "Holed term is not of type epsilon" (*Temporarily disabled type check to test some things with admissible, if it works may need to delay checking until loading is complete*)
       | Typing(ptm,pty) -> term_of_preterm ptm in
     let report_type_invention () =
       if !stvs_translated then

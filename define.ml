@@ -114,7 +114,9 @@ let ADMISSIBLE_CONST = prove
   REWRITE_TAC[admissible]);;
 
 (*If this is provable, will need to actually prove it, for now it's added as an axiom*)
-let ADMISSIBLE_QUOTE = mk_thm([],`!p s c. admissible(<<) p s (\c n. Q_ H_ ((c n):epsilon) _H _Q)`);;
+let ADMISSIBLE_QUOTE = mk_thm([],`!p s c. admissible(<<) p s c ==> admissible(<<) p s (\c n. Q_ c _Q)`);;
+
+let ADMISSIBLE_HOLE =  mk_thm([],`!p s c. admissible(<<) p s c ==> admissible(<<) p s (\c n. H_ c _H)`);;
 
 let ADMISSIBLE_BASE = prove
  (`!(<<) p s t.
