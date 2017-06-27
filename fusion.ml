@@ -88,6 +88,7 @@ module type Hol_kernel =
       val TERM_TO_CONSTRUCTION : term -> thm
       val QUOTE_CONV : term -> thm
       val TERM_TO_CONSTRUCTION_CONV : term -> thm
+      val CONSTRUCTION_TO_TERM : term -> thm
       val TRANS : thm -> thm -> thm
       val MK_COMB : thm * thm -> thm
       val ABS : term -> thm -> thm
@@ -788,11 +789,11 @@ let rec type_subst i ty =
     | Comb(l,r) -> let ls = (try QSUB_CONV conv l nConv with Failure _ -> REFL l) in
                    let rs = (try QSUB_CONV conv r nConv with Failure _ -> REFL r) in
                    let lasl,cl = dest_thm ls in
-                   let rasl,cr = dest_thm ls in
+                   let rasl,cr = dest_thm rs in
                    let clls,clrs = dest_eq cl in
                    let crls,crrs = dest_eq cr in
                    if clls = clrs && crls = crrs then failwith "QSUB_CONV" else 
-                   let convedComb = Comb(snd(dest_eq(concl ls)),snd(dest_eq(concl rs))) in
+                   let convedComb = Comb(clrs,crrs) in
                    Sequent ((lasl @ rasl),safe_mk_eq tm convedComb)
     | Quote(e,ty) -> let newThm = (QSUB_CONV conv e nConv) in 
                      let asl,c = dest_thm newThm in
@@ -860,6 +861,25 @@ let rec type_subst i ty =
     | [] -> Const("NIL",makeConstructedType "list" [makeBasicType "char"])
     | a :: rest -> Comb(Comb(makeCONS,(charToHOL (Char.code (a.[0])) 1)),(tmp_mk_string rest));;
 
+(*Takes a list of eight 1s and 0s and reads it as a binary number to return a decimal number*)
+ let binToDec l p = 
+  let rec innerConv l p = 
+    match l with
+    | [] -> 0
+    | a :: rest -> (int_of_float ((float_of_int a) *. (2. ** (float_of_int p)))) + (innerConv rest (p - 1))
+  in
+ if List.length l = 8 then innerConv l p else failwith "Cannot convert non 8-bit number";;
+
+(*Reads a character back as HOL input*)
+  let translateChar = function
+    | Comb(Comb(Comb(Comb(Comb(Comb(Comb(Comb(Const("ASCII",_),b1),b2),b3),b4),b5),b6),b7),b8) -> String.make 1 (Char.chr (binToDec (List.map (fun a -> let b = fst (dest_const a) in if b = "T" then 1 else 0) [b1;b2;b3;b4;b5;b6;b7;b8]) 7))
+    | _ -> failwith "Not an HOL character";;
+
+(*Takes a string in HOL's list format and turns it back into an Ocaml string*)
+  let rec readStringList = function
+    | Comb(Comb(Const("CONS",_),str),next) -> translateChar str :: (readStringList next)
+    | Const("NIL",_) -> []
+    | _ -> failwith "Not a valid string";;
 
   (*Need a temporary implementation of mk_string and related functions*)
 
@@ -887,6 +907,12 @@ let rec type_subst i ty =
           | 2 -> makeTyBiConsComb a (matchType (hd b)) (matchType (hd (tl b)))
           | _ -> failwith "This is not a valid type";;
 
+  let rec revTypeMatch = function
+      |  Comb(Const("TyVar",_),tName) -> Tyapp ((implode (readStringList tName)),[])
+      |  Comb(Const("TyBase",_),tName) -> Tyapp((implode (readStringList tName)),[])
+      |  Comb(Comb(Const("TyMonoCons",_),tName),sType) -> Tyapp ((implode (readStringList tName)),[revTypeMatch sType])
+      |  Comb(Comb(Comb(Const("TyBiCons",_),tName),sType),tType) -> Tyapp ((implode (readStringList tName)),[revTypeMatch sType;revTypeMatch tType])
+      | _ -> failwith "Invalid type";;
 
   (*Currently in development - will always return False for now for testing purposes*)
   let rec termToConstruction = function
@@ -895,13 +921,25 @@ let rec type_subst i ty =
       |  Comb(exp1, exp2) -> makeAppComb (termToConstruction exp1) (termToConstruction exp2)
       |  Abs(exp1, exp2) -> makeAbsComb (termToConstruction exp1) (termToConstruction exp2)
       |  Quote(e,t) when type_of e = t -> makeQuoComb (termToConstruction e)
+      |  Hole(e,t) -> e
       |  _ -> failwith "Malformed term cannot be made into a construction"
+
+  let rec constructionToTerm = function
+      | Comb(Comb(Const("QuoConst",_),strList),tyConv) -> Const(implode (readStringList strList),revTypeMatch tyConv)
+      | Comb(Comb(Const("QuoVar",_),strList),tyConv) -> Var(implode (readStringList strList),revTypeMatch tyConv)
+      | Comb(Comb(Const("App",_),t1),t2) -> Comb(constructionToTerm t1,constructionToTerm t2)
+      | Comb(Comb(Const("Abs",_),t1),t2) -> Abs(constructionToTerm t1,constructionToTerm t2)
+      | Comb(Const("Quo",_),t) -> let ct = constructionToTerm t in Quote(ct,type_of ct)
+      | other when type_of(other) = Tyapp("epsilon",[]) -> Hole(other,type_of other)
+      | _ -> failwith "constructionToTerm"
 
   let TERM_TO_CONSTRUCTION tm = match tm with
       |  Quote(exp,t) when type_of exp = t -> Sequent([],safe_mk_eq tm (termToConstruction exp))
       |  Quote(_,_) -> failwith "TERM_TO_CONSTRUCTION: BAD QUOTE"
       | _ -> failwith "TERM_TO_CONSTRUCTION"
   
+  let CONSTRUCTION_TO_TERM tm = try Sequent([],safe_mk_eq tm (mk_quote (constructionToTerm tm))) with Failure _ -> failwith "CONSTRUCTION_TO_TERM"
+
   (*Returns a theorem asserting that the quotation of a term is equivelant to wrapping Quote around it*)
   (*i.e. _Q_ P <=> (Q(P)Q)*)   
   let QUOTE tm = match tm with

@@ -9,7 +9,7 @@ REWRITE_TAC[ALL]
 
 (*This tests that quotations are correctly converted to epsilon terms*)
 prove(`Q_ (x + 3) _Q = (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoVar "x" (TyBase "num")))
-	(App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
+    (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
    (App (QuoConst "BIT1" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
    (App (QuoConst "BIT1" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
    (QuoConst "_0" (TyBase "num"))))))`,
@@ -19,7 +19,7 @@ REFL_TAC
 
 (*This tests that the result of QUOTE can be fed into TERM_TO_CONSTRUCTION to fully transition from the _Q_ operator to an epsilon term*)
 prove(`_Q_ (x + 3) = (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoVar "x" (TyBase "num")))
-	(App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
+    (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
    (App (QuoConst "BIT1" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
    (App (QuoConst "BIT1" (TyBiCons "fun" (TyBase "num") (TyBase "num")))
    (QuoConst "_0" (TyBase "num"))))))`,
@@ -65,12 +65,61 @@ try `Q_ H_ Q_ x + 3 _Q _H /\ T _Q` with Failure _ -> `HOLE_MISTYPE_TEST_SUCCESS:
 
 (*For testing, defines a function that takes an integer and recursively adds quotations until n is 0*)
 let testFun = define `
-	(testFun 0 = Q_ 0 _Q) /\
-	(testFun (n + 1) = (Q_ H_ testFun(n) _H _Q))
+    (testFun 0 = Q_ 0 _Q) /\
+    (testFun (n + 1) = (Q_ H_ testFun(n) _H _Q))
 `;;
 
-let testFun2 = prove_general_recursive_function_exists `?testFun2.
-	(testFun2 0 = Q_ 0 _Q) /\
-	(testFun2 (n + 1) = (Q_ 2 + H_ testFun2(n) _H _Q))
+let testFun2 = define `
+    (testFun2 0 = Q_ 0 _Q) /\
+    (testFun2 (n + 1) = (Q_ 2 + H_ testFun2(n) _H _Q))`;;
 
-(*This tests that unquote tactics work even on really *)
+(*This tests that unquote tactics work even on long winded recursive functions*)
+prove(`testFun 10 = Q_ 0 _Q`,
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 10 = testFun(9 + 1)`] `testFun 10`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 9 = testFun(8 + 1)`] `testFun 9`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 8 = testFun(7 + 1)`] `testFun 8`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 7 = testFun(6 + 1)`] `testFun 7`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 6 = testFun(5 + 1)`] `testFun 6`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 5 = testFun(4 + 1)`] `testFun 5`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 4 = testFun(3 + 1)`] `testFun 4`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 3 = testFun(2 + 1)`] `testFun 3`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 2 = testFun(1 + 1)`] `testFun 2`] THEN
+    REWRITE_TAC[testFun] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun 1 = testFun(0 + 1)`] `testFun 1`] THEN
+    REWRITE_TAC[testFun] THEN
+    REPEAT UNQUOTE_TAC THEN
+    REFL_TAC
+);;
+
+prove(`testFun2 10 = Q_ 2 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 0 _Q`,
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 10 = testFun2(9 + 1)`] `testFun2 10`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 9 = testFun2(8 + 1)`] `testFun2 9`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 8 = testFun2(7 + 1)`] `testFun2 8`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 7 = testFun2(6 + 1)`] `testFun2 7`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 6 = testFun2(5 + 1)`] `testFun2 6`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 5 = testFun2(4 + 1)`] `testFun2 5`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 4 = testFun2(3 + 1)`] `testFun2 4`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 3 = testFun2(2 + 1)`] `testFun2 3`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 2 = testFun2(1 + 1)`] `testFun2 2`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REWRITE_TAC[REWRITE_CONV[ARITH_RULE `testFun2 1 = testFun2(0 + 1)`] `testFun2 1`] THEN
+    REWRITE_TAC[testFun2] THEN
+    REPEAT UNQUOTE_TAC THEN
+    REFL_TAC
+);;
