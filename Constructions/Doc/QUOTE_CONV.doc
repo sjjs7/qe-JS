@@ -30,6 +30,6 @@ Fails with {QUOTE_CONV} if there is no application of the {_Q_} operator in the 
 This can be used to apply the {QUOTE} axiom on a given term without manually rewriting parts of the term. {QUOTE} should still be used if control over which term is selected is desirable. 
 
 \SEEALSO
-QUOTE_CONV, QUOTE_TAC.
+QUOTE, QUOTE_TAC.
 
 \ENDDOC

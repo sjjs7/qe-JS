@@ -1,0 +1,33 @@
+\DOC UNQUOTE_TAC
+
+\TYPE {UNQUOTE_TAC : tactic}
+
+\SYNOPSIS
+Applies UNQUOTE to the first possible instance it can be applied to.
+
+\KEYWORDS
+quotation, equality, quasiquotation.
+
+\DESCRIBE
+{UNQUOTE_TAC} decends through the term on the goalstack and attempts to apply UNQUOTE to all subterms until it succeeds.
+
+\FAILURE
+Fails if there is no possible application of UNQUOTE to be found within the term
+
+\EXAMPLE
+{
+# g(`Q_ H_ Q_ 3 _Q _H + 1 _Q = Q_ 3 + 1 _Q`);;
+val it : goalstack = 1 subgoal (1 total)
+
+`Q_ (H_ (Q_ (3) _Q) _H + 1) _Q = Q_ (3 + 1) _Q`
+
+# e(UNQUOTE_TAC);;
+val it : goalstack = 1 subgoal (1 total)
+
+`Q_ (3 + 1) _Q = Q_ (3 + 1) _Q`
+}
+
+\COMMENTS
+This can be used to eliminate holes once the epsilon term inside them has been evaluated. 
+
+\ENDDOC

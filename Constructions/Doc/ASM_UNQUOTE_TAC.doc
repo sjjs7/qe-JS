@@ -1,0 +1,20 @@
+\DOC ASM_UNQUOTE_TAC
+
+\TYPE {ASM_UNQUOTE_TAC : tactic}
+
+\SYNOPSIS
+Applies UNQUOTE to the first possible instance it can be applied to using all assumptions in it's rewrite attempt.
+
+\KEYWORDS
+quotation, equality, quasiquotation.
+
+\DESCRIBE
+{ASM_UNQUOTE_TAC} decends through the term on the goalstack and attempts to apply UNQUOTE along with any assumptions in the goalstack to all subterms until it succeeds.
+
+\FAILURE
+Fails if there is no possible application of UNQUOTE to be found within the term
+
+\COMMENTS
+This is the same as UNQUOTE_TAC, it just takes assumptions into account when performing the rewrites
+
+\ENDDOC

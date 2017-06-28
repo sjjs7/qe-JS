@@ -1,0 +1,35 @@
+\DOC UNQUOTE_CONV
+
+\TYPE {UNQUOTE_CONV : term -> thm}
+
+\SYNOPSIS
+Applies {UNQUOTE} to the first applicable term it finds.
+
+\KEYWORDS
+quotation, equality.
+
+\DESCRIBE
+{UNQUOTE_CONV} descends down a term and looks for all first-order quotes it can apply UNQUOTE to. It then returns a theorem as if UNQUOTE was called on all of these terms.
+
+\FAILURE
+Fails with {UNQUOTE_CONV} if there is nowhere to apply UNCONV.
+
+\EXAMPLE
+{
+# `Q_ H_ Q_ 2 _Q _H + H_ Q_ 3 _Q _H _Q`;;
+val it : term = `Q_ (H_ (Q_ (2) _Q) _H + H_ (Q_ (3) _Q) _H) _Q`
+# UNQUOTE_CONV it;;
+val it : thm =
+  |- Q_ (H_ (Q_ (2) _Q) _H + H_ (Q_ (3) _Q) _H) _Q = Q_ (2 + 3) _Q
+# UNQUOTE_CONV `Q_ H_ Q_ H_ Q_ 3 _Q _H _Q _H _Q`;;
+val it : thm =
+  |- Q_ (H_ (Q_ (H_ (Q_ (3) _Q) _H) _Q) _H) _Q = Q_ (H_ (Q_ (3) _Q) _H) _Q
+}
+
+\COMMENTS
+This can be used to apply the {UNQUOTE} axiom on a given term without manually rewriting parts of the term. {UNQUOTE} should still be used if control over which term is selected is desirable. 
+
+\SEEALSO
+UNQUOTE, UNQUOTE_TAC.
+
+\ENDDOC

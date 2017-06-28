@@ -1,0 +1,27 @@
+\DOC dest_hole
+
+\TYPE {dest_hole : term : epsilon -> term * hol_type}
+
+\SYNOPSIS
+Breaks apart a Hole term into it's inner term and the type associated with this inner term
+
+\DESCRIBE
+{dest_hole} is a term destructor for quotations:
+{
+   dest_hole `H_ Q_ (e:epsilon) _Q _H` 
+}
+\noindent returns {Q_ e _Q,epsilon}.
+
+\FAILURE
+Never fails.
+
+\EXAMPLE
+{
+dest_hole `H_ Q_ x + 3 _Q _H`;;
+val it : term * hol_type = (`Q_ (x + 3) _Q`, `:epsilon`)
+}
+
+\SEEALSO
+mk_hole,is_hole
+
+\ENDDOC

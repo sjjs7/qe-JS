@@ -1,0 +1,43 @@
+\DOC CONSTRUCTION_TO_TERM
+
+\TYPE {CONSTRUCTION_TO_TERM : term -> thm}
+
+\SYNOPSIS
+Returns theorem asserting that the syntactical structure of a term is equivelant to it's quotation
+
+\KEYWORDS
+quotation, equality, construction.
+
+\DESCRIBE
+{CONSTRUCTION_TO_TERM} maps any term {`EpsilonConstruction(t)`} to the corresponding theorem {|- EpsilonConstruction(t) = Q_ t _Q} where {EpsilonConstruction} are elements of the {Epsilon} type that represent the syntax of {t}.
+
+\FAILURE
+Fails if there exists any subterm inside the term that is not of type epsilon
+
+\EXAMPLE
+{
+# CONSTRUCTION_TO_TERM `App
+  (App
+  (QuoConst "\\/"
+  (TyBiCons "fun" (TyBase "bool")
+  (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))
+  (QuoConst "T" (TyBase "bool")))
+  (QuoConst "F" (TyBase "bool"))`;;
+val it : thm =
+  |- App
+     (App
+      (QuoConst "\\/"
+      (TyBiCons "fun" (TyBase "bool")
+      (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))
+     (QuoConst "T" (TyBase "bool")))
+     (QuoConst "F" (TyBase "bool")) =
+     Q_ (T \/ F) _Q
+}
+
+\COMMENTS
+This function is the inverse function for TERM_TO_CONSTRUCTION
+
+\SEEALSO
+TERM_TO_CONSTRUCTION
+
+\ENDDOC

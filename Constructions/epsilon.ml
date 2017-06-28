@@ -137,6 +137,15 @@ let quo = define `quo eps = Quo eps`;;
 (*Comparison to see if two types are equal*)
 let eqTypes = define `eqTypes t1 t2 = (t1 = t2)`;;
 
+(*Checks that a term is a valid construction*)
+let isConstruction = define `
+(isConstruction (QuoVar str ty) = T) /\ 
+(isConstruction (QuoConst str ty) = T) /\
+(isConstruction (App exp1 exp2) = ((isConstruction exp1) /\ (isConstruction (exp2)))) /\
+(isConstruction (Abs exp1 exp2) = ((isConstruction exp1) /\ (isConstruction exp2))) /\
+(isConstruction (Quo exp1) = (isConstruction exp1)) 
+`;;
+
 (*** PROOFS FOR TESTING ***)
 (*Proof that a variable not inside an expression is not free in that expression*)
 prove(`isFreeIn (QuoVar "x" (TyBase "bool")) (QuoVar "y" (TyBase "bool")) <=> F`,
@@ -743,4 +752,13 @@ REWRITE_TAC[STRING_EQ_CONV `"cart" = "BAD_TYPE"`] THEN
 REWRITE_TAC[STRING_EQ_CONV `"sum" = "BAD_TYPE"`] THEN
 REWRITE_TAC[STRING_EQ_CONV `"prod" = "BAD_TYPE"`] THEN
 REWRITE_TAC[STRING_EQ_CONV `"fun" = "BAD_TYPE"`]
+);;
+
+prove(`isConstruction ((e_abs (QuoVar "x" (TyBase "bool")) (App (App (QuoVar "x" (TyBase "bool")) (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))))) (QuoConst "F" (TyBase "bool")))))`,
+REWRITE_TAC[e_abs] THEN
+REWRITE_TAC[isConstruction]
+);;
+
+prove(`isConstruction ((Abs (QuoVar "x" (TyBase "num")) (App (App (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) (QuoConst "2" (TyBase "num"))) (QuoVar "x" (TyBase "num")))))`,
+REWRITE_TAC[isConstruction]
 );;

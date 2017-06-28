@@ -367,7 +367,7 @@ let rec type_subst i ty =
 
   let mk_quote t = Quote(t,qcheck_type_of t)
 
-  let mk_hole t = Hole(t,type_of t)
+  let mk_hole t = if type_of t = Tyapp("epsilon",[]) then Hole(t,type_of t) else failwith "Not an epsilon term"
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive destructors.                                                    *)
