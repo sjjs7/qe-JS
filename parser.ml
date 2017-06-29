@@ -366,6 +366,7 @@ let parse_preterm =
   and lmk_setabs(((l,_),r),_) = pmk_setabs(l,r)
   and lmk_quote (_,preterm),_ = Quotep(preterm)
   and lmk_hole (_,preterm),_ =  Holep(preterm) 
+  and lmk_eval (((_,preterm),_),ty) = Evalp(preterm,ty)
   and lmk_setcompr(((((f,_),vs),_),b),_) =
      pmk_setcompr(f,pfrees vs [],b)
   and lmk_decimal ((_,l0),ropt) =
@@ -476,6 +477,8 @@ let parse_preterm =
       >> lmk_quote)
   ||| (a (Resword "H_") ++ preterm ++ a (Resword "_H")
       >> lmk_hole)
+  ||| (a (Resword "eval") ++ preterm ++ a (Resword "to") ++ pretype
+      >> lmk_eval)
   ||| (identifier >> (fun s -> Varp(s,dpty)))) i
   and pattern i =
     (preterm ++ possibly (a (Resword "when") ++ preterm >> snd)) i

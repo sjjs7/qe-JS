@@ -22,6 +22,7 @@ module type Hol_kernel =
       | Abs of term * term
       | Quote of term * hol_type
       | Hole of term * hol_type
+      | Eval of term * hol_type
 
       type thm
 
@@ -51,18 +52,21 @@ module type Hol_kernel =
       val is_comb : term -> bool
       val is_quote : term -> bool
       val is_hole : term -> bool
+      val is_eval : term -> bool
       val mk_var : string * hol_type -> term
       val mk_const : string * (hol_type * hol_type) list -> term
       val mk_abs : term * term -> term
       val mk_comb : term * term -> term
       val mk_quote : term -> term
       val mk_hole : term -> term
+      val mk_eval : term * hol_type -> term
       val dest_var : term -> string * hol_type
       val dest_const : term -> string * hol_type
       val dest_comb : term -> term * term
       val dest_abs : term -> term * term
       val dest_quote: term -> term
       val dest_hole : term -> term * hol_type
+      val dest_eval : term -> term * hol_type
       val frees : term -> term list
       val freesl : term list -> term list
       val freesin : term list -> term -> bool
@@ -124,6 +128,7 @@ module Hol : Hol_kernel = struct
             | Abs of term * term
             | Quote of term * hol_type
             | Hole of term * hol_type
+            | Eval of term * hol_type
 
   type thm = Sequent of (term list * term)
 
@@ -282,6 +287,7 @@ let rec type_subst i ty =
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;qcheck_type_of t])
     | Quote(e,_) -> Tyapp("epsilon",[])
     | Hole(e,ty) -> ty
+    | Eval(e,ty) -> ty
     | _ -> failwith "TYPE_OF: Invalid term. You should not see this error under normal use, if you do, the parser has allowed an ill formed term to be created."
 
   let rec type_of tm =
@@ -292,6 +298,7 @@ let rec type_subst i ty =
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
     | Quote(e,_) -> Tyapp("epsilon",[])
     | Hole(e,ty) -> ty
+    | Eval(e,ty) -> ty
     | _ -> failwith "TYPE_OF: Invalid term. You should not see this error under normal use, if you do, the parser has allowed an ill formed term to be created."
 
   (*Internal function to grab the type of an applied function*)
@@ -306,6 +313,16 @@ let rec type_subst i ty =
   match tm with
     | Comb(l,r) when type_of tm = Tyapp("epsilon",[]) -> ftype_of l 
     | _ -> failwith "Incomplete or mistyped function" 
+
+    (*Checks if a term is eval-free*)
+    let rec is_eval_free tm = match tm with
+    | Var(_,_) -> true
+    | Const(_,_) -> true
+    | Comb(a,b) -> is_eval_free a && is_eval_free b
+    | Abs(a,b) -> is_eval_free a && is_eval_free b
+    | Quote(e,ty) -> is_eval_free e
+    | Hole(e,ty) -> is_eval_free e
+    | Eval(e,ty) -> false
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive discriminators.                                                 *)
@@ -325,6 +342,8 @@ let rec type_subst i ty =
     function (Quote(e,ty)) when qcheck_type_of e = ty -> e | _ -> failwith "dest_quote: not a quotation or type mismatch"
 
   let is_hole = function (Hole(_,_)) -> true | _ -> false
+
+  let is_eval = function (Eval(_,_)) -> true | _ -> false
 
   let dest_hole = 
     function (Hole(e,ty)) -> e,ty | _ -> failwith "dest_hole: not a hole"
@@ -365,9 +384,11 @@ let rec type_subst i ty =
         -> Comb(f,a)
     | _ -> failwith "mk_comb: types do not agree"
 
-  let mk_quote t = Quote(t,qcheck_type_of t)
+  let mk_quote t = if is_eval_free t then Quote(t,qcheck_type_of t) else failwith "Can only quote eval-free terms"
 
   let mk_hole t = if type_of t = Tyapp("epsilon",[]) then Hole(t,type_of t) else failwith "Not an epsilon term"
+
+  let mk_eval (e,ty) = Eval(e,ty)
 
 (* ------------------------------------------------------------------------- *)
 (* Primitive destructors.                                                    *)
@@ -384,6 +405,9 @@ let rec type_subst i ty =
 
   let dest_abs =
     function (Abs(v,b)) -> v,b | _ -> failwith "dest_abs: not an abstraction"
+
+  let dest_eval = 
+    function (Eval(e,ty)) -> e,ty | _ -> failwith "dest_eval: not an eval"
 
 (* ------------------------------------------------------------------------- *)
 (* Finds the variables free in a term (list of terms).                       *)
@@ -989,6 +1013,10 @@ let rec type_subst i ty =
     if tm = ntm then failwith "UNQUOTE_CONV" else
     Sequent([],safe_mk_eq tm ntm)
 
+
+(* ------------------------------------------------------------------------- *)
+(* Evaluation handling.                                                      *)
+(* ------------------------------------------------------------------------- *)
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)

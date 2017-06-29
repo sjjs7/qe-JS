@@ -47,7 +47,7 @@ let reserve_words,unreserve_words,is_reserved_word,reserved_words =
   let reswords = ref ["(";  ")"; "[";   "]";  "{";   "}";
                       ":";  ";";  ".";  "|";
                       "let"; "in"; "and"; "if"; "then"; "else";
-                      "match"; "with"; "function"; "->"; "when"; "Q_" ; "_Q" ; "H_" ; "_H"] in
+                      "match"; "with"; "function"; "->"; "when"; "Q_" ; "_Q" ; "H_" ; "_H";"eval";"to"] in
   (fun ns  -> reswords := union (!reswords) ns),
   (fun ns  -> reswords := subtract (!reswords) ns),
   (fun n  -> mem n (!reswords)),
@@ -553,5 +553,10 @@ let print_hole fmt tm = match tm with
   | Hole(e,ty) -> pp_print_string fmt ("H_ (" ^ (print_to_string pp_print_term) e ^ ") _H")
   | _ -> failwith "Not a hole";;
 
+let print_eval fmt tm = match tm with
+  | Eval(e,ty) -> pp_print_string fmt ("(eval (" ^ (print_to_string pp_print_term) e ^ ") to (" ^ (print_to_string pp_print_type) ty ^ "))")
+  | _ -> failwith "Not an eval";;
+
 install_user_printer("print_quoted",print_quoted);;
 install_user_printer("print_hole",print_hole);;
+install_user_printer("print_eval",print_eval);;
