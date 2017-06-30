@@ -111,6 +111,7 @@ module type Hol_kernel =
       val getTyv : unit -> int
       val UNQUOTE : term -> thm
       val UNQUOTE_CONV : term -> thm
+      val EVAL_QUOTE : term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -827,6 +828,11 @@ let rec type_subst i ty =
                     let asl,c = dest_thm newThm in
                     let ls,rs = dest_eq c in
                     Sequent (asl,safe_mk_eq (mk_hole ls) (mk_hole rs))
+    (*This should not cause any issues on the assumption that a quote will never contain an eval inside it*)
+    | Eval(e,ty) -> let newThm = (nConv conv e) in
+                    let asl,c = dest_thm newThm in
+                    let ls,rs = dest_eq c in
+                    Sequent (asl,safe_mk_eq (mk_eval (ls,ty)) (mk_eval (rs,ty)))
     | _ -> failwith "QSUB_CONV"
 
   (*Conversion function to handle hole rewrites on a lower level*)
@@ -1012,6 +1018,51 @@ let rec type_subst i ty =
     let ntm = unqint tm in
     if tm = ntm then failwith "UNQUOTE_CONV" else
     Sequent([],safe_mk_eq tm ntm)
+
+
+  let rec attempt_type_fix tm type_desired type_actual =
+    let rec instlist l1 l2 = 
+      (*Check that the lists are of the same size and are not empty*)
+      if length l1 <> length l2 then fail() else
+      if length l1 = 0 then [] else
+      (*If two elements are the same, ignore them, move to next element*)
+      if (hd l1) <> (hd l2) then
+      let ta = hd l1 and td = hd l2 in
+      if is_vartype ta then [(td,ta)] @ (instlist (tl l1) (tl l2)) else
+      if length (snd (dest_type ta)) > 0 then (instlist (snd (dest_type ta)) (snd (dest_type td))) @ (instlist (tl l1) (tl l2))  else fail()
+      else instlist (tl l1) (tl l2)
+    in
+    (*When fixing function types recursively, they may end up equal after the first few iterations, so this ends recursion early*)
+    if type_desired = type_actual then tm else
+    (*Variable types can be replaced freely*)
+    if is_vartype type_actual then inst [type_desired,type_actual] tm else
+    (*The term has a definite type, so if we are attempting to replace it with a variable type, the eval is invalid*)
+    if is_vartype type_desired then fail() else
+    (*if This is not a function or constructed type, the type given to eval is invalid*)
+    let tName,args = dest_type type_actual in
+    let dName,dArgs = dest_type type_desired in
+    if length args = 0  || dName <> tName then fail() else
+    (*Generate a type instantiation list based on the differences in type and applies it to the term*)
+    inst (instlist args dArgs) tm 
+
+
+  let rec EVAL_QUOTE tm = 
+    if not (is_eval tm) then failwith "EVAL_QUOTE: Not an evaluation" else
+    let rec handleVar tm = match tm with
+      | Var(_,_) -> failwith "No support for handling variable substitution yet"
+      | Comb(a,b) -> let () = handleVar a in handleVar b
+      | Quote(e,ty) -> handleVar e
+      | Hole(e,ty) -> handleVar e
+      | _ -> ()
+    in
+    match dest_eval tm with
+      | Quote(e,ty),ety -> let () = handleVar e in if ety = type_of e then Sequent([], safe_mk_eq tm e) else (try 
+          let fixed_term = (attempt_type_fix e ety (type_of e)) in 
+            (*Need to check the fixed term vs given type - instantiating (=) to A -> num -> bool would work but get instantiated to A -> A -> bool,
+              so if a valid type was given, it should match the instantiation*)
+            if type_of fixed_term = ety then Sequent ([], safe_mk_eq tm fixed_term) else fail() with Failure _ -> failwith "Could not evaluate to given type")
+      | _ -> failwith "EVAL_QUOTE: Term to eval must be a quotation"
+
 
 
 (* ------------------------------------------------------------------------- *)
