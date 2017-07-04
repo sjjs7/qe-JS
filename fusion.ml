@@ -112,6 +112,9 @@ module type Hol_kernel =
       val UNQUOTE : term -> thm
       val UNQUOTE_CONV : term -> thm
       val EVAL_QUOTE : term -> thm
+      val EVAL_QUOTE_CONV : term -> thm
+      val EVAL_QUOTE_ENV : (term * term) list -> term -> thm
+      val EVAL_QUOTE_CONV_ENV : (term * term) list -> term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -430,6 +433,7 @@ let rec type_subst i ty =
     | Comb(s,t) -> union (frees s) (frees t)
     | Quote(e,ty) -> qfrees e
     | Hole(e,ty) -> frees e
+    | Eval(e,ty) -> []
 
   let freesl tml = itlist (union o frees) tml []
 
@@ -832,6 +836,13 @@ let rec type_subst i ty =
     | Eval(e,ty) -> let newThm = (nConv conv e) in
                     let asl,c = dest_thm newThm in
                     let ls,rs = dest_eq c in
+                    (*The middle evaluates to nothing, check if the term itself can be switched out*)
+                    if ls = rs then
+                    let newThm = (nConv conv tm) in
+                    let asl,c = dest_thm newThm in
+                    let ls,rs = dest_eq c in 
+                    Sequent (asl,safe_mk_eq ls rs)
+                    else
                     Sequent (asl,safe_mk_eq (mk_eval (ls,ty)) (mk_eval (rs,ty)))
     | _ -> failwith "QSUB_CONV"
 
@@ -1020,6 +1031,10 @@ let rec type_subst i ty =
     Sequent([],safe_mk_eq tm ntm)
 
 
+(* ------------------------------------------------------------------------- *)
+(* Evaluation handling.                                                      *)
+(* ------------------------------------------------------------------------- *)
+
   let rec attempt_type_fix tm type_desired type_actual =
     let rec instlist l1 l2 = 
       (*Check that the lists are of the same size and are not empty*)
@@ -1045,18 +1060,22 @@ let rec type_subst i ty =
     (*Generate a type instantiation list based on the differences in type and applies it to the term*)
     inst (instlist args dArgs) tm 
 
+  (*Env should be a list of pairs, where the first is the term to match and the second is the term to match it to*)  
+  let rec lookup_var_in_env env tm = match env with
+      | a :: rest -> if fst a = tm then snd a else lookup_var_in_env rest tm
+      | [] -> failwith "EVAL_QUOTE_ENV: Variable does not exist in environment"
 
-  let rec EVAL_QUOTE tm = 
+  let EVAL_QUOTE_ENV env tm =    
     if not (is_eval tm) then failwith "EVAL_QUOTE: Not an evaluation" else
     let rec handleVar tm = match tm with
-      | Var(_,_) -> failwith "No support for handling variable substitution yet"
-      | Comb(a,b) -> let () = handleVar a in handleVar b
-      | Quote(e,ty) -> handleVar e
-      | Hole(e,ty) -> handleVar e
-      | _ -> ()
+      | Var(a,b) -> lookup_var_in_env env tm
+      | Comb(a,b) -> Comb(handleVar a,handleVar b)
+      | Quote(e,ty) -> Quote(handleVar e,ty)
+      | Hole(e,ty) -> Hole(handleVar e, ty)
+      | other -> other
     in
     match dest_eval tm with
-      | Quote(e,ty),ety -> let () = handleVar e in if ety = type_of e then Sequent([], safe_mk_eq tm e) else (try 
+      | Quote(e,ty),ety -> let e = handleVar e in if ety = type_of e then Sequent([], safe_mk_eq tm e) else (try 
           let fixed_term = (attempt_type_fix e ety (type_of e)) in 
             (*Need to check the fixed term vs given type - instantiating (=) to A -> num -> bool would work but get instantiated to A -> A -> bool,
               so if a valid type was given, it should match the instantiation*)
@@ -1064,10 +1083,20 @@ let rec type_subst i ty =
       | _ -> failwith "EVAL_QUOTE: Term to eval must be a quotation"
 
 
+  let EVAL_QUOTE tm = EVAL_QUOTE_ENV [] tm;;
 
-(* ------------------------------------------------------------------------- *)
-(* Evaluation handling.                                                      *)
-(* ------------------------------------------------------------------------- *)
+
+  let rec EVAL_QUOTE_CONV tm = match tm with
+    | Comb(a,b) -> (try (EVAL_QUOTE_CONV a) with Failure _ -> try (EVAL_QUOTE_CONV b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
+    | Abs(a,b) -> (try (EVAL_QUOTE_CONV a) with Failure _ -> try (EVAL_QUOTE_CONV b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
+    | Eval(e,ty) -> EVAL_QUOTE tm
+    | _ -> failwith "EVAL_QUOTE_CONV";;
+
+  let rec EVAL_QUOTE_CONV_ENV env tm = match tm with 
+    | Comb(a,b) -> (try (EVAL_QUOTE_CONV_ENV env a) with Failure _ -> try (EVAL_QUOTE_CONV_ENV env b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
+    | Abs(a,b) -> (try (EVAL_QUOTE_CONV_ENV env a) with Failure _ -> try (EVAL_QUOTE_CONV_ENV env b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
+    | Eval(e,ty) -> EVAL_QUOTE_ENV env tm
+    | _ -> failwith "EVAL_QUOTE_CONV";;
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)

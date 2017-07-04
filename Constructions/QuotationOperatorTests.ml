@@ -101,3 +101,12 @@ prove(`testFun2 10 = Q_ 2 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 0 _Q`,
     REPEAT UNQUOTE_TAC THEN
     REFL_TAC
 );;
+
+(*This tests that STRING_FETCH_TAC works as it should*)
+(*Bottom rewrite tac is necessary because string_fetch_tac will evaluate to ~(F \/ F \/ F \/ F etc...),
+basic rewrites needed to simplify this to just ~(F)*)
+prove(`~(isValidConstName "NotAConstantName")`,
+	REWRITE_TAC[EX;isValidConstName] THEN
+	STRING_FETCH_TAC THEN
+	REWRITE_TAC[]
+);;
