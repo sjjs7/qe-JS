@@ -23,11 +23,13 @@ type term_label = Vnet                          (* variable (instantiable)   *)
                  | Cnet of (string * int)       (* constant                  *)
                  | Lnet of int                  (* lambda term (abstraction) *)
                  | Qnet of hol_type             (* quoted term               *) 
-                 | Hnet of hol_type;;           (* holed term                *)
+                 | Hnet of hol_type             (* holed term                *)
+                 | Enet of hol_type;;           (*Eval term                  *)
 type 'a net = Netnode of (term_label * 'a net) list * 'a list;;
 
 (* ------------------------------------------------------------------------- *)
-(* The empty net.                                                            *)
+(* The empty net.                 
+                                           *)
 (* ------------------------------------------------------------------------- *)
 
 let empty_net = Netnode([],[]);;
@@ -48,6 +50,7 @@ let enter =
     else if mem op lconsts then Lcnet(fst(dest_var op),length args),args
     else if is_quote op then (Qnet (type_of (dest_quote op))) ,args
     else if is_hole op then (Hnet (snd (dest_hole op))) , args
+    else if is_eval op then (Enet (snd (dest_eval op))) , args 
     else Vnet,[] in
   let canon_eq x y =
     try Pervasives.compare x y = 0 with Invalid_argument _ -> false
@@ -88,7 +91,8 @@ let lookup =
     if is_const op then Cnet(fst(dest_const op),length args),args
     else if is_abs op then Lnet(length args),(body op)::args
     else if is_quote op then (Qnet (type_of (dest_quote op))),args
-  else if is_hole op then (Hnet (snd (dest_hole op))),args
+    else if is_hole op then (Hnet (snd (dest_hole op))),args
+    else if is_eval op then (Enet (snd (dest_eval op))),args
     else Lcnet(fst(dest_var op),length args),args in
   let rec follow (tms,Netnode(edges,tips)) =
     match tms with

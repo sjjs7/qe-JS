@@ -113,8 +113,7 @@ module type Hol_kernel =
       val UNQUOTE_CONV : term -> thm
       val EVAL_QUOTE : term -> thm
       val EVAL_QUOTE_CONV : term -> thm
-      val EVAL_QUOTE_ENV : (term * term) list -> term -> thm
-      val EVAL_QUOTE_CONV_ENV : (term * term) list -> term -> thm
+      val DISQUOTATION : term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -433,7 +432,7 @@ let rec type_subst i ty =
     | Comb(s,t) -> union (frees s) (frees t)
     | Quote(e,ty) -> qfrees e
     | Hole(e,ty) -> frees e
-    | Eval(e,ty) -> []
+    | Eval(e,ty) -> frees e
 
   let freesl tml = itlist (union o frees) tml []
 
@@ -476,6 +475,7 @@ let rec type_subst i ty =
     | Comb(s,t) -> vfree_in v s || vfree_in v t
     | Quote(e,_) -> qvfree_in v e
     | Hole(e,ty) -> qvfree_in v e
+    | Eval(e,ty) -> vfree_in v e
     | _ -> Pervasives.compare tm v = 0
 
 (* ------------------------------------------------------------------------- *)
@@ -498,6 +498,7 @@ let rec type_subst i ty =
     | Abs(Var(_,ty),t) -> union (tyvars ty) (type_vars_in_term t)
     | Quote(_,_)       -> tyvars (Tyapp ("epsilon",[]))
     | Hole(e,_)        -> type_vars_in_term e
+    | Eval(e,ty)        -> union (type_vars_in_term e) (tyvars ty)
     | _                -> failwith "TYPE_VARS_IN_TERM: Invalid type."
 
 (* ------------------------------------------------------------------------- *)
@@ -547,6 +548,7 @@ let rec type_subst i ty =
       | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
       | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
+      | Eval(e,ty) -> Eval(vsubst ilist e,ty)
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
@@ -634,6 +636,7 @@ let rec type_subst i ty =
                        let z = Var(fst(dest_var y''),snd(dest_var y)) in
                        inst env tyin (Abs(z,vsubst[z,y] t))) 
       | Hole(e,ty) -> Hole(inst env tyin e,ty)
+      | Eval(e,ty) -> Eval(inst env tyin e,ty)
 
       in
 
@@ -693,6 +696,7 @@ let rec type_subst i ty =
           if c <> 0 then c else orda ((x1,x2)::env) t1 t2
     | Quote(e1,_),Quote(e2,_) -> orda env e1 e2
     | Hole(e1,_),Hole(e2,_) -> orda env e1 e2
+    | Eval(e1,t1),Eval(e2,t2) when t1 = t2 -> orda env e1 e2 
     | Const(_,_),_ -> -1
     | _,Const(_,_) -> 1
     | Var(_,_),_ -> -1
@@ -703,6 +707,8 @@ let rec type_subst i ty =
     | _,Quote(_,_) -> 1  
     | Hole(_,_),_ -> -1
     | _,Hole(_,_) -> 1
+    | Eval(_,_),_ -> -1
+    | _,Eval(_,_) -> 1
 
   let alphaorder = orda []
 
@@ -1060,15 +1066,10 @@ let rec type_subst i ty =
     (*Generate a type instantiation list based on the differences in type and applies it to the term*)
     inst (instlist args dArgs) tm 
 
-  (*Env should be a list of pairs, where the first is the term to match and the second is the term to match it to*)  
-  let rec lookup_var_in_env env tm = match env with
-      | a :: rest -> if fst a = tm then snd a else lookup_var_in_env rest tm
-      | [] -> failwith "EVAL_QUOTE_ENV: Variable does not exist in environment"
-
-  let EVAL_QUOTE_ENV env tm =    
+  let EVAL_QUOTE tm =    
     if not (is_eval tm) then failwith "EVAL_QUOTE: Not an evaluation" else
     let rec handleVar tm = match tm with
-      | Var(a,b) -> lookup_var_in_env env tm
+      | Var(a,b) -> Var(a,b)
       | Comb(a,b) -> Comb(handleVar a,handleVar b)
       | Quote(e,ty) -> Quote(handleVar e,ty)
       | Hole(e,ty) -> Hole(handleVar e, ty)
@@ -1083,20 +1084,33 @@ let rec type_subst i ty =
       | _ -> failwith "EVAL_QUOTE: Term to eval must be a quotation"
 
 
-  let EVAL_QUOTE tm = EVAL_QUOTE_ENV [] tm;;
-
-
   let rec EVAL_QUOTE_CONV tm = match tm with
     | Comb(a,b) -> (try (EVAL_QUOTE_CONV a) with Failure _ -> try (EVAL_QUOTE_CONV b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
     | Abs(a,b) -> (try (EVAL_QUOTE_CONV a) with Failure _ -> try (EVAL_QUOTE_CONV b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
     | Eval(e,ty) -> EVAL_QUOTE tm
-    | _ -> failwith "EVAL_QUOTE_CONV";;
+    | _ -> failwith "EVAL_QUOTE_CONV"
 
-  let rec EVAL_QUOTE_CONV_ENV env tm = match tm with 
-    | Comb(a,b) -> (try (EVAL_QUOTE_CONV_ENV env a) with Failure _ -> try (EVAL_QUOTE_CONV_ENV env b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
-    | Abs(a,b) -> (try (EVAL_QUOTE_CONV_ENV env a) with Failure _ -> try (EVAL_QUOTE_CONV_ENV env b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
-    | Eval(e,ty) -> EVAL_QUOTE_ENV env tm
-    | _ -> failwith "EVAL_QUOTE_CONV";;
+  (*Implementation of is-effective-in*)  
+  (*
+  let rec effectiveIn var tm = 
+    if not is_var var then failwith "effectiveIn: First argument must be a variable" else
+    let vN,vT = dest_var var in 
+    if not vfree_in var tm then false else
+    ()
+    match tm with
+    | Var(a,b) -> (vN,vT) = (a,b)
+    | Const(a,b) -> F
+    (**)
+  *)
+
+  (*Since variable substitution is disallowed on quotations, defining this as a standard axiom will not work because HOL will be unable to instantiate into the theorem,
+  so it will be defined the same way REFL is as an OCaml function*)
+  let DISQUOTATION tm = match tm with
+    | Eval(Quote(Const(a,b),_),_) -> Sequent([], safe_mk_eq tm (Const(a,b)))
+    | Eval(Quote(Var(a,b),_),_) -> Sequent([], safe_mk_eq tm (Var(a,b)))
+    (*TODO: See if need to make numbers work with this? Technically they are function applications in HOL*)
+    | _ -> failwith "DISQUOTATION"
+
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)
