@@ -200,6 +200,7 @@ let (term_match:term list -> term -> term -> instantiation) =
         term_pmatch lconsts ((cv,vv)::env) vbod cbod sofar'
     | Quote(e,t),Quote(e2,t2) -> term_pmatch lconsts env e e2 sofar
     | Hole(e,t),Hole(e2,t2) -> term_pmatch lconsts env e e2 sofar
+    | Eval(e,t),Eval(e2,t2) -> term_pmatch lconsts env e e2 sofar
     | _ ->
       let vhop = repeat rator vtm in
       if is_var vhop && not (mem vhop lconsts) &&

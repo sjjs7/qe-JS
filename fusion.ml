@@ -1090,19 +1090,6 @@ let rec type_subst i ty =
     | Eval(e,ty) -> EVAL_QUOTE tm
     | _ -> failwith "EVAL_QUOTE_CONV"
 
-  (*Implementation of is-effective-in*)  
-  (*
-  let rec effectiveIn var tm = 
-    if not is_var var then failwith "effectiveIn: First argument must be a variable" else
-    let vN,vT = dest_var var in 
-    if not vfree_in var tm then false else
-    ()
-    match tm with
-    | Var(a,b) -> (vN,vT) = (a,b)
-    | Const(a,b) -> F
-    (**)
-  *)
-
   (*Since variable substitution is disallowed on quotations, defining this as a standard axiom will not work because HOL will be unable to instantiate into the theorem,
   so it will be defined the same way REFL is as an OCaml function*)
   let DISQUOTATION tm = match tm with
