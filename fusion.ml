@@ -114,6 +114,11 @@ module type Hol_kernel =
       val EVAL_QUOTE : term -> thm
       val EVAL_QUOTE_CONV : term -> thm
       val DISQUOTATION : term -> thm
+      val matchType : hol_type -> term
+
+      (*Debugging functions temporarily revealed for tracing go here*)
+      val constructionToTerm : term -> term
+      val qcheck_type_of : term -> hol_type
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -286,7 +291,7 @@ let rec type_subst i ty =
   let rec qcheck_type_of tm = match tm with
       Var(_,ty) -> ty
     | Const(_,ty) -> ty
-    | Comb(s,_) -> (match qcheck_type_of s with Tyapp("fun",[dty;rty]) -> rty)
+    | Comb(s,_) -> (match qcheck_type_of s with Tyapp("fun",[dty;rty]) -> rty | Tyapp("epsilon",[]) -> Tyapp("epsilon",[]))
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;qcheck_type_of t])
     | Quote(e,_) -> Tyapp("epsilon",[])
     | Hole(e,ty) -> ty
@@ -297,7 +302,7 @@ let rec type_subst i ty =
     match tm with
       Var(_,ty) -> ty
     | Const(_,ty) -> ty
-    | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty)
+    | Comb(s,_) -> (match type_of s with Tyapp("fun",[dty;rty]) -> rty| Tyapp("epsilon",[]) -> Tyapp("epsilon",[]))
     | Abs(Var(_,ty),t) -> Tyapp("fun",[ty;type_of t])
     | Quote(e,_) -> Tyapp("epsilon",[])
     | Hole(e,ty) -> ty
