@@ -264,6 +264,7 @@ let type_of_pretype,term_of_preterm,retypecheck =
       |Absp(v,bod) -> mk_gabs(untyped_t_of_pt v,untyped_t_of_pt bod)
       |Typing(ptm,pty) -> untyped_t_of_pt ptm
       |Quotep(e) -> mk_quote((untyped_t_of_pt e))
+      |Evalp(e,ty) -> mk_eval(untyped_t_of_pt e, aty)
     in
     string_of_term o untyped_t_of_pt
   in

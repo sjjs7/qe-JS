@@ -113,7 +113,6 @@ module type Hol_kernel =
       val UNQUOTE_CONV : term -> thm
       val EVAL_QUOTE : term -> thm
       val EVAL_QUOTE_CONV : term -> thm
-      val DISQUOTATION : term -> thm
       val matchType : hol_type -> term
 
       (*Debugging functions temporarily revealed for tracing go here*)
@@ -1088,20 +1087,11 @@ let rec type_subst i ty =
             if type_of fixed_term = ety then Sequent ([], safe_mk_eq tm fixed_term) else fail() with Failure _ -> failwith "Could not evaluate to given type")
       | _ -> failwith "EVAL_QUOTE: Term to eval must be a quotation"
 
-
   let rec EVAL_QUOTE_CONV tm = match tm with
     | Comb(a,b) -> (try (EVAL_QUOTE_CONV a) with Failure _ -> try (EVAL_QUOTE_CONV b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
     | Abs(a,b) -> (try (EVAL_QUOTE_CONV a) with Failure _ -> try (EVAL_QUOTE_CONV b) with Failure _ -> failwith "EVAL_QUOTE_CONV")
     | Eval(e,ty) -> EVAL_QUOTE tm
     | _ -> failwith "EVAL_QUOTE_CONV"
-
-  (*Since variable substitution is disallowed on quotations, defining this as a standard axiom will not work because HOL will be unable to instantiate into the theorem,
-  so it will be defined the same way REFL is as an OCaml function*)
-  let DISQUOTATION tm = match tm with
-    | Eval(Quote(Const(a,b),_),_) -> Sequent([], safe_mk_eq tm (Const(a,b)))
-    | Eval(Quote(Var(a,b),_),_) -> Sequent([], safe_mk_eq tm (Var(a,b)))
-    (*TODO: See if need to make numbers work with this? Technically they are function applications in HOL*)
-    | _ -> failwith "DISQUOTATION"
 
 
 (* ------------------------------------------------------------------------- *)

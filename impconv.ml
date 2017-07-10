@@ -262,9 +262,10 @@ let module Tset =
     let rec frees acc = function
       |Var _ as t -> insert acc t
       |Const _ -> acc
-      |Quote (_,_,_) -> acc
+      |Quote (_,_) -> acc
       |Abs(v,b) -> remove (frees acc b) v
       |Comb(u,v) -> frees (frees acc u) v
+      |Eval(e,ty) -> acc
     let freesl ts = itlist (C frees) ts empty
     let frees = frees empty
   end in
@@ -276,16 +277,18 @@ let module Type_annoted_term =
       |Const_ of string * hol_type * term
       |Comb_ of t * t * hol_type
       |Abs_ of t * t * hol_type
-      |Quote_ of t * hol_type * (hol_type * t) list
+      |Quote_ of t * hol_type
       |Hole_ of t * hol_type
+      |Eval_ of t * hol_type
 
     let type_of = function
       |Var_(_,ty) -> ty
       |Const_(_,ty,_) -> ty
       |Comb_(_,_,ty) -> ty
       |Abs_(_,_,ty) -> ty
-      |Quote_(_,_,_) -> mk_type("epsilon",[])
+      |Quote_(_) -> mk_type("epsilon",[])
       |Hole_(_,ty) -> ty
+      |Eval_(_,ty) -> ty
 
     let rec of_term = function
       |Var(s,ty) -> Var_(s,ty)
@@ -296,8 +299,9 @@ let module Type_annoted_term =
       |Abs(x,b) ->
           let x' = of_term x and b' = of_term b in
           Abs_(x',b',mk_fun_ty (type_of x') (type_of b'))
-      |Quote(e,ty) -> Quote_(of_term e)
+      |Quote(e,ty) -> Quote_(of_term e,ty)
       |Hole(e,ty) -> Hole_(of_term e,ty)
+      |Eval(e,ty) -> Eval_(of_term e,ty)
 
     let rec equal t1 t2 =
       match t1,t2 with
@@ -307,6 +311,7 @@ let module Type_annoted_term =
       |Abs_(v1,b1,_),Abs_(v2,b2,_) -> equal v1 v2 && equal b1 b2
       |Quote_(e1,ty1),Quote_(e2,ty2) -> equal e1 e2
       |Hole_(e1,ty1),Hole_(e2,ty2) -> equal e1 e2
+      |Eval_(e1,ty1_),Eval_(e2,ty2) -> equal e1 e2
       |_ -> false
 
     let rec to_term = function
@@ -315,13 +320,15 @@ let module Type_annoted_term =
       |Comb_(u,v,_) -> mk_comb(to_term u,to_term v)
       |Abs_(v,b,_) -> mk_abs(to_term v,to_term b)
       |Quote_(e,ty) -> mk_quote(to_term e)
-      |Hole_(e,ty) -> mk_hole(e)
+      |Hole_(e,ty) -> mk_hole(to_term e)
+      |Eval_(e,ty) -> mk_eval(to_term e,ty)
 
     let dummy = Var_("",aty)
 
     let rec find_term p t =
       if p t then t else
         match t with
+        |Eval_ _ -> failwith "Annot.find_term"
         |Quote_ _ -> failwith "Annot.find_term"
         |Hole_ _ -> failwith "Annot.find_term"
         |Var_ _ -> failwith "Annot.find_term"
@@ -415,6 +422,8 @@ let module Fo_nets =
       |Lcnet of string * int
       |Cnet of string * int
       |Lnet of int
+      |Qnet of hol_type
+      |Enet of hol_type
 
     type 'a t = Netnode of (term_label * 'a t) list * 'a list
 
@@ -431,6 +440,8 @@ let module Fo_nets =
           Lnet nargs,b'::args
         |Var(n,_) when mem op lcs -> Lcnet(n,nargs),args
         |Var(_,_) -> Vnet nargs,args
+        |Eval(e,ty) -> Enet(ty),args
+        |Quote(e,ty) -> Qnet(ty),args
         |_ -> assert false
       in
       let rec net_update lcs elem (Netnode(edges,tips)) = function
@@ -454,8 +465,8 @@ let module Fo_nets =
         |Abs(_,b) -> Lnet nargs,b::args
         |Var(n,_) -> Lcnet(n,nargs),args
         |Comb _ -> assert false
-        |Quote _ -> assert false
-
+        |Quote (e,ty) -> Qnet(ty),args
+        |Eval (e,ty) -> Enet(ty),args
       in
       let rec follow (Netnode(edges,tips)) = function
         |[] -> tips

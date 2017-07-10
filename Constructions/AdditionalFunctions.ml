@@ -23,21 +23,14 @@
     let toExst = mk_abs(y,neqTerm) in
     mk_comb(mk_const("?",[type_of y,`:A`]),toExst);;
 
-  let abs_split var tm ty = 
-  if not (is_var var) then failwith "ABS_SPLIT: Not a variable" else
-  if not (fst (dest_type (type_of tm)) = "epsilon") then failwith "ABS_SPLIT: Term must be of type epsilon" else
-  (*Create the antecedent*)
-  let aced = mk_comb(mk_comb(mk_const("/\\",[]),mk_comb(mk_comb(mk_const("isExprType",[]),tm),(matchType ty))),mk_comb(mk_comb(mk_const("isFreeIn",[]),mk_quote(var)),mk_quote(tm))) in
-  (*Create the consequent*)
-  let consq = mk_eq(mk_eval(mk_comb(mk_comb(mk_const("e_abs",[]),mk_quote(var)),tm),mk_type ("fun",[(type_of var);ty])),mk_abs(var,mk_eval(tm,ty))) in
-  (*Merge the two with an implication*)
-  mk_comb(mk_comb(mk_const("==>",[]),aced),consq);;
-
-
 (*Introduces axioms about eval into HOL*)
 
 let app_split = new_axiom `((isExprType At (TyBiCons "fun" (TyVar "A") (TyVar "B"))) /\ (isExprType Bt (TyVar "A"))) ==> ((eval (app At Bt) to B) = ((eval At to A->B) (eval Bt to A)))`;;
 let quotable = new_axiom `(isExprType e (TyBase "epsilon")) ==> ((eval (quo e) to epsilon) = e)`;; 
+let abs_split = new_axiom `((isExprType C (TyBase "epsilon")) /\ (isFreeIn (QuoVar x t) (Quo C))) ==> (eval (e_abs (QuoVar x t) C) to A->epsilon) = (\x:A. (eval C to epsilon))`;;
+let var_disquo = new_axiom `eval (Quo (QuoVar a b)) to epsilon = (QuoVar a b)`;;
+let cons_disquo = new_axiom `eval (Quo (QuoConst a b)) to epsilon = (QuoConst a b)`;;
+
 
 (*Testing a few proofs to make sure this definition works*)
 
@@ -52,3 +45,31 @@ prove(effectiveIn `x:num` `x + 3`,
 prove(mk_neg (effectiveIn `x:bool` `x <=> x`),
 	REWRITE_TAC[REFL `x`]
 );; 
+
+(*Attempt at proving the law of disquotation*)
+(*Commented out as OCaml code for now, will convert to proof script when done*)
+(*
+
+Setting up proof
+
+g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
+
+Performing case split
+
+
+ e(STRUCT_CASES_TAC (SPEC `x:epsilon` (cases "epsilon"))) ;;
+
+ Proving variable case
+ e(ASM_REWRITE_TAC[]) ;;
+ e(REWRITE_TAC[quo]);;
+ e(REWRITE_TAC[var_disquo]);;
+
+ Proving constant case
+ e(ASM_REWRITE_TAC[]) ;;
+ e(REWRITE_TAC[quo]);;
+ e(REWRITE_TAC[cons_disquo]);;
+
+ Proving abs case
+ e(ASM_REWRITE_TAC[]);;
+
+*)
