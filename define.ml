@@ -28,8 +28,8 @@ Quo -> Representation of the structure of an application of quote
 let lth, rth = define_type "epsilon = 
              QuoVar string type 
              | QuoConst string type
-             | Abs epsilon epsilon
              | App epsilon epsilon
+             | Abs epsilon epsilon
              | Quo epsilon";;
 
 (*Type definitions have moved here so that epsilon can be used inside admissibility definitions*)

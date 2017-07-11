@@ -114,7 +114,8 @@ module type Hol_kernel =
       val EVAL_QUOTE : term -> thm
       val EVAL_QUOTE_CONV : term -> thm
       val matchType : hol_type -> term
-
+      val INTERNAL_CTT : term -> thm
+      val INTERNAL_CTT_CONV : term -> thm
       (*Debugging functions temporarily revealed for tracing go here*)
       val constructionToTerm : term -> term
       val qcheck_type_of : term -> hol_type
@@ -244,7 +245,7 @@ let rec type_subst i ty =
 
 
   let the_term_constants =
-     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])])]
+     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])]);"CTT",Tyapp("fun",[Tyapp("epsilon",[]);aty])]
 
   (*Check if two quotes are equal for use in match_type*)
   let rec isQuoteSame tm tm2 = match tm,tm2 with
@@ -1039,6 +1040,16 @@ let rec type_subst i ty =
     let ntm = unqint tm in
     if tm = ntm then failwith "UNQUOTE_CONV" else
     Sequent([],safe_mk_eq tm ntm)
+
+  (*There needs to be a way for the logic to mark a term for "reconstruction", as epsilon terms destroy their original terms. This will be done with a function constant.*)
+  let INTERNAL_CTT tm = match tm with
+    | Comb(Const("CTT",_),a) -> Sequent ([], safe_mk_eq tm (constructionToTerm a))
+    | _ -> failwith "INTERNAL_TTC"
+
+  let rec INTERNAL_CTT_CONV tm = match tm with
+    | Comb(Const("CTT",_),_) -> INTERNAL_CTT tm
+    | Comb(a,b) -> (try INTERNAL_CTT_CONV a with Failure _ -> try INTERNAL_CTT_CONV b with Failure _ -> failwith "INTERNAL_CTT_CONV")
+    | _ -> failwith "INTERNAL_CTT_CONV"
 
 
 (* ------------------------------------------------------------------------- *)

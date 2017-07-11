@@ -27,9 +27,9 @@
 
 let app_split = new_axiom `((isExprType At (TyBiCons "fun" (TyVar "A") (TyVar "B"))) /\ (isExprType Bt (TyVar "A"))) ==> ((eval (app At Bt) to B) = ((eval At to A->B) (eval Bt to A)))`;;
 let quotable = new_axiom `(isExprType e (TyBase "epsilon")) ==> ((eval (quo e) to epsilon) = e)`;; 
-let abs_split = new_axiom `((isExprType C (TyBase "epsilon")) /\ (isFreeIn (QuoVar x t) (Quo C))) ==> (eval (e_abs (QuoVar x t) C) to A->epsilon) = (\x:A. (eval C to epsilon))`;;
-let var_disquo = new_axiom `eval (Quo (QuoVar a b)) to epsilon = (QuoVar a b)`;;
-let cons_disquo = new_axiom `eval (Quo (QuoConst a b)) to epsilon = (QuoConst a b)`;;
+let abs_split = new_axiom `isExprType C (TyVar "B") /\ ~(isFreeIn (QuoVar x t) (Quo C)) ==> (eval (e_abs (QuoVar x t) C) to (A->B)) = (\x. (eval (C) to (B))):A->B`;;
+let var_disquo = new_axiom `(eval (QuoVar a b) to A) = (CTT (QuoVar a b)):A`;;
+let cons_disquo = new_axiom `(eval (QuoConst a b) to A) = (CTT (QuoConst a b)):A`;;
 
 
 (*Testing a few proofs to make sure this definition works*)
@@ -52,24 +52,12 @@ prove(mk_neg (effectiveIn `x:bool` `x <=> x`),
 
 Setting up proof
 
-g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
-
-Performing case split
-
-
+g(`(eval (x:epsilon) to A) = (CTT x):A`);;
  e(STRUCT_CASES_TAC (SPEC `x:epsilon` (cases "epsilon"))) ;;
-
- Proving variable case
  e(ASM_REWRITE_TAC[]) ;;
- e(REWRITE_TAC[quo]);;
  e(REWRITE_TAC[var_disquo]);;
-
- Proving constant case
  e(ASM_REWRITE_TAC[]) ;;
- e(REWRITE_TAC[quo]);;
  e(REWRITE_TAC[cons_disquo]);;
-
- Proving abs case
  e(ASM_REWRITE_TAC[]);;
 
 *)
