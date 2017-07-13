@@ -114,11 +114,17 @@ module type Hol_kernel =
       val EVAL_QUOTE : term -> thm
       val EVAL_QUOTE_CONV : term -> thm
       val matchType : hol_type -> term
-      val INTERNAL_CTT : term -> thm
-      val INTERNAL_CTT_CONV : term -> thm
+      val INTERNAL_TTC : term -> thm
+      val INTERNAL_TTC_CONV : term -> thm
       (*Debugging functions temporarily revealed for tracing go here*)
       val constructionToTerm : term -> term
       val qcheck_type_of : term -> hol_type
+      val VAR_DISQUO : term -> thm
+      val CONST_DISQUO : term -> thm
+      val LAW_OF_QUO : term -> thm
+      val QUOTABLE : term -> thm
+      val ABS_SPLIT : term -> term -> thm
+      val APP_SPLIT : term -> term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -245,7 +251,7 @@ let rec type_subst i ty =
 
 
   let the_term_constants =
-     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])]);"CTT",Tyapp("fun",[Tyapp("epsilon",[]);aty])]
+     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])]);"TTC",Tyapp("fun",[aty;Tyapp("epsilon",[])])]
 
   (*Check if two quotes are equal for use in match_type*)
   let rec isQuoteSame tm tm2 = match tm,tm2 with
@@ -1042,14 +1048,14 @@ let rec type_subst i ty =
     Sequent([],safe_mk_eq tm ntm)
 
   (*There needs to be a way for the logic to mark a term for "reconstruction", as epsilon terms destroy their original terms. This will be done with a function constant.*)
-  let INTERNAL_CTT tm = match tm with
-    | Comb(Const("CTT",_),a) -> Sequent ([], safe_mk_eq tm (constructionToTerm a))
+  let INTERNAL_TTC tm = match tm with
+    | Comb(Const("TTC",_),a) -> Sequent ([], safe_mk_eq tm (termToConstruction a))
     | _ -> failwith "INTERNAL_TTC"
 
-  let rec INTERNAL_CTT_CONV tm = match tm with
-    | Comb(Const("CTT",_),_) -> INTERNAL_CTT tm
-    | Comb(a,b) -> (try INTERNAL_CTT_CONV a with Failure _ -> try INTERNAL_CTT_CONV b with Failure _ -> failwith "INTERNAL_CTT_CONV")
-    | _ -> failwith "INTERNAL_CTT_CONV"
+  let rec INTERNAL_TTC_CONV tm = match tm with
+    | Comb(Const("TTC",_),_) -> INTERNAL_TTC tm
+    | Comb(a,b) -> (try INTERNAL_TTC_CONV a with Failure _ -> try INTERNAL_TTC_CONV b with Failure _ -> failwith "INTERNAL_TTC_CONV")
+    | _ -> failwith "INTERNAL_TTC_CONV"
 
 
 (* ------------------------------------------------------------------------- *)
@@ -1104,6 +1110,48 @@ let rec type_subst i ty =
     | Eval(e,ty) -> EVAL_QUOTE tm
     | _ -> failwith "EVAL_QUOTE_CONV"
 
+
+(* ------------------------------------------------------------------------- *)
+(* Inference rules of quotation.                                             *)
+(* ------------------------------------------------------------------------- *)
+
+  let LAW_OF_QUO tm = match tm with
+  | Quote(e,ty) -> Sequent([], safe_mk_eq tm (Comb(Const("TTC",Tyapp("fun",[Tyvar "A";Tyapp("epsilon",[])])),e)))
+  | _ -> failwith "LAW_OF_QUO"
+
+  let VAR_DISQUO tm = match tm with
+  | Eval(Quote(Var(name,ty),_),ty2) when ty = ty2 -> Sequent([],safe_mk_eq tm (Var(name,ty)))
+  | _ -> failwith "VAR_DISQUO"
+
+  let CONST_DISQUO tm = match tm with
+  | Eval(Quote(Const(name,ty),_),ty2) when ty = ty2 -> Sequent([],safe_mk_eq tm (Const(name,ty)))
+  | _ -> failwith "VAR_DISQUO"
+
+  (*Defining local mk_imp function to make the other three axioms easier to implement*)
+  let internal_make_imp a b = Comb(Comb(Const("==>",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),a),b)
+
+
+  let QUOTABLE tm = match type_of tm with
+  | Tyapp("epsilon",[]) -> let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction tm)),matchType (Tyapp("epsilon",[]))) in
+                           Sequent([],(internal_make_imp iet (safe_mk_eq (Eval(Comb(Const("Quo",makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" [])),(termToConstruction tm)),Tyapp("epsilon",[]))) tm)))
+  | _ -> failwith "QUOTABLE"
+
+  let ABS_SPLIT tm var = 
+  if not (is_var var) then failwith "ABS_SPLIT" else
+  match type_of tm with
+  | Tyapp("epsilon",[]) -> let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction tm)),matchType (Tyvar "B")) in
+                           let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),termToConstruction tm)) in
+                           let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet),ifi) in 
+                           let conclud = safe_mk_eq (Eval(Comb(Comb(Const("abs",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),termToConstruction var),tm),(makeHolFunction (type_of var) (Tyvar "B")))) (Abs(var,Eval(tm,Tyvar "B"))) in
+                           Sequent([], internal_make_imp anticed conclud)
+  | _ -> failwith "ABS_SPLIT"
+
+  let APP_SPLIT tm1 tm2 = if (not (type_of tm1 = Tyapp("epsilon",[]))) or (not (type_of tm2 = Tyapp("epsilon",[]))) then failwith "APP_SPLIT" else
+    let iet1 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm1),matchType (makeHolFunction (Tyvar "A") (Tyvar "B"))) in
+    let iet2 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm2),matchType (Tyvar "B")) in
+    let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet1),iet2) in  
+    let conclud = safe_mk_eq (Eval(Comb(Comb(Const("app",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),tm1),tm2),(makeHolFunction (Tyvar "A") (Tyvar "B")))) (Comb(Eval(tm1,makeHolFunction (Tyvar "A") (Tyvar "B")),Eval(tm2,Tyvar "B"))) in
+                           Sequent([], internal_make_imp anticed conclud)
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)

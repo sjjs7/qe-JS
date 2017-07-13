@@ -25,11 +25,11 @@
 
 (*Introduces axioms about eval into HOL*)
 
-let app_split = new_axiom `((isExprType At (TyBiCons "fun" (TyVar "A") (TyVar "B"))) /\ (isExprType Bt (TyVar "A"))) ==> ((eval (app At Bt) to B) = ((eval At to A->B) (eval Bt to A)))`;;
+let app_split = new_axiom `((isExprType At (TyBiCons "fun" (a:type) (b:type)) /\ (isExprType Bt a)) ==> ((eval (app At Bt) to beta) = ((eval At to alpha->beta) (eval Bt to alpha))))`;;
 let quotable = new_axiom `(isExprType e (TyBase "epsilon")) ==> ((eval (quo e) to epsilon) = e)`;; 
-let abs_split = new_axiom `isExprType C (TyVar "B") /\ ~(isFreeIn (QuoVar x t) (Quo C)) ==> (eval (e_abs (QuoVar x t) C) to (A->B)) = (\x. (eval (C) to (B))):A->B`;;
-let var_disquo = new_axiom `(eval (QuoVar a b) to A) = (CTT (QuoVar a b)):A`;;
-let cons_disquo = new_axiom `(eval (QuoConst a b) to A) = (CTT (QuoConst a b)):A`;;
+let abs_split = new_axiom `isExprType C beta /\ ~(isFreeIn (QuoVar x alpha) (Quo C)) ==> (eval (e_abs (QuoVar x alpha) C) to (alpha->beta)) = (\x. (eval (C) to (beta))):alpha->beta`;;
+let var_disquo = new_axiom `(eval (QuoVar a b) to alpha) = (CTT (QuoVar a b)):alpha`;;
+let cons_disquo = new_axiom `(eval (QuoConst a b) to alpha) = (CTT (QuoConst a b)):alpha`;;
 
 
 (*Testing a few proofs to make sure this definition works*)
@@ -52,7 +52,7 @@ prove(mk_neg (effectiveIn `x:bool` `x <=> x`),
 
 Setting up proof
 
-g(`(eval (x:epsilon) to A) = (CTT x):A`);;
+g(`(eval (Q_ A:alpha _Q) to epsilon) = A:alpha`);;
  e(STRUCT_CASES_TAC (SPEC `x:epsilon` (cases "epsilon"))) ;;
  e(ASM_REWRITE_TAC[]) ;;
  e(REWRITE_TAC[var_disquo]);;
@@ -61,3 +61,4 @@ g(`(eval (x:epsilon) to A) = (CTT x):A`);;
  e(ASM_REWRITE_TAC[]);;
 
 *)
+
