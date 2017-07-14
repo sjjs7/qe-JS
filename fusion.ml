@@ -125,6 +125,10 @@ module type Hol_kernel =
       val QUOTABLE : term -> thm
       val ABS_SPLIT : term -> term -> thm
       val APP_SPLIT : term -> term -> thm
+      val BETA_EVAL : term -> term -> thm
+      val BETA_REVAL : term -> term -> term -> thm
+      val NOT_FREE_OR_EFFECTIVE : term -> term -> thm
+      val NEITHER_EFFECTIVE : term -> term -> term -> term -> thm
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -1152,6 +1156,38 @@ let rec type_subst i ty =
     let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet1),iet2) in  
     let conclud = safe_mk_eq (Eval(Comb(Comb(Const("app",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),tm1),tm2),(makeHolFunction (Tyvar "A") (Tyvar "B")))) (Comb(Eval(tm1,makeHolFunction (Tyvar "A") (Tyvar "B")),Eval(tm2,Tyvar "B"))) in
                            Sequent([], internal_make_imp anticed conclud)
+
+  (*Axiom B11 (1)*)
+  let BETA_EVAL var beta = if not ((is_var var) || ((type_of beta) = Tyapp("epsilon",[]))) then failwith "BETA_EVAL" else
+  let lhs = Comb(Abs(var,Eval(beta,Tyvar "B")),var) in
+  let rhs = Eval(beta,Tyvar "B") in
+  Sequent([], safe_mk_eq lhs rhs)
+
+  (*Axiom B11 (2)*)
+  let BETA_REVAL var alpha beta = if not ((is_var var) || ((type_of beta) = Tyapp("epsilon",[])) || (type_of alpha) = Tyapp("epsilon",[])) then failwith "BETA_EVAL" else
+  let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction (Comb(Abs(var,beta),alpha)))),matchType (Tyvar "B")) in
+  let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),(termToConstruction (Comb(Abs(var,beta),alpha))))) in
+  let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet),ifi) in  
+  let lhs = Comb(Abs(var,Eval(beta,Tyvar "B")),alpha) in
+  let rhs = Eval(Comb(Abs(var,Eval(beta,Tyvar "B")),alpha),Tyvar "B") in
+  let conclud = safe_mk_eq lhs rhs in
+  Sequent([], internal_make_imp anticed conclud)
+
+ (*Axiom B12*)
+  let NOT_FREE_OR_EFFECTIVE var tm = if not (is_var var) then failwith "NOT_FREE_OR_EFFECTIVE" else
+  let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),termToConstruction tm)) in
+  let nei = Comb(Const( "~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("effectiveIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),termToConstruction tm)) in
+  Sequent([], internal_make_imp ifi nei)
+
+  (*Axiom B13*)
+  let NEITHER_EFFECTIVE x y tm1 tm2 = if not ((is_var x) || (is_var y)) then failwith "NEITHER_EFFECTIVE" else
+  let nei1 = Comb(Const( "~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("effectiveIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction y),termToConstruction tm1)) in
+  let nei2 = Comb(Const( "~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("effectiveIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction x),termToConstruction tm2)) in
+  let disjunct_nei = Comb(Comb(Const("\\/",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),nei1),nei2) in
+  let lhs = Comb(Abs(x,Abs(y,tm2)),tm1) in
+  let rhs = Abs(y,Comb(Abs(x,tm2),tm1)) in
+  let fin = safe_mk_eq lhs rhs in 
+  Sequent([],internal_make_imp disjunct_nei fin)
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)
