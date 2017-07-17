@@ -94,7 +94,7 @@ let rec variants av vs =
 let variables =
   let rec vars(acc,tm) =
     if is_var tm then insert tm acc
-    else if is_const tm || is_quote tm then acc
+    else if is_const tm || is_quote tm || is_eval tm then acc
     else if is_abs tm then
       let v,bod = dest_abs tm in
       vars(insert v acc,bod)
@@ -107,6 +107,10 @@ let variables =
 (* General substitution (for any free expression).                           *)
 (* ------------------------------------------------------------------------- *)
 
+let rec mkEvalSubs ilist e = match ilist with
+  | (a,b) :: rest when a = b -> mkEvalSubs rest e
+  | (a,b) :: rest -> (mk_comb(mk_abs(b,(mkEvalSubs rest e)),a))
+  | [] -> e;; 
 
 
 
@@ -141,6 +145,7 @@ let subst =
           let ilist' = filter (not o (vfree_in v) o snd) ilist in
           mk_abs(v,ssubst ilist' bod)
     | Quote(e,_) -> let newquo = qssubs ilist e in mk_quote newquo
+    | Eval(e,ty) -> mkEvalSubs ilist tm
     | _ -> tm in
   fun ilist ->
     let theta = filter (fun (s,t) -> Pervasives.compare s t <> 0) ilist in

@@ -103,7 +103,7 @@ let (INSTANTIATE : instantiation->thm->thm) =
     (RATOR_CONV (BETAS_CONV (n-1)) THENC
      TRY_CONV BETA_CONV) tm in
   let rec HO_BETAS bcs pat tm =
-    if is_var pat || is_const pat then fail() else
+    if is_var pat || is_const pat || is_eval pat then fail() else
     try let bv,bod = dest_abs tm in
         ABS bv (HO_BETAS bcs (body pat) bod)
     with Failure _ ->

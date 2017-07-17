@@ -23,15 +23,6 @@
     let toExst = mk_abs(y,neqTerm) in
     mk_comb(mk_const("?",[type_of y,`:A`]),toExst);;
 
-(*Introduces axioms about eval into HOL*)
-
-let app_split = new_axiom `((isExprType At (TyBiCons "fun" (a:type) (b:type)) /\ (isExprType Bt a)) ==> ((eval (app At Bt) to beta) = ((eval At to alpha->beta) (eval Bt to alpha))))`;;
-let quotable = new_axiom `(isExprType e (TyBase "epsilon")) ==> ((eval (quo e) to epsilon) = e)`;; 
-let abs_split = new_axiom `isExprType C beta /\ ~(isFreeIn (QuoVar x alpha) (Quo C)) ==> (eval (e_abs (QuoVar x alpha) C) to (alpha->beta)) = (\x. (eval (C) to (beta))):alpha->beta`;;
-let var_disquo = new_axiom `(eval (QuoVar a b) to alpha) = (CTT (QuoVar a b)):alpha`;;
-let cons_disquo = new_axiom `(eval (QuoConst a b) to alpha) = (CTT (QuoConst a b)):alpha`;;
-
-
 (*Testing a few proofs to make sure this definition works*)
 
 (*Trivial proof that x is effecitve in x + 3*)
@@ -52,7 +43,7 @@ prove(mk_neg (effectiveIn `x:bool` `x <=> x`),
 
 Setting up proof
 
-g(`(eval (Q_ A:alpha _Q) to epsilon) = A:alpha`);;
+g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
  e(STRUCT_CASES_TAC (SPEC `x:epsilon` (cases "epsilon"))) ;;
  e(ASM_REWRITE_TAC[]) ;;
  e(REWRITE_TAC[var_disquo]);;

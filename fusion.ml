@@ -563,7 +563,7 @@ let rec type_subst i ty =
       | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
       | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
-      | Eval(e,ty) -> Eval(vsubst ilist e,ty)
+      | Eval(e,ty) -> tm
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
