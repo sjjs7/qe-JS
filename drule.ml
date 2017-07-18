@@ -72,7 +72,7 @@ let (instantiate :instantiation->term->term) =
     let args,lam = funpow n (fun (l,t) -> (rand t)::l,rator t) ([],tm) in
     rev_itlist (fun a l -> let v,b = dest_abs l in vsubst[a,v] b) args lam in
   let rec ho_betas bcs pat tm =
-    if is_var pat || is_const pat then fail() else
+    if is_var pat || is_const pat || is_eval tm then fail() else
     try let bv,bod = dest_abs tm in
         mk_abs(bv,ho_betas bcs (body pat) bod)
     with Failure _ ->
@@ -103,7 +103,7 @@ let (INSTANTIATE : instantiation->thm->thm) =
     (RATOR_CONV (BETAS_CONV (n-1)) THENC
      TRY_CONV BETA_CONV) tm in
   let rec HO_BETAS bcs pat tm =
-    if is_var pat || is_const pat || is_eval pat then fail() else
+    if is_var pat || is_const pat || is_eval tm then fail() else
     try let bv,bod = dest_abs tm in
         ABS bv (HO_BETAS bcs (body pat) bod)
     with Failure _ ->

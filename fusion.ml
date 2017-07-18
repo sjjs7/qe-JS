@@ -834,6 +834,19 @@ let rec type_subst i ty =
     let inst_fun = vsubst theta in
     Sequent(term_image inst_fun asl,inst_fun c)
 
+
+  let rec varInAsl asl = match asl with
+  | a :: rest -> (is_var (fst (dest_eq (a)))) || (varInAsl rest)
+  | [] -> false 
+
+  (*Causing CONV_TAC error?*)
+  let rec makeVarToSub asl tm = match asl with
+  | a :: rest -> let l,r = dest_eq a in
+  if is_var l then
+  makeVarToSub rest (Comb(Abs(l,tm),r))
+  else makeVarToSub rest tm
+  | [] -> tm
+
   (*Conversion functions to handle hole rewrites on a lower level*)
   let rec QSUB_CONV conv tm nConv = match tm with
     | Comb(l,r) -> let ls = (try QSUB_CONV conv l nConv with Failure _ -> REFL l) in
@@ -856,6 +869,7 @@ let rec type_subst i ty =
     (*This should not cause any issues on the assumption that a quote will never contain an eval inside it*)
     | Eval(e,ty) -> let newThm = (nConv conv e) in
                     let asl,c = dest_thm newThm in
+                    if not (varInAsl asl) then
                     let ls,rs = dest_eq c in
                     (*The middle evaluates to nothing, check if the term itself can be switched out*)
                     if ls = rs then
@@ -865,6 +879,10 @@ let rec type_subst i ty =
                     Sequent (asl,safe_mk_eq ls rs)
                     else
                     Sequent (asl,safe_mk_eq (mk_eval (ls,ty)) (mk_eval (rs,ty)))
+                    else
+                    (*What to do when there is a variable substitution*)
+                    let ls,rs = dest_eq c in
+                    Sequent(asl,safe_mk_eq ls (makeVarToSub asl tm))
     | _ -> failwith "QSUB_CONV"
 
   (*Conversion function to handle hole rewrites on a lower level*)
