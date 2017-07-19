@@ -81,7 +81,7 @@ module type Hol_kernel =
       val dest_eq: term -> term * term
 
       val isQuoteSame: term -> term -> bool
-      val QSUB_CONV : 'a -> term -> ('a -> term -> thm) -> thm
+      val QSUB_CONV : (term->thm) -> term -> ((term->thm) -> term -> thm) -> thm
       val QBETA_CONV : term -> (term -> thm) -> thm
 
       val dest_thm : thm -> term list * term
@@ -800,7 +800,7 @@ let rec type_subst i ty =
 
   let BETA tm =
     match tm with
-      Comb(Abs(v,bod),arg) when Pervasives.compare arg v = 0
+    |  Comb(Abs(v,bod),arg) when Pervasives.compare arg v = 0
         -> Sequent([],safe_mk_eq tm bod)
     | _ -> failwith "BETA: not a trivial beta-redex"
 
@@ -848,7 +848,7 @@ let rec type_subst i ty =
   | [] -> tm
 
   (*Conversion functions to handle hole rewrites on a lower level*)
-  let rec QSUB_CONV conv tm nConv = match tm with
+  let rec QSUB_CONV (conv:term->thm) tm nConv = match tm with
     | Comb(l,r) -> let ls = (try QSUB_CONV conv l nConv with Failure _ -> REFL l) in
                    let rs = (try QSUB_CONV conv r nConv with Failure _ -> REFL r) in
                    let lasl,cl = dest_thm ls in
@@ -867,9 +867,9 @@ let rec type_subst i ty =
                     let ls,rs = dest_eq c in
                     Sequent (asl,safe_mk_eq (mk_hole ls) (mk_hole rs))
     (*This should not cause any issues on the assumption that a quote will never contain an eval inside it*)
-    | Eval(e,ty) -> let newThm = (nConv conv e) in
+    | Eval(e,ty) -> if not (varInAsl (fst (dest_thm (conv e)))) then
+                    let newThm = (nConv conv e) in
                     let asl,c = dest_thm newThm in
-                    if not (varInAsl asl) then
                     let ls,rs = dest_eq c in
                     (*The middle evaluates to nothing, check if the term itself can be switched out*)
                     if ls = rs then
@@ -881,8 +881,9 @@ let rec type_subst i ty =
                     Sequent (asl,safe_mk_eq (mk_eval (ls,ty)) (mk_eval (rs,ty)))
                     else
                     (*What to do when there is a variable substitution*)
+                    let asl,c = dest_thm (conv e) in
                     let ls,rs = dest_eq c in
-                    Sequent(asl,safe_mk_eq ls (makeVarToSub asl tm))
+                    Sequent(asl,safe_mk_eq tm (makeVarToSub asl tm))
     | _ -> failwith "QSUB_CONV"
 
   (*Conversion function to handle hole rewrites on a lower level*)

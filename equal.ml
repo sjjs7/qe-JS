@@ -217,11 +217,23 @@ let (ONCE_DEPTH_CONV: conv->conv),
            (THENCQC (SUB_QCONV (TDQR conv))
                     (THENCQC conv (TDQR conv))) tm
     in
-    match tm with
+    (* Debug prints 
+    let () = print_string (string_of_term tm) in let () = print_string "\n" in
+    match tm with 
+    | Abs(_,_) -> let () = print_string "calling abs\n" in ABS_CONV conv tm
+    | Quote(_,_) -> let () = print_string "calling quote\n" in QSUB_CONV conv tm (TDQR)
+    | Comb(Const("Quo",_),t) -> let () = print_string "calling Quo\n" in QSUB_CONV conv tm (TDQR)
+    | Comb(Const("quo",_),t) -> let () = print_string "calling quo\n" in QSUB_CONV conv tm (TDQR)
+    | Eval(_,_) -> let () = print_string "calling eval\n" in QSUB_CONV conv tm (TDQR)
+    | _ -> let () = print_string "calling comb\n" in COMB_QCONV conv tm in
+*)
+
+    match tm with 
     | Abs(_,_) -> ABS_CONV conv tm
     | Quote(_,_) -> QSUB_CONV conv tm (TDQR)
     | Eval(_,_) -> QSUB_CONV conv tm (TDQR)
     | _ -> COMB_QCONV conv tm in
+
   let rec ONCE_DEPTH_QCONV conv tm =
       (conv ORELSEC (SUB_QCONV (ONCE_DEPTH_QCONV conv))) tm
   and DEPTH_QCONV conv tm =
