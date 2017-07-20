@@ -129,6 +129,8 @@ module type Hol_kernel =
       val BETA_REVAL : term -> term -> term -> thm
       val NOT_FREE_OR_EFFECTIVE : term -> term -> thm
       val NEITHER_EFFECTIVE : term -> term -> term -> term -> thm
+      val EVAL_VSUB : thm -> term -> thm
+      val EVAL_GOAL_VSUB : term list * term -> thm 
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -881,9 +883,7 @@ let rec type_subst i ty =
                     Sequent (asl,safe_mk_eq (mk_eval (ls,ty)) (mk_eval (rs,ty)))
                     else
                     (*What to do when there is a variable substitution*)
-                    let asl,c = dest_thm (conv e) in
-                    let ls,rs = dest_eq c in
-                    Sequent(asl,safe_mk_eq tm (makeVarToSub asl tm))
+                    failwith "USE EVAL_CONV FOR VARIABLE SUBSTITUTION"
     | _ -> failwith "QSUB_CONV"
 
   (*Conversion function to handle hole rewrites on a lower level*)
@@ -1207,6 +1207,56 @@ let rec type_subst i ty =
   let rhs = Abs(y,Comb(Abs(x,tm2),tm1)) in
   let fin = safe_mk_eq lhs rhs in 
   Sequent([],internal_make_imp disjunct_nei fin)
+
+  (*For evaluation substiution conversions to beta evaluations*)
+  let EVAL_VSUB (tm:thm) (trm:term) = 
+  if not (is_eval trm) then
+  failwith "EVAL_VSUB"
+  else
+  let asl = fst (dest_thm tm) in
+  if not (asl = []) then
+  failwith "EVAL_VSUB: Assumptions not allowed in theorem"
+  else
+  let v,res = dest_eq (concl tm) in
+  Sequent((fst (dest_thm tm)), (safe_mk_eq trm (Comb(Abs(v,trm),res))))
+
+  let rec MATCH_ASMS_TO_EVAL asm tm full = 
+      let rec VarInTerm vr trm = 
+        let rec Q_VarInTerm vr trm = match trm with
+          | Hole(t,ty) -> VarInTerm vr trm
+          | Quote(t,ty) -> Q_VarInTerm vr trm
+          | Comb(a,b) -> (Q_VarInTerm vr trm) || (Q_VarInTerm vr trm)
+          | _ -> false
+        in
+      match trm with
+      | Var (_,_) -> (dest_var vr) = (dest_var trm)
+      | Const (_,_) -> false
+      | Comb (a,b) -> (VarInTerm vr a) || (VarInTerm vr b)
+      | Abs (a,b) -> not ((dest_var vr) = (dest_var a)) && VarInTerm vr b
+      | Quote (e,ty) -> Q_VarInTerm vr e
+      | Hole (e,ty) -> Q_VarInTerm vr e
+      | Eval(e,ty) -> VarInTerm vr e
+      in
+      match asm with
+      | a :: rest -> (try
+      (*All failures result in skipping to the next item in the list*)
+      let l,r = dest_eq a in 
+      if not (is_var l) then fail() else
+      if (VarInTerm l tm) then
+      EVAL_VSUB (Sequent ([],safe_mk_eq l r)) tm
+      else
+      fail() 
+    with Failure _ ->  MATCH_ASMS_TO_EVAL rest tm asm)
+    | _ -> failwith "Unknown"
+    | [] -> REFL tm
+  (*Meant for use on goal states to apply assumptions availible in the goal to evals, such as when doing case analysis*)
+  let rec EVAL_GOAL_VSUB (asm,tm) = 
+  match tm with
+  | Comb(a,b) | Abs(a,b) -> (try EVAL_GOAL_VSUB (asm,a) with Failure _ -> try EVAL_GOAL_VSUB (asm,b) with Failure _ -> failwith "EVAL_GOAL_VSUB")
+  | Eval(e,b) -> MATCH_ASMS_TO_EVAL asm tm asm
+  | _ -> failwith "EVAL_GOAL_VSUB"
+
+
 
 (* ------------------------------------------------------------------------- *)
 (* Handling of axioms.                                                       *)

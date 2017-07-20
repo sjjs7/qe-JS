@@ -231,7 +231,7 @@ let (ONCE_DEPTH_CONV: conv->conv),
     match tm with 
     | Abs(_,_) -> ABS_CONV conv tm
     | Quote(_,_) -> QSUB_CONV conv tm (TDQR)
-    | Eval(_,_) -> QSUB_CONV conv tm (TDQR)
+    | Eval(_,_) -> QSUB_CONV conv tm (fun a -> REFL)
     | _ -> COMB_QCONV conv tm in
 
   let rec ONCE_DEPTH_QCONV conv tm =
