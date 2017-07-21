@@ -26,3 +26,4 @@ let (ASM_TERM_TO_CONSTRUCTION_TAC: tactic) = fun (asm,gl) -> PURE_ASM_REWRITE_TA
 let (ASM_UNQUOTE_TAC: tactic) = fun (asm,gl) -> PURE_ASM_REWRITE_TAC[UNQUOTE_CONV gl] (asm,gl);; 
 let (ASM_EVAL_QUOTE_TAC : tactic) = fun(asm,gl) -> PURE_ASM_REWRITE_TAC[EVAL_QUOTE_CONV gl] (asm,gl);;
 let (ASM_INTERNAL_TTC_TAC : tactic) = fun (asm,gl) -> PURE_ASM_REWRITE_TAC[INTERNAL_TTC_CONV gl] (asm,gl);;
+let (ASM_EVAL_LAMBDA_TAC : tactic) = fun (asm,gl) -> PURE_ONCE_REWRITE_TAC[EVAL_GOAL_VSUB (top_goal())] (asm,gl);;

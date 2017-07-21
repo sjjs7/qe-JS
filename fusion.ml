@@ -1184,11 +1184,11 @@ let rec type_subst i ty =
 
   (*Axiom B11 (2)*)
   let BETA_REVAL var alpha beta = if not ((is_var var) || ((type_of beta) = Tyapp("epsilon",[])) || (type_of alpha) = Tyapp("epsilon",[])) then failwith "BETA_EVAL" else
-  let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction (Comb(Abs(var,beta),alpha)))),matchType (Tyvar "B")) in
+  let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction (Comb(Abs(var,beta),alpha)))),matchType (type_of beta)) in
   let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),(termToConstruction (Comb(Abs(var,beta),alpha))))) in
   let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet),ifi) in  
-  let lhs = Comb(Abs(var,Eval(beta,Tyvar "B")),alpha) in
-  let rhs = Eval(Comb(Abs(var,Eval(beta,Tyvar "B")),alpha),Tyvar "B") in
+  let lhs = Comb(Abs(var,Eval(beta,(type_of beta))),alpha) in
+  let rhs = Eval(Comb(Abs(var,beta),alpha),(type_of beta)) in
   let conclud = safe_mk_eq lhs rhs in
   Sequent([], internal_make_imp anticed conclud)
 
@@ -1253,7 +1253,7 @@ let rec type_subst i ty =
   let rec EVAL_GOAL_VSUB (asm,tm) = 
   match tm with
   | Comb(a,b) | Abs(a,b) -> (try EVAL_GOAL_VSUB (asm,a) with Failure _ -> try EVAL_GOAL_VSUB (asm,b) with Failure _ -> failwith "EVAL_GOAL_VSUB")
-  | Eval(e,b) -> MATCH_ASMS_TO_EVAL asm tm asm
+  | Eval(e,b) -> (MATCH_ASMS_TO_EVAL asm tm asm)
   | _ -> failwith "EVAL_GOAL_VSUB"
 
 
@@ -1304,7 +1304,7 @@ let rec type_subst i ty =
 (* ------------------------------------------------------------------------- *)
 
   let new_basic_type_definition tyname (absname,repname) (Sequent(asl,c)) =
-    if exists (can get_const_type) [absname; repname] then
+    if exists (can get_const_type) [absname; repname] then 
       failwith "new_basic_type_definition: Constant(s) already in use" else
     if not (asl = []) then
       failwith "new_basic_type_definition: Assumptions in theorem" else

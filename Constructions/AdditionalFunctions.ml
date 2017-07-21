@@ -45,11 +45,22 @@ Setting up proof
 
 g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
  e(STRUCT_CASES_TAC (SPEC `x:epsilon` (cases "epsilon"))) ;;
- e(ASM_REWRITE_TAC[]) ;;
- e(REWRITE_TAC[var_disquo]);;
- e(ASM_REWRITE_TAC[]) ;;
- e(REWRITE_TAC[cons_disquo]);;
- e(ASM_REWRITE_TAC[]);;
-
+ e(ASM_EVAL_LAMBDA_TAC);;
+ e(MP_TAC (BETA_REVAL `x:epsilon` `QuoVar a0 a1` `quo x`));;
+ e(PURE_REWRITE_TAC[isExprType]);;
+ e(PURE_REWRITE_TAC[isExpr]);;
+ e(PURE_REWRITE_TAC[headFunc]);;
+ e(PURE_REWRITE_TAC[combinatoryType]);;
+ e(PURE_REWRITE_TAC[isValidType]);;
+ e(PURE_REWRITE_TAC[isApp]);;
+ e(PURE_REWRITE_TAC[isFreeIn]);;
+ e(PURE_REWRITE_TAC[stripFunc]);;
+ e(PURE_REWRITE_TAC[headFunc]);;
+ e(PURE_REWRITE_TAC[isValidType]);;
+ e(PURE_REWRITE_TAC[ep_constructor]);;
+ e(PURE_REWRITE_TAC[isConst]);;
+ e(PURE_REWRITE_TAC[isFunction]);;
+ e(PURE_REWRITE_TAC[EX]);;
+ e(REWRITE_TAC[]);;
 *)
 
