@@ -90,6 +90,7 @@ let typeMismatch = define `
 Variable -> Always a valid expression
 Constant -> Always a valid expression (except for when name is invalid?)
 App -> Valid when left side is constant of type function and right side's type matches that function OR left side is app and right side's type aligns 
+       Also valid when this is an Abs, because beta reductions are function applications in HOL
 Abs -> Valid when variable types match (variable doesn't need to be in function, but if it is, the types must match)
 Quo -> Valid if the quoted expression is valid
 *)
@@ -98,7 +99,7 @@ let isExpr = define
 `
 	(isExpr (QuoVar str ty) = (isValidType ty)) /\
 	(isExpr (QuoConst str ty) = ((isValidConstName str) /\ (isValidType ty))) /\
-	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isValidType (combinatoryType e1)) /\ (isExpr e2)))  /\
+	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1) \/ (isAbs e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isValidType (combinatoryType e1)) /\ (isExpr e2)))  /\
 	(isExpr (Abs e1 e2) = ((isVar e1) /\ ~(typeMismatch e1 e2) /\ (isExpr e2) /\ (isExpr e1))) /\ 
 	(isExpr (Quo e) = (isExpr e))
 `;;

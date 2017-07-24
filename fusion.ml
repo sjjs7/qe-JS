@@ -131,6 +131,7 @@ module type Hol_kernel =
       val NEITHER_EFFECTIVE : term -> term -> term -> term -> thm
       val EVAL_VSUB : thm -> term -> thm
       val EVAL_GOAL_VSUB : term list * term -> thm 
+      val is_eval_free : term -> bool
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -800,7 +801,8 @@ let rec type_subst i ty =
 (* Trivial case of lambda calculus beta-conversion.                          *)
 (* ------------------------------------------------------------------------- *)
 
-  let BETA tm =
+  let rec BETA tm =
+    if not (is_eval_free tm) then failwith "BETA: Not eval free" else
     match tm with
     |  Comb(Abs(v,bod),arg) when Pervasives.compare arg v = 0
         -> Sequent([],safe_mk_eq tm bod)
@@ -1143,11 +1145,11 @@ let rec type_subst i ty =
   | _ -> failwith "LAW_OF_QUO"
 
   let VAR_DISQUO tm = match tm with
-  | Eval(Quote(Var(name,ty),_),ty2) when ty = ty2 -> Sequent([],safe_mk_eq tm (Var(name,ty)))
+  | Eval(Comb(Const("quo",Tyapp("fun",[Tyapp("epsilon",[]);Tyapp("epsilon",[])])),Comb(Comb(Const("QuoVar",Tyapp("fun",[Tyapp("list",[Tyapp("char",[])]);Tyapp("fun",[Tyapp("type",[]);Tyapp("epsilon",[])])])),a),b)),c) -> Sequent([],safe_mk_eq tm (Comb(Comb(Const("QuoVar",Tyapp("fun",[Tyapp("list",[Tyapp("char",[])]);Tyapp("fun",[Tyapp("type",[]);Tyapp("epsilon",[])])])),a),b)))
   | _ -> failwith "VAR_DISQUO"
 
   let CONST_DISQUO tm = match tm with
-  | Eval(Quote(Const(name,ty),_),ty2) when ty = ty2 -> Sequent([],safe_mk_eq tm (Const(name,ty)))
+  | Eval(Comb(Const("quo",Tyapp("fun",[Tyapp("epsilon",[]);Tyapp("epsilon",[])])),Comb(Comb(Const("QuoConst",Tyapp("fun",[Tyapp("list",[Tyapp("char",[])]);Tyapp("fun",[Tyapp("type",[]);Tyapp("epsilon",[])])])),a),b)),c) -> Sequent([],safe_mk_eq tm (Comb(Comb(Const("QuoConst",Tyapp("fun",[Tyapp("list",[Tyapp("char",[])]);Tyapp("fun",[Tyapp("type",[]);Tyapp("epsilon",[])])])),a),b)))
   | _ -> failwith "VAR_DISQUO"
 
   (*Defining local mk_imp function to make the other three axioms easier to implement*)
@@ -1170,10 +1172,10 @@ let rec type_subst i ty =
   | _ -> failwith "ABS_SPLIT"
 
   let APP_SPLIT tm1 tm2 = if (not (type_of tm1 = Tyapp("epsilon",[]))) or (not (type_of tm2 = Tyapp("epsilon",[]))) then failwith "APP_SPLIT" else
-    let iet1 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm1),matchType (makeHolFunction (Tyvar "A") (Tyvar "B"))) in
-    let iet2 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm2),matchType (Tyvar "B")) in
+    let iet1 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm1),matchType (makeHolFunction (type_of tm1) (type_of tm2))) in
+    let iet2 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm2),matchType (type_of tm2)) in
     let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet1),iet2) in  
-    let conclud = safe_mk_eq (Eval(Comb(Comb(Const("app",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),tm1),tm2),(makeHolFunction (Tyvar "A") (Tyvar "B")))) (Comb(Eval(tm1,makeHolFunction (Tyvar "A") (Tyvar "B")),Eval(tm2,Tyvar "B"))) in
+    let conclud = safe_mk_eq (Eval(Comb(Comb(Const("app",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),tm1),tm2),(makeHolFunction (type_of tm1) (type_of tm2)))) (Comb(Eval(tm1,makeHolFunction (type_of tm1) (type_of tm2)),Eval(tm2,(type_of tm2)))) in
                            Sequent([], internal_make_imp anticed conclud)
 
   (*Axiom B11 (1)*)

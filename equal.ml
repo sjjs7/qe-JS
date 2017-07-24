@@ -43,11 +43,22 @@ let mk_primed_var =
 (* General case of beta-conversion.                                          *)
 (* ------------------------------------------------------------------------- *)
 
+  (*Grabs first availible eval in the equation - this allows beta operations on the inside of evals but stops BETA from destroying a beta reduction on an eval itself*)
+  let rec firstEvalInTerm tm = 
+    match tm with
+    | Quote (_,_) -> fail() (*All quotes must be eval free so this operates off of the assumption that they are*)
+    | Eval (_,_) -> tm
+    | Const _ | Var _ -> fail()
+    | Comb(a,b) -> (try firstEvalInTerm a with Failure _ -> firstEvalInTerm b)
+    | Hole(_,_) -> fail()
+    | Abs(a,b) -> fail()
+
 let rec BETA_CONV tm =
+  if not (is_eval_free tm) then try BETA_CONV (fst (dest_eval (firstEvalInTerm tm))) with Failure _ -> failwith "BETA_CONV: Not eval free" else
   try BETA tm with Failure _ ->
   try let f,arg = dest_comb tm in
       let v = bndvar f in
-      INST [arg,v] (BETA (mk_comb(f,v)))
+      INST [arg,v] (BETA (mk_comb(f,v))) 
   with Failure _ -> try let _ = dest_quote tm in QBETA_CONV tm BETA_CONV with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
 
 (* ------------------------------------------------------------------------- *)
@@ -231,7 +242,7 @@ let (ONCE_DEPTH_CONV: conv->conv),
     match tm with 
     | Abs(_,_) -> ABS_CONV conv tm
     | Quote(_,_) -> QSUB_CONV conv tm (TDQR)
-    | Eval(_,_) -> QSUB_CONV conv tm (fun a -> REFL)
+    | Eval(_,_) -> QSUB_CONV conv tm (TDQR)
     | _ -> COMB_QCONV conv tm in
 
   let rec ONCE_DEPTH_QCONV conv tm =
