@@ -92,16 +92,16 @@ Constant -> Always a valid expression (except for when name is invalid?)
 App -> Valid when left side is constant of type function and right side's type matches that function OR left side is app and right side's type aligns 
        Also valid when this is an Abs, because beta reductions are function applications in HOL
 Abs -> Valid when variable types match (variable doesn't need to be in function, but if it is, the types must match)
-Quo -> Valid if the quoted expression is valid
+Quo -> Valid because this term represents syntax, even if that syntax is of a term that makes no sense
 *)
 
 let isExpr = define 
 `
 	(isExpr (QuoVar str ty) = (isValidType ty)) /\
 	(isExpr (QuoConst str ty) = ((isValidConstName str) /\ (isValidType ty))) /\
-	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1) \/ (isAbs e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isValidType (combinatoryType e1)) /\ (isExpr e2)))  /\
+	(isExpr (App e1 e2) = (((isConst e1) \/ (isApp e1) \/ (isAbs e1)) /\ (((headFunc (combinatoryType e1))) = (((combinatoryType e2)))) /\ (isFunction (combinatoryType e1)) /\ (isValidType (combinatoryType e1)) /\ (isExpr e2) /\ (isExpr e1)))  /\
 	(isExpr (Abs e1 e2) = ((isVar e1) /\ ~(typeMismatch e1 e2) /\ (isExpr e2) /\ (isExpr e1))) /\ 
-	(isExpr (Quo e) = (isExpr e))
+	(isExpr (Quo e) = T) 
 `;;
 	
 (*Mathematical definition for isVarType *)
@@ -146,6 +146,10 @@ let isConstruction = define `
 (isConstruction (Abs exp1 exp2) = ((isConstruction exp1) /\ (isConstruction exp2))) /\
 (isConstruction (Quo exp1) = (isConstruction exp1)) 
 `;;
+
+(*In-logic quotation theorems for constructions*)
+let appQuo = new_axiom `quo (app a0 a1) = app (quo a0) (quo a1)`;;
+let absQuo = new_axiom `quo (e_abs a0 a1) = e_abs (quo a0) (quo a1)`;;
 
 (*** PROOFS FOR TESTING ***)
 (*Proof that a variable not inside an expression is not free in that expression*)

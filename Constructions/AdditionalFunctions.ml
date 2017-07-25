@@ -37,13 +37,21 @@ prove(mk_neg (effectiveIn `x:bool` `x <=> x`),
 	REWRITE_TAC[REFL `x`]
 );; 
 
+(*Helper lemmas for proving disquotation*)
+let appsplitexpr = prove(`isExpr (App a0 a1) ==> isExpr a0 /\ isExpr a1`,
+	MESON_TAC[isExpr]
+);;
+
 (*Attempt at proving the law of disquotation*)
 (*Commented out as OCaml code for now, will convert to proof script when done*)
 (*
 
+
+
 Setting up proof
 
-g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
+g(`isExpr x ==> ((eval (quo x:epsilon) to epsilon) = x:epsilon)`);;
+ e(STRIP_TAC);;
  e(STRUCT_CASES_TAC (SPEC `x:epsilon` (cases "epsilon"))) ;;
  e(ASM_EVAL_LAMBDA_TAC);;
  e(MP_TAC (BETA_REVAL `x:epsilon` `QuoVar a0 a1` `quo x`));;
@@ -69,6 +77,13 @@ g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
  e(REFL_TAC);;
  e(SUBGOAL_TAC "ante2" `?a0 a1. TyBiCons "fun" (TyBase "type") (TyBase "epsilon") = TyBiCons "fun" a0 a1` [(EXISTS_TAC `TyBase "type"`) THEN (EXISTS_TAC `TyBase "epsilon"`)]);;
  e(REFL_TAC);;
+ e(SUBGOAL_TAC "ante3" `?a0 a1. TyBiCons "fun" (TyMonoCons "list" (TyBase "char")) (TyBiCons "fun" (TyBase "type") (TyBase "epsilon")) = TyBiCons "fun" a0 a1` [(EXISTS_TAC `TyMonoCons "list" (TyBase "char")`) THEN (EXISTS_TAC `TyBiCons "fun" (TyBase "type") (TyBase "epsilon")`)]);;
+ e(REFL_TAC);;
+ e(REWRITE_TAC[isVar]);;
+ e(REWRITE_TAC[ep_constructor]);;
+ e(REWRITE_TAC[isValidConstName]);;
+ e(REWRITE_TAC[EX]);;
+ e(REWRITE_TAC[typeMismatch]);;
  e(ASM_REWRITE_TAC[]);;
  e(STRIP_TAC);;
  e(ASM_REWRITE_TAC[]);;
@@ -98,6 +113,13 @@ g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
  e(REFL_TAC);;
  e(SUBGOAL_TAC "ante2" `?a0 a1. TyBiCons "fun" (TyBase "type") (TyBase "epsilon") = TyBiCons "fun" a0 a1` [(EXISTS_TAC `TyBase "type"`) THEN (EXISTS_TAC `TyBase "epsilon"`)]);;
  e(REFL_TAC);;
+ e(SUBGOAL_TAC "ante3" `?a0 a1. TyBiCons "fun" (TyMonoCons "list" (TyBase "char")) (TyBiCons "fun" (TyBase "type") (TyBase "epsilon")) = TyBiCons "fun" a0 a1` [(EXISTS_TAC `TyMonoCons "list" (TyBase "char")`) THEN (EXISTS_TAC `TyBiCons "fun" (TyBase "type") (TyBase "epsilon")`)]);;
+ e(REFL_TAC);;
+ e(REWRITE_TAC[isVar]);;
+ e(REWRITE_TAC[ep_constructor]);;
+ e(REWRITE_TAC[isValidConstName]);;
+ e(REWRITE_TAC[EX]);;
+ e(REWRITE_TAC[typeMismatch]);;
  e(ASM_REWRITE_TAC[]);;
  e(STRIP_TAC);;
  e(ASM_REWRITE_TAC[]);;
@@ -119,7 +141,7 @@ g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
  e(REWRITE_TAC[isConst]);;
  e(REWRITE_TAC[isFunction]);;
  e(REWRITE_TAC[EX]);;
- e(REWRITE_TAC[isAbs]);;
+ e(REWRITE_TAC[isApp]);;
  e(REWRITE_TAC[ep_constructor]);;
  e(STRING_FETCH_TAC);;
  e(REWRITE_TAC[]);;
@@ -127,9 +149,27 @@ g(`(eval (quo x:epsilon) to epsilon) = x:epsilon`);;
  e(REFL_TAC);;
  e(SUBGOAL_TAC "ante2" `?a0 a1. TyBiCons "fun" (TyBase "type") (TyBase "epsilon") = TyBiCons "fun" a0 a1` [(EXISTS_TAC `TyBase "type"`) THEN (EXISTS_TAC `TyBase "epsilon"`)]);;
  e(REFL_TAC);;
+ e(SUBGOAL_TAC "ante3" `?a0 a1. TyBiCons "fun" (TyMonoCons "list" (TyBase "char")) (TyBiCons "fun" (TyBase "type") (TyBase "epsilon")) = TyBiCons "fun" a0 a1` [(EXISTS_TAC `TyMonoCons "list" (TyBase "char")`) THEN (EXISTS_TAC `TyBiCons "fun" (TyBase "type") (TyBase "epsilon")`)]);;
+ e(REFL_TAC);;
+ e(SUBGOAL_TAC "ante4" `?a0 a1. TyBiCons "fun" (TyBase "epsilon") (TyBiCons "fun" (TyBase "epsilon") (TyBase "epsilon")) = TyBiCons "fun" a0 a1` [(EXISTS_TAC `TyBase "epsilon"`) THEN (EXISTS_TAC `TyBiCons "fun" (TyBase "epsilon") (TyBase "epsilon")`)]);;
+ e(REFL_TAC);;
+ e(REWRITE_TAC[isVar]);;
+ e(REWRITE_TAC[ep_constructor]);;
+ e(REWRITE_TAC[isValidConstName]);;
+ e(REWRITE_TAC[EX]);;
+ e(REWRITE_TAC[typeMismatch]);;
+ e(REWRITE_TAC[isAbs]);;
+ e(REWRITE_TAC[ep_constructor]);;
  e(ASM_REWRITE_TAC[]);;
  e(STRIP_TAC);;
  e(ASM_REWRITE_TAC[]);;
-
+ e(REWRITE_TAC[SYM app]);;
+ e(MP_TAC (APP_SPLIT `a0:epsilon` `a1:epsilon`));;
+ e(REWRITE_TAC[isExprType]);;
+ e(SUBGOAL_TAC "exprsub" `isExpr (App a0 a1)` [UNDISCH_TAC `isExpr x` THEN ASM_REWRITE_TAC[]]);;
+ e(MP_TAC appsplitexpr);;
+ e(ASM_REWRITE_TAC[]);;
+ e(STRIP_TAC);;
+ e(ASM_REWRITE_TAC[]);;
 *)
 
