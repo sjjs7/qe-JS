@@ -474,6 +474,7 @@ let rec type_subst i ty =
     | Comb(s,t) -> freesin acc s && freesin acc t
     | Quote(e,_) -> qfreesin acc e
     | Hole(e,_) -> freesin acc e
+    | Eval(e,_) -> freesin acc e
 
 (* ------------------------------------------------------------------------- *)
 (* Whether a variable (or constant in fact) is free in a term.               *)
@@ -802,7 +803,25 @@ let rec type_subst i ty =
 (* ------------------------------------------------------------------------- *)
 
   let rec BETA tm =
-    if not (is_eval_free tm) then failwith "BETA: Not eval free" else
+    let rec betarep newvar oldvar tm = match tm with
+      | Comb(a,b) -> Comb(betarep newvar oldvar a, betarep newvar oldvar b)
+      | Abs(a,b) -> Abs(betarep newvar oldvar a, betarep newvar oldvar b)
+      | Var(a,b) -> if (dest_var tm) = (dest_var oldvar) then newvar else tm
+      | Quote(a,b) -> Quote(a,b)
+      | Hole(a,b) -> Hole(betarep newvar oldvar a,b)
+      | Eval(a,b) -> failwith "BETA: betarep was somehow called on non eval-free expression"
+      | Const(a,b) -> Const(a,b)
+    in
+    if not (is_eval_free tm) then (
+        (
+        match tm with
+        (*Instance of B11.1, can cancel out the beta conversion automatically across the entire term*)
+        | Comb(Abs(a,b),c) when a = c -> Sequent([], safe_mk_eq tm b)
+        (*There's no evals in the term substitution actually takes place in, so it can proceed as normal*)
+        | Comb(Abs(a,b),c) when (is_eval_free b) && (is_eval_free a) -> Sequent([], safe_mk_eq tm (betarep c a b))
+        | _ -> failwith "BETA_CONV: Not eval free"
+        )
+    ) else
     match tm with
     |  Comb(Abs(v,bod),arg) when Pervasives.compare arg v = 0
         -> Sequent([],safe_mk_eq tm bod)

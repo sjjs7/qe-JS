@@ -54,7 +54,9 @@ let mk_primed_var =
     | Abs(a,b) -> fail()
 
 let rec BETA_CONV tm =
-  if not (is_eval_free tm) then try BETA_CONV (fst (dest_eval (firstEvalInTerm tm))) with Failure _ -> failwith "BETA_CONV: Not eval free" else
+  if not (is_eval_free tm) then (try BETA_CONV (fst (dest_eval (firstEvalInTerm tm))) with Failure _ -> BETA tm)
+  (*This is not an eval free term, attempt to automatically convert it to proper format*)
+  else
   try BETA tm with Failure _ ->
   try let f,arg = dest_comb tm in
       let v = bndvar f in
