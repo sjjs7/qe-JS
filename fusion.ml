@@ -803,22 +803,50 @@ let rec type_subst i ty =
 (* ------------------------------------------------------------------------- *)
 
   let rec BETA tm =
-    let rec betarep newvar oldvar tm = match tm with
-      | Comb(a,b) -> Comb(betarep newvar oldvar a, betarep newvar oldvar b)
-      | Abs(a,b) -> Abs(betarep newvar oldvar a, betarep newvar oldvar b)
+    (*
+    Newvar - what to replace oldvar with
+    Oldvar - bound variable to replace
+    Tm - term to perform replacement in
+    shouldEvalFree - Whether or not the term is supposed to be eval-free. Causes exceptions to be thrown if an Eval is encountered in an eval-free term.
+    *)
+    let rec betarep newvar oldvar tm shouldEvalFree = match tm with
+      | Comb(a,b) -> Comb(betarep newvar oldvar a shouldEvalFree, betarep newvar oldvar b shouldEvalFree)
+      | Abs(a,b) -> Abs(betarep newvar oldvar a shouldEvalFree, betarep newvar oldvar b shouldEvalFree)
       | Var(a,b) -> if (dest_var tm) = (dest_var oldvar) then newvar else tm
       | Quote(a,b) -> Quote(a,b)
-      | Hole(a,b) -> Hole(betarep newvar oldvar a,b)
-      | Eval(a,b) -> failwith "BETA: betarep was somehow called on non eval-free expression"
+      | Hole(a,b) -> Hole(betarep newvar oldvar a shouldEvalFree,b)
+      | Eval(a,b) -> if shouldEvalFree then failwith "BETA: Unexpected eval in what should be an eval free term" else Comb(Abs(oldvar,tm),newvar)
       | Const(a,b) -> Const(a,b)
     in
     if not (is_eval_free tm) then (
         (
+        let rec VarInTerm vr trm = 
+        let rec Q_VarInTerm vr trm = match trm with
+          | Hole(t,ty) -> VarInTerm vr trm
+          | Quote(t,ty) -> Q_VarInTerm vr trm
+          | Comb(a,b) -> (Q_VarInTerm vr trm) || (Q_VarInTerm vr trm)
+          | _ -> false
+        in
+      match trm with
+      | Var (_,_) -> (dest_var vr) = (dest_var trm)
+      | Const (_,_) -> false
+      | Comb (a,b) -> (VarInTerm vr a) || (VarInTerm vr b)
+      | Abs (a,b) -> not ((dest_var vr) = (dest_var a)) && VarInTerm vr b
+      | Quote (e,ty) -> Q_VarInTerm vr e
+      | Hole (e,ty) -> Q_VarInTerm vr e
+      | Eval(e,ty) -> VarInTerm vr e
+      in
         match tm with
         (*Instance of B11.1, can cancel out the beta conversion automatically across the entire term*)
         | Comb(Abs(a,b),c) when a = c -> Sequent([], safe_mk_eq tm b)
         (*There's no evals in the term substitution actually takes place in, so it can proceed as normal*)
-        | Comb(Abs(a,b),c) when (is_eval_free b) && (is_eval_free a) -> Sequent([], safe_mk_eq tm (betarep c a b))
+        | Comb(Abs(a,b),c) when (is_eval_free b) && (is_eval_free a) -> Sequent([], safe_mk_eq tm (betarep c a b true))
+        (*There is an eval in b but b itself is not JUST an eval - need to bring the eval into the term*)
+        | Comb(Abs(a,b),c) when not (is_eval b) -> Sequent([], safe_mk_eq tm (betarep c a b false))
+        (*A simplifcation of B11.2 - if the variable to beta reduce does not appear anywhere inside the term, it is clearly not free in the term, giving us eval (\x. y) z, but, as previously established,
+         x does not appear in y, so we are able to remove the entire reduction. *)
+        | Comb(Abs(a,b),c) when not (VarInTerm a b) -> Sequent([], safe_mk_eq tm b)
+        (*Everything else*)
         | _ -> failwith "BETA_CONV: Not eval free"
         )
     ) else
