@@ -375,7 +375,6 @@ let ONCE_DEPTH_SQCONV,DEPTH_SQCONV,REDEPTH_SQCONV,
 (* ------------------------------------------------------------------------- *)
 (* Maintenence of basic rewrites and conv nets for rewriting.                *)
 (* ------------------------------------------------------------------------- *)
-
 let set_basic_rewrites,extend_basic_rewrites,basic_rewrites,
     set_basic_convs,extend_basic_convs,basic_convs,basic_net =
   let rewrites = ref ([]:thm list)
@@ -417,10 +416,38 @@ let set_basic_congs,extend_basic_congs,basic_congs =
 (* Main rewriting conversions.                                               *)
 (* ------------------------------------------------------------------------- *)
 
+let eval_basic_rewrites () = filter (fun a -> not ((concl a) = `(\x:A. (f x):B) (y:A) = f y`)) (basic_rewrites ());;
+let eval_basic_convs () = 
+   let rec foldnets l merged = match l with
+   | a :: rest -> foldnets rest (merge_nets (a,merged)) 
+   | [] -> merged
+   in
+   foldnets (map (fun a -> a empty_net) (map (fun a -> net_of_thm true a) (eval_basic_rewrites ()))) empty_net;;
+
+
+
+let INTERNAL_REWRITES_CONV net rep bin thl tm=
+  if is_eval_free tm then
+  let pconvs = lookup tm net in
+  try tryfind (fun (_,cnv) -> cnv tm) pconvs
+  with Failure _ -> failwith "REWRITES_CONV"
+  else
+  if bin = (basic_net()) then
+  let thl_canon = itlist (mk_rewrites false) thl [] in
+  let net = itlist (net_of_thm rep) thl_canon (eval_basic_convs ()) in
+  let pconvs = lookup tm net in
+  try tryfind (fun (_,cnv) -> cnv tm) pconvs
+  with Failure _ -> failwith "REWRITES_CONV"
+  else
+  let pconvs = lookup tm net in
+  try tryfind (fun (_,cnv) -> cnv tm) pconvs
+  with Failure _ -> failwith "REWRITES_CONV"
+
+
 let GENERAL_REWRITE_CONV rep (cnvl:conv->conv) (builtin_net:gconv net) thl =
   let thl_canon = itlist (mk_rewrites false) thl [] in
   let final_net = itlist (net_of_thm rep) thl_canon builtin_net in
-  cnvl (REWRITES_CONV final_net);;
+  cnvl (INTERNAL_REWRITES_CONV final_net rep builtin_net thl);;
 
 let GEN_REWRITE_CONV (cnvl:conv->conv) thl =
   GENERAL_REWRITE_CONV false cnvl empty_net thl;;

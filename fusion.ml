@@ -847,7 +847,7 @@ let rec type_subst i ty =
          x does not appear in y, so we are able to remove the entire reduction. *)
         | Comb(Abs(a,b),c) when not (VarInTerm a b) -> Sequent([], safe_mk_eq tm b)
         (*Everything else*)
-        | _ -> failwith "BETA_CONV: Not eval free"
+        | _ -> failwith "BETA: Not eval free"
         )
     ) else
     match tm with
