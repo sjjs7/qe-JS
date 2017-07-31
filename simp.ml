@@ -425,6 +425,42 @@ let eval_basic_convs () =
    foldnets (map (fun a -> a empty_net) (map (fun a -> net_of_thm true a) (eval_basic_rewrites ()))) empty_net;;
 
 
+(*
+type term_label = Vnet                          (* variable (instantiable)   *)
+                 | Lcnet of (string * int)      (* local constant            *)
+                 | Cnet of (string * int)       (* constant                  *)
+                 | Lnet of int                  (* lambda term (abstraction) *)
+                 | Qnet of hol_type             (* quoted term               *) 
+                 | Hnet of hol_type             (* holed term                *)
+                 | Enet of hol_type;;           (*Eval term                  *)
+type 'a net = Netnode of (term_label * 'a net) list * 'a list;;
+
+*)
+
+(*Function to equate two nets, since this seems to be causing the functional issue*)
+let rec nets_eq n1 n2 = 
+  let rec equate_tlp t1 t2 = match (t1,t2) with
+  | ((a,b)::rest1,(c,d)::rest2) -> a = c && (nets_eq b d) && equate_tlp rest1 rest2
+  | [],[] -> true
+  | _ -> false
+  in
+  let rec lists_eq l1 l2 = match (l1,l2) with
+  | a::rest1,b::rest2 -> a = b && lists_eq rest1 rest2
+  | [],[] -> true
+  | _ -> false
+  in
+  let rec lists_eq_pointer l1 l2 = match (l1,l2) with
+  | a::rest1,b::rest2 -> a == b && lists_eq rest1 rest2
+  | [],[] -> true
+  | _ -> false
+  in
+  match (n1,n2) with  
+  | (Netnode(a,b),Netnode(c,d)) -> 
+     let firstcomp = equate_tlp a c in
+     (*True for testing*)
+     let secondcomp = true  in
+     let () = warn true (string_of_bool (firstcomp && secondcomp)) in 
+     firstcomp && secondcomp
 
 let INTERNAL_REWRITES_CONV net rep bin thl tm=
   if is_eval_free tm then
@@ -432,7 +468,8 @@ let INTERNAL_REWRITES_CONV net rep bin thl tm=
   try tryfind (fun (_,cnv) -> cnv tm) pconvs
   with Failure _ -> failwith "REWRITES_CONV"
   else
-  if bin = (basic_net()) then
+  (*Always false, source of infinite loops*)
+  if bin == (basic_net()) then
   let thl_canon = itlist (mk_rewrites false) thl [] in
   let net = itlist (net_of_thm rep) thl_canon (eval_basic_convs ()) in
   let pconvs = lookup tm net in
@@ -445,6 +482,8 @@ let INTERNAL_REWRITES_CONV net rep bin thl tm=
 
 
 let GENERAL_REWRITE_CONV rep (cnvl:conv->conv) (builtin_net:gconv net) thl =
+  (*Debug: Temporarily ALWAYS basic_net()*)
+  let () = warn true (string_of_bool (builtin_net == (basic_net()))) in
   let thl_canon = itlist (mk_rewrites false) thl [] in
   let final_net = itlist (net_of_thm rep) thl_canon builtin_net in
   cnvl (INTERNAL_REWRITES_CONV final_net rep builtin_net thl);;

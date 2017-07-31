@@ -575,10 +575,14 @@ let rec type_subst i ty =
                     if ilist' = [] then tm else
                     let s' = vsubst ilist' s in
                     if s' == s then tm else
-                    if exists (fun (t,x) -> vfree_in v t && vfree_in x s) ilist'
+                    if exists (fun (t,x) -> vfree_in v t && vfree_in x s && is_eval_free t && is_eval_free s) ilist'
                     then let v' = variant [s'] v in
                          Abs(v',vsubst ((v',v)::ilist') s)
-                    else Abs(v,s') in
+                    else if exists (fun (t,x) ->  ((is_eval_free t && (not (vfree_in v t))) || ((is_eval_free s) && (not (vfree_in x s))))) ilist' then
+                    Abs(v,s') 
+                   else 
+                   Abs(v,s')
+                   in
     fun theta ->
       if theta = [] then (fun tm -> tm) else
       if forall (function (t,Var(_,y)) -> Pervasives.compare (type_of t) y = 0
