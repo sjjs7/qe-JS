@@ -459,17 +459,16 @@ let rec nets_eq n1 n2 =
      let firstcomp = equate_tlp a c in
      (*True for testing*)
      let secondcomp = true  in
-     let () = warn true (string_of_bool (firstcomp && secondcomp)) in 
      firstcomp && secondcomp
 
-let INTERNAL_REWRITES_CONV net rep bin thl tm=
+let INTERNAL_REWRITES_CONV net rep bin thl isbasic tm=
   if is_eval_free tm then
   let pconvs = lookup tm net in
   try tryfind (fun (_,cnv) -> cnv tm) pconvs
   with Failure _ -> failwith "REWRITES_CONV"
   else
   (*Always false, source of infinite loops*)
-  if bin == (basic_net()) then
+  if isbasic = true then
   let thl_canon = itlist (mk_rewrites false) thl [] in
   let net = itlist (net_of_thm rep) thl_canon (eval_basic_convs ()) in
   let pconvs = lookup tm net in
@@ -483,10 +482,10 @@ let INTERNAL_REWRITES_CONV net rep bin thl tm=
 
 let GENERAL_REWRITE_CONV rep (cnvl:conv->conv) (builtin_net:gconv net) thl =
   (*Debug: Temporarily ALWAYS basic_net()*)
-  let () = warn true (string_of_bool (builtin_net == (basic_net()))) in
   let thl_canon = itlist (mk_rewrites false) thl [] in
   let final_net = itlist (net_of_thm rep) thl_canon builtin_net in
-  cnvl (INTERNAL_REWRITES_CONV final_net rep builtin_net thl);;
+  let isbasic = builtin_net == (basic_net()) in
+  cnvl (INTERNAL_REWRITES_CONV final_net rep builtin_net thl isbasic);;
 
 let GEN_REWRITE_CONV (cnvl:conv->conv) thl =
   GENERAL_REWRITE_CONV false cnvl empty_net thl;;

@@ -87,6 +87,7 @@ module type Hol_kernel =
       val dest_thm : thm -> term list * term
       val hyp : thm -> term list
       val concl : thm -> term
+      val orda: (term * term) list -> term -> term -> int
       val REFL : term -> thm
       val QUOTE : term -> thm
       val TERM_TO_CONSTRUCTION : term -> thm
@@ -534,6 +535,31 @@ let rec type_subst i ty =
 (* Substitution primitive (substitution for variables only!)                 *)
 (* ------------------------------------------------------------------------- *)
 
+  (*Checks is a term is free in terms of another term*)
+ 
+  (*Handles variable substitution for evaluations*)
+  let rec mkNewEval sL tm = match sL with
+    | (a,b) :: rest when a = b -> mkNewEval rest tm
+    | (a,b) :: rest -> Comb(Abs(b,(mkNewEval rest tm)),a)
+    | [] -> tm 
+   
+  (*Removes all abstractions*) 
+  let rec int_no_abs tm = match tm with
+  | Abs(a,b) -> int_no_abs b
+  | _ -> tm
+
+
+  let rec makeAbsSubst sl tm = 
+    let com = dest_comb tm in
+    let a = snd com in
+    let abs = dest_abs (fst com) in
+    let var = fst abs in
+    let e = fst (dest_eval (snd abs)) in
+    match sl with
+    | (a,b) :: rest when a = b -> makeAbsSubst rest tm
+    | (a,b) :: rest ->  if (vfree_in var (Comb(Abs(var,e),a))) then Comb(Abs(b,(makeAbsSubst rest tm)),a) else (makeAbsSubst rest (Eval(Comb(Abs(var,e),a),type_of ((Comb(Abs(var,e),a))))))
+    | [] -> tm
+
       (*Function to handle substitutions in holes in quotations*)
   let rec qsubst ilist tm =
 
@@ -567,7 +593,7 @@ let rec type_subst i ty =
       | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
       | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
-      | Eval(e,ty) -> tm
+      | Eval(e,ty) -> mkNewEval ilist tm
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
@@ -581,7 +607,7 @@ let rec type_subst i ty =
                     else if exists (fun (t,x) ->  ((is_eval_free t && (not (vfree_in v t))) || ((is_eval_free s) && (not (vfree_in x s))))) ilist' then
                     Abs(v,s') 
                    else 
-                   Abs(v,s')
+                  try makeAbsSubst ilist tm with Failure _ -> Abs(v,s')
                    in
     fun theta ->
       if theta = [] then (fun tm -> tm) else
