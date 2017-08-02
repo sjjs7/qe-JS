@@ -538,11 +538,29 @@ let rec type_subst i ty =
   (*Checks is a term is free in terms of another term*)
  
   (*Handles variable substitution for evaluations*)
-  let rec mkNewEval sL tm = match sL with
+    (* | (a,b) :: rest when a = b -> mkNewEval rest tm *)
+  let rec mkNewEval sL tm =
+    let rec VarInTerm vr trm = 
+        let rec Q_VarInTerm vr trm = match trm with
+          | Hole(t,ty) -> VarInTerm vr trm
+          | Quote(t,ty) -> Q_VarInTerm vr trm
+          | Comb(a,b) -> (Q_VarInTerm vr trm) || (Q_VarInTerm vr trm)
+          | _ -> false
+        in
+      match trm with
+      | Var (_,_) -> (dest_var vr) = (dest_var trm)
+      | Const (_,_) -> false
+      | Comb (a,b) -> (VarInTerm vr a) || (VarInTerm vr b)
+      | Abs (a,b) -> not ((dest_var vr) = (dest_var a)) && VarInTerm vr b
+      | Quote (e,ty) -> Q_VarInTerm vr e
+      | Hole (e,ty) -> Q_VarInTerm vr e
+      | Eval(e,ty) -> VarInTerm vr e
+      in
+    match sL with
     | (a,b) :: rest when a = b -> mkNewEval rest tm
+    | (a,b) :: rest when not (VarInTerm b tm) -> mkNewEval rest tm
     | (a,b) :: rest -> Comb(Abs(b,(mkNewEval rest tm)),a)
     | [] -> tm 
-   
   (*Removes all abstractions*) 
   let rec int_no_abs tm = match tm with
   | Abs(a,b) -> int_no_abs b
@@ -603,10 +621,13 @@ let rec type_subst i ty =
                     if s' == s then tm else
                     if exists (fun (t,x) -> vfree_in v t && vfree_in x s && is_eval_free t && is_eval_free s) ilist'
                     then let v' = variant [s'] v in
+                         let () = warn true "Case 1" in
                          Abs(v',vsubst ((v',v)::ilist') s)
                     else if exists (fun (t,x) ->  ((is_eval_free t && (not (vfree_in v t))) || ((is_eval_free s) && (not (vfree_in x s))))) ilist' then
+                    let () = warn true "Case 2" in
                     Abs(v,s') 
                    else 
+                   let () = warn true "Case 3" in
                   try makeAbsSubst ilist tm with Failure _ -> Abs(v,s')
                    in
     fun theta ->
@@ -847,7 +868,8 @@ let rec type_subst i ty =
       | Hole(a,b) -> Hole(betarep newvar oldvar a shouldEvalFree,b)
       | Eval(a,b) -> if shouldEvalFree then failwith "BETA: Unexpected eval in what should be an eval free term" else Comb(Abs(oldvar,tm),newvar)
       | Const(a,b) -> Const(a,b)
-    in
+    in(*
+
     if not (is_eval_free tm) then (
         (
         let rec VarInTerm vr trm = 
@@ -867,6 +889,7 @@ let rec type_subst i ty =
       | Eval(e,ty) -> VarInTerm vr e
       in
         match tm with
+        (*
         (*Instance of B11.1, can cancel out the beta conversion automatically across the entire term*)
         | Comb(Abs(a,b),c) when a = c -> Sequent([], safe_mk_eq tm b)
         (*There's no evals in the term substitution actually takes place in, so it can proceed as normal*)
@@ -877,12 +900,32 @@ let rec type_subst i ty =
          x does not appear in y, so we are able to remove the entire reduction. *)
         | Comb(Abs(a,b),c) when not (VarInTerm a b) -> Sequent([], safe_mk_eq tm b)
         (*Everything else*)
+      *)
         | _ -> failwith "BETA: Not eval free"
         )
     ) else
+  *)
+  let rec VarInTerm vr trm = 
+        let rec Q_VarInTerm vr trm = match trm with
+          | Hole(t,ty) -> VarInTerm vr trm
+          | Quote(t,ty) -> Q_VarInTerm vr trm
+          | Comb(a,b) -> (Q_VarInTerm vr trm) || (Q_VarInTerm vr trm)
+          | _ -> false
+        in
+      match trm with
+      | Var (_,_) -> (dest_var vr) = (dest_var trm)
+      | Const (_,_) -> false
+      | Comb (a,b) -> (VarInTerm vr a) || (VarInTerm vr b)
+      | Abs (a,b) -> not ((dest_var vr) = (dest_var a)) && VarInTerm vr b
+      | Quote (e,ty) -> Q_VarInTerm vr e
+      | Hole (e,ty) -> Q_VarInTerm vr e
+      | Eval(e,ty) -> VarInTerm vr e
+      in
     match tm with
+    |  Comb(Abs(v,Eval(e,ty)),b) when not (vfree_in v (Comb(Abs(v,e),b))) -> Sequent([],safe_mk_eq tm (Eval(Comb(Abs(v,e),b),ty)))
     |  Comb(Abs(v,bod),arg) when Pervasives.compare arg v = 0
         -> Sequent([],safe_mk_eq tm bod)
+    |  Comb(Abs(v,bod),arg) when not (VarInTerm v bod) -> Sequent([],safe_mk_eq tm bod)
     | _ -> failwith "BETA: not a trivial beta-redex"
 
 (* ------------------------------------------------------------------------- *)
@@ -962,7 +1005,9 @@ let rec type_subst i ty =
                     Sequent (asl,safe_mk_eq (mk_eval (ls,ty)) (mk_eval (rs,ty)))
                     else
                     (*What to do when there is a variable substitution*)
-                    failwith "USE EVAL_CONV FOR VARIABLE SUBSTITUTION"
+                    let asl, c = dest_thm (nConv conv e) in
+                    let ls,rs = dest_eq c in
+                    Sequent (asl, safe_mk_eq (mk_eval (ls,type_of ls)) (mk_eval (rs,type_of rs)))
     | _ -> failwith "QSUB_CONV"
 
   (*Conversion function to handle hole rewrites on a lower level*)
