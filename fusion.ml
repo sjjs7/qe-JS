@@ -578,6 +578,11 @@ let rec type_subst i ty =
     | (a,b) :: rest ->  if (vfree_in var (Comb(Abs(var,e),a))) then Comb(Abs(b,(makeAbsSubst rest tm)),a) else (makeAbsSubst rest (Eval(Comb(Abs(var,e),a),type_of ((Comb(Abs(var,e),a))))))
     | [] -> tm
 
+  let rec stackAbs l tm = match l with
+  | (a,b) :: rest when List.length l > 1 -> Comb(Abs(b,(stackAbs rest tm)),a)
+  | [(a,b)] -> Comb(Abs(b,tm),a)
+  | _ -> failwith "Bad substitution list"
+
       (*Function to handle substitutions in holes in quotations*)
   let rec qsubst ilist tm =
 
@@ -589,14 +594,22 @@ let rec type_subst i ty =
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
-      | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
-                    if ilist' = [] then tm else
-                    let s' = vsubst ilist' s in
-                    if s' == s then tm else
-                    if exists (fun (t,x) -> vfree_in v t && vfree_in x s) ilist'
-                    then let v' = variant [s'] v in
-                         Abs(v',vsubst ((v',v)::ilist') s)
-                    else Abs(v,s') in
+     | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
+                  if ilist' = [] then tm else
+                  let s' = vsubst ilist' s in
+                  if s' == s then tm else
+                  (* There are no variable captures. *)
+                  if forall (fun (t,x) -> 
+                               (is_eval_free t && (not (vfree_in v t))) ||
+                               (is_eval_free s && (not (vfree_in x s)))) ilist'
+                  then Abs(v,s') else
+                  (* There is an unresolvable subsitution. *)
+                  if not (is_eval_free s) ||
+                     exists (fun (t,x) -> not (is_eval_free t)) ilist'
+                  then stackAbs ilist (Abs(v,s))
+                  (* All substitutions are resolvable. *)
+                  else let v' = variant [s'] v in
+                       Abs(v',vsubst ((v',v)::ilist') s) in
     match tm with
     | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
     | Comb(s,t) -> let s' = qsubst ilist s and t' = qsubst ilist t in
@@ -615,21 +628,22 @@ let rec type_subst i ty =
       | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
-      | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
-                    if ilist' = [] then tm else
-                    let s' = vsubst ilist' s in
-                    if s' == s then tm else
-                    if exists (fun (t,x) -> vfree_in v t && vfree_in x s && is_eval_free t && is_eval_free s) ilist'
-                    then let v' = variant [s'] v in
-                         let () = warn true "Case 1" in
-                         Abs(v',vsubst ((v',v)::ilist') s)
-                    else if exists (fun (t,x) ->  ((is_eval_free t && (not (vfree_in v t))) || ((is_eval_free s) && (not (vfree_in x s))))) ilist' then
-                    let () = warn true "Case 2" in
-                    Abs(v,s') 
-                   else 
-                   let () = warn true "Case 3" in
-                  try makeAbsSubst ilist tm with Failure _ -> Abs(v,s')
-                   in
+     | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
+                  if ilist' = [] then tm else
+                  let s' = vsubst ilist' s in
+                  if s' == s then tm else
+                  (* There are no variable captures. *)
+                  if forall (fun (t,x) -> 
+                               (is_eval_free t && (not (vfree_in v t))) ||
+                               (is_eval_free s && (not (vfree_in x s)))) ilist'
+                  then Abs(v,s') else
+                  (* There is an unresolvable subsitution. *)
+                  if not (is_eval_free s) ||
+                     exists (fun (t,x) -> not (is_eval_free t)) ilist'
+                  then stackAbs ilist (Abs(v,s)) 
+                  (* All substitutions are resolvable. *)
+                  else let v' = variant [s'] v in
+                       Abs(v',vsubst ((v',v)::ilist') s) in
     fun theta ->
       if theta = [] then (fun tm -> tm) else
       if forall (function (t,Var(_,y)) -> Pervasives.compare (type_of t) y = 0
@@ -907,9 +921,9 @@ let rec type_subst i ty =
   *)
   let rec VarInTerm vr trm = 
         let rec Q_VarInTerm vr trm = match trm with
-          | Hole(t,ty) -> VarInTerm vr trm
-          | Quote(t,ty) -> Q_VarInTerm vr trm
-          | Comb(a,b) -> (Q_VarInTerm vr trm) || (Q_VarInTerm vr trm)
+          | Hole(t,ty) -> VarInTerm vr t
+          | Quote(t,ty) -> Q_VarInTerm vr t
+          | Comb(a,b) -> (Q_VarInTerm vr a) || (Q_VarInTerm vr b)
           | _ -> false
         in
       match trm with
@@ -1283,13 +1297,13 @@ let rec type_subst i ty =
                            Sequent([],(internal_make_imp iet (safe_mk_eq (Eval(Comb(Const("Quo",makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" [])),(termToConstruction tm)),Tyapp("epsilon",[]))) tm)))
   | _ -> failwith "QUOTABLE"
 
-  let ABS_SPLIT tm var = 
+  let ABS_SPLIT var tm = 
   if not (is_var var) then failwith "ABS_SPLIT" else
   match type_of tm with
-  | Tyapp("epsilon",[]) -> let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction tm)),matchType (Tyvar "B")) in
+  | Tyapp("epsilon",[]) -> let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction tm)),matchType (type_of tm)) in
                            let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),termToConstruction tm)) in
                            let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet),ifi) in 
-                           let conclud = safe_mk_eq (Eval(Comb(Comb(Const("abs",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),termToConstruction var),tm),(makeHolFunction (type_of var) (Tyvar "B")))) (Abs(var,Eval(tm,Tyvar "B"))) in
+                           let conclud = safe_mk_eq (Eval(Comb(Comb(Const("abs",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),termToConstruction var),tm),(makeHolFunction (type_of var) ((type_of tm))))) (Abs(var,Eval(tm,((type_of tm))))) in
                            Sequent([], internal_make_imp anticed conclud)
   | _ -> failwith "ABS_SPLIT"
 

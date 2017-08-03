@@ -71,3 +71,5 @@ e(REWRITE_TAC[CONST_DISQUO `eval quo (QuoConst a0 a1) to epsilon`]);;
 e(REWRITE_TAC[SYM app]);;
 e(REWRITE_TAC[appQuo]);;
 e(MP_TAC (APP_SPLIT `quo a0` `quo a1`));;
+
+*)
