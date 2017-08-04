@@ -133,6 +133,7 @@ module type Hol_kernel =
       val EVAL_VSUB : thm -> term -> thm
       val EVAL_GOAL_VSUB : term list * term -> thm 
       val is_eval_free : term -> bool
+      val stackAbs : (term * term) list -> term -> term
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -274,6 +275,10 @@ let rec type_subst i ty =
   let tyv_num = ref 0;;
 
   let getTyv unit = let () = tyv_num := (!tyv_num + 1) in !tyv_num;;
+
+  let proven_thms = ref [];;
+
+  let addThm tm = proven_thms := tm :: !proven_thms;;
 
 (* ------------------------------------------------------------------------- *)
 (* Return all the defined constants with generic types.                      *)
@@ -583,6 +588,8 @@ let rec type_subst i ty =
   | [(a,b)] -> Comb(Abs(b,tm),a)
   | _ -> failwith "Bad substitution list"
 
+  let is_a_thm tm = exists (fun thm -> tm = thm) (!proven_thms)
+
       (*Function to handle substitutions in holes in quotations*)
   let rec qsubst ilist tm =
 
@@ -599,14 +606,17 @@ let rec type_subst i ty =
                   let s' = vsubst ilist' s in
                   if s' == s then tm else
                   (* There are no variable captures. *)
-                  if forall (fun (t,x) -> 
-                               (is_eval_free t && (not (vfree_in v t))) ||
-                               (is_eval_free s && (not (vfree_in x s)))) ilist'
+                  if forall (fun (t,x) ->
+                    (*Todo: Fix this to properly use is_effective_in*)
+               (is_eval_free t && (not (vfree_in v t))) ||
+               is_a_thm "not (is_effective_in v t)" ||
+               (is_eval_free s && (not (vfree_in x s))) ||
+               is_a_thm "not (is_effective_in x s)") ilist'
                   then Abs(v,s') else
                   (* There is an unresolvable subsitution. *)
                   if not (is_eval_free s) ||
                      exists (fun (t,x) -> not (is_eval_free t)) ilist'
-                  then stackAbs ilist (Abs(v,s))
+                  then failwith "Possible variable capture in eval detected"
                   (* All substitutions are resolvable. *)
                   else let v' = variant [s'] v in
                        Abs(v',vsubst ((v',v)::ilist') s) in
@@ -640,7 +650,7 @@ let rec type_subst i ty =
                   (* There is an unresolvable subsitution. *)
                   if not (is_eval_free s) ||
                      exists (fun (t,x) -> not (is_eval_free t)) ilist'
-                  then stackAbs ilist (Abs(v,s)) 
+                  then failwith "Possible variable capture in eval detected"
                   (* All substitutions are resolvable. *)
                   else let v' = variant [s'] v in
                        Abs(v',vsubst ((v',v)::ilist') s) in
