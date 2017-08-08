@@ -134,6 +134,9 @@ module type Hol_kernel =
       val EVAL_GOAL_VSUB : term list * term -> thm 
       val is_eval_free : term -> bool
       val stackAbs : (term * term) list -> term -> term
+      val effectiveIn : term -> term -> term
+      val addThm : thm -> unit
+      val is_a_thm : term -> bool
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -278,7 +281,9 @@ let rec type_subst i ty =
 
   let proven_thms = ref [];;
 
-  let addThm tm = proven_thms := tm :: !proven_thms;;
+  let is_a_thm tm = exists (fun thm -> tm = (snd ((fun a -> match a with Sequent(b,c) -> (b,c) | _ -> fail()) thm))) (!proven_thms)
+
+  let addThm (asl,c) as g = if (forall (fun a -> is_a_thm a) asl) then proven_thms :=  tm :: !proven_thms else failwith "Unproven assumptions in theorem";;
 
 (* ------------------------------------------------------------------------- *)
 (* Return all the defined constants with generic types.                      *)
@@ -583,12 +588,36 @@ let rec type_subst i ty =
     | (a,b) :: rest ->  if (vfree_in var (Comb(Abs(var,e),a))) then Comb(Abs(b,(makeAbsSubst rest tm)),a) else (makeAbsSubst rest (Eval(Comb(Abs(var,e),a),type_of ((Comb(Abs(var,e),a))))))
     | [] -> tm
 
+    (*Constructs an effectiveIn expression for the given variable in the given term*)
+  let effectiveIn var tm = 
+    (*This function checks that the variable name  does not exist in the term - if it does, it adds ' until a valid name is found*)
+    let rec unusedVarName var tm root = let dName = fst (dest_var var) in
+      match tm with
+      | Var(a,b) -> if a = dName then (unusedVarName (mk_var ((dName ^ "'"),type_of var)) root root) else dName
+      | Const(_,_) -> dName
+      | Comb(a,b) -> let aN = (unusedVarName var a root) and bN = (unusedVarName var b root) in if aN <> dName then aN else if bN <> dName then bN else dName
+      | Abs(a,b) -> let aN = (unusedVarName var a root) and bN = (unusedVarName var b root) in if aN <> dName then aN else if bN <> dName then bN else dName
+      | Quote(e,ty) -> unusedVarName var e root
+      | Hole(e,ty) -> unusedVarName var e root
+      | Eval(e,ty) -> unusedVarName var e root
+    in
+    (*Creates a y variable that will not clash with anything inside the term*)
+    if not (is_var var) then failwith "effectiveIn: First argument must be a variable" else
+    let vN,vT = dest_var var in 
+    let y = mk_var(unusedVarName (Var("y",Tyvar "A")) tm tm,vT) in
+    (*Now assembles the term using HOL's constructors*)
+    let subTerm = mk_comb(mk_abs(var,tm),y) in
+    let eqTerm = mk_comb(mk_comb(Const("=",(Tyapp ("fun",[(type_of subTerm);(Tyapp ("fun",[(type_of subTerm);Tyapp ("bool",[])]))]))),subTerm),tm) in
+    (*At this point, have (\x. B)y = B, want to negate this*)
+    let neqTerm = mk_comb(mk_const("~",[]),eqTerm) in
+    let toExst = mk_abs(y,neqTerm) in
+    mk_comb(mk_const("?",[type_of y,Tyvar "A"]),toExst);;
+
+
   let rec stackAbs l tm = match l with
   | (a,b) :: rest when List.length l > 1 -> Comb(Abs(b,(stackAbs rest tm)),a)
   | [(a,b)] -> Comb(Abs(b,tm),a)
   | _ -> failwith "Bad substitution list"
-
-  let is_a_thm tm = exists (fun thm -> tm = thm) (!proven_thms)
 
       (*Function to handle substitutions in holes in quotations*)
   let rec qsubst ilist tm =
@@ -608,10 +637,10 @@ let rec type_subst i ty =
                   (* There are no variable captures. *)
                   if forall (fun (t,x) ->
                     (*Todo: Fix this to properly use is_effective_in*)
-               (is_eval_free t && (not (vfree_in v t))) ||
-               is_a_thm "not (is_effective_in v t)" ||
-               (is_eval_free s && (not (vfree_in x s))) ||
-               is_a_thm "not (is_effective_in x s)") ilist'
+                  (is_eval_free t && (not (vfree_in v t))) ||
+                  is_a_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
+                  (is_eval_free s && (not (vfree_in x s))) ||
+                  is_a_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s)))) ilist'
                   then Abs(v,s') else
                   (* There is an unresolvable subsitution. *)
                   if not (is_eval_free s) ||
