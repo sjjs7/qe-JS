@@ -283,7 +283,7 @@ let rec type_subst i ty =
 
   let is_a_thm tm = exists (fun thm -> tm = (snd ((fun a -> match a with Sequent(b,c) -> (b,c) | _ -> fail()) thm))) (!proven_thms)
 
-  let addThm (asl,c) as g = if (forall (fun a -> is_a_thm a) asl) then proven_thms :=  tm :: !proven_thms else failwith "Unproven assumptions in theorem";;
+  let addThm tm = match tm with Sequent(asl,c) -> if (forall (fun a -> is_a_thm a) asl) then proven_thms := tm :: !proven_thms else failwith "Unproven assumptions in theorem" | _ -> failwith "Not a theorem";;
 
 (* ------------------------------------------------------------------------- *)
 (* Return all the defined constants with generic types.                      *)

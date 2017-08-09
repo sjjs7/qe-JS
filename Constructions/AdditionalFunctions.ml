@@ -17,34 +17,38 @@ let appsplitexpr = prove(`isExpr (App a0 a1) ==> isExpr a0 /\ isExpr a1`,
 	MESON_TAC[isExpr]
 );;
 
-(*Attempt at proving the law of disquotation*)
-(*Commented out as OCaml code for now, will convert to proof script when done*)
-(*
+(*Attempting to define size of recursion to prove recursion is wellfounded*)
+(*Fails to define because recursion is not proven to be well founded*)
+let sizeOfQuo = define `
+(sizeOfQuo (QuoConst s t) = 1) /\
+(sizeOfQuo (QuoVar s t) = 1) /\ 
+(sizeOfQuo (QuoAbs a b) = sizeOfQuo a + sizeOfQuo b + 1) /\
+(sizeOfQuo (QuoComb a b) = sizeOfQuo a + sizeOfQuo b + 1) /\
+(sizeOfQuo (Quo a) = sizeOfQuo a + 1)
+`;;
 
-(*Begin by defining law of disquotation as a function, I'm not sure that this is necessary but it does aid in matching up the attempted goal with the way HOL defines structural induction, so I believe this is the best way to go about beginning
-the proof*)
-let disq = define `disq x = ((eval (quo x) to epsilon) = x)`;;
+(*Definition of peano for inductive proof*)
 
-
-(*Set up the proof in the goalstack*)
-g(`!x. disq x`);;
-
-(*Perform induction over the structure of epsilon*)
-e(MATCH_MP_TAC lth THEN ASM_REWRITE_TAC[disq]);;
-
-(*Before the case split, use beta evals to fill in all instances of x with their respective case for the rest of the proof*)
-e(BETA_TAC);;
-
-(*Induction does not naturally do a case split, so it will be done manually here*)
-e(REPEAT CONJ_TAC);;
-
-(*Axiomatically prove disquotation is true for QuoVar and QuoConst*)
-e(REWRITE_TAC[VAR_DISQUO `eval quo (QuoVar a0 a1) to epsilon`]);;
-e(REWRITE_TAC[CONST_DISQUO `eval quo (QuoConst a0 a1) to epsilon`]);;
-
-(*Prove disquotation is true in the case of App*)
-e(REWRITE_TAC[SYM app]);;
-e(REWRITE_TAC[appQuo]);;
-e(MP_TAC (APP_SPLIT `quo a0` `quo a1`));;
-
-*)
+let isPeano = define `
+(isPeano (QuoConst "!" (TyBiCons "fun" (TyBiCons "fun" ty (TyBase "bool")) (TyBase "bool"))) = T) /\
+(isPeano (QuoConst "?" (TyBiCons "fun" (TyBiCons "fun" ty (TyBase "bool")) (TyBase "bool"))) = T) /\
+(isPeano (QuoConst "/\\" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool")))) = T) /\
+(isPeano (QuoConst "\\/" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool")))) = T) /\
+(isPeano (QuoConst "==>" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool")))) = T) /\
+(isPeano (QuoConst "=" (TyBiCons "fun" ty (TyBiCons "fun" ty (TyBase "bool")))) = T) /\
+(isPeano (QuoConst "<=>" (TyBiCons "fun" ty (TyBiCons "fun" ty (TyBase "bool")))) = T) /\
+(isPeano (QuoConst "~" (TyBiCons "fun" (TyBase "bool") (TyBase "bool"))) = T) /\
+(isPeano (QuoConst "+" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) = T) /\
+(isPeano (QuoConst "*" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "num")))) = T) /\
+//HOL does not do greedy pattern matching, need to detect numbers like this
+(isPeano (QuoComb a b) = 
+	//Check is this is a number
+	if a = (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) then
+	  //Check that b is 1
+	  (b = (QuoComb (QuoConst "BIT1" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num"))) 
+	  	//or 0
+	  	\/ b = (QuoConst "_0" (TyBase "num")))
+	else
+	//This is not a number, check that the function and it's argument are Peano arithemtic
+	(isPeano a /\ isPeano b))
+`;;
