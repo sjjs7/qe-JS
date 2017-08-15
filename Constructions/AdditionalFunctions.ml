@@ -99,5 +99,20 @@ REWRITE_TAC[isPeano;COND_ELIM_THM;epsilonDistinct;epsilonInjective;] THEN
 STRING_FETCH_TAC THEN
 REWRITE_TAC[isPeano]);;
 
-(*Test of instantiation into full induction formula*)
-INST [`QuoConst "test" (TyBiCons "fun" (TyBase "num") (TyBase "bool"))`,`f:epsilon`] (ASSUME (`(isExprType (f:epsilon) (TyBiCons "fun" (TyVar "num") (TyBase "bool"))) /\ (isPeano f) ==> ((eval f to (num->bool)) 0 /\ (!x:num. (eval f to (num->bool)) x ==> (eval f to (num->bool)) (SUC x))) ==> !x:num. (eval f to (num->bool) x)`));;
+(*Prove eliminated instance of induction on the natural numbers*)
+let indinst = prove(`(isExprType (f:epsilon) (TyBiCons "fun" (TyVar "num") (TyBase "bool"))) /\ (isPeano f) ==> P 0 /\ (!n. P n ==> P (SUC n)) ==> (!n. P n)`,
+DISCH_TAC THEN
+REWRITE_TAC[num_INDUCTION]
+);;
+
+(*Prove that a variable capture does not occur*)
+let nei_peano = prove(`~(?y. ~((\(n:num). (eval (f:epsilon) to (num->bool))) y = (eval (f) to (num->bool))))`,
+BETA_TAC THEN
+REWRITE_TAC[]
+);;
+
+(*Add the theorem to the proven theorems list*)
+addThm nei_peano;;
+
+(*Perform instantiation on indinst to get instantiated theorem*)
+INST [`eval (f:epsilon) to (num->bool)`,`P:num->bool`] indinst;;

@@ -136,7 +136,7 @@ module type Hol_kernel =
       val stackAbs : (term * term) list -> term -> term
       val effectiveIn : term -> term -> term
       val addThm : thm -> unit
-      val is_a_thm : term -> bool
+      val is_proven_thm : term -> bool
 end;;
 
 (* ------------------------------------------------------------------------- *)
@@ -281,9 +281,9 @@ let rec type_subst i ty =
 
   let proven_thms = ref [];;
 
-  let is_a_thm tm = exists (fun thm -> tm = (snd ((fun a -> match a with Sequent(b,c) -> (b,c) | _ -> fail()) thm))) (!proven_thms)
+  let is_proven_thm tm = exists (fun thm -> tm = (snd ((fun a -> match a with Sequent(b,c) -> (b,c) | _ -> fail()) thm))) (!proven_thms)
 
-  let addThm tm = match tm with Sequent(asl,c) -> if (forall (fun a -> is_a_thm a) asl) then proven_thms := tm :: !proven_thms else failwith "Unproven assumptions in theorem" | _ -> failwith "Not a theorem";;
+  let addThm tm = match tm with Sequent(asl,c) -> if (forall (fun a -> is_proven_thm a) asl) then proven_thms := tm :: !proven_thms else failwith "Unproven assumptions in theorem" | _ -> failwith "Not a theorem";;
 
 (* ------------------------------------------------------------------------- *)
 (* Return all the defined constants with generic types.                      *)
@@ -637,10 +637,10 @@ let rec type_subst i ty =
                   (* There are no variable captures. *)
                   if forall (fun (t,x) ->
                     (*Todo: Fix this to properly use is_effective_in*)
-                  (is_eval_free t && (not (vfree_in v t))) ||
-                  is_a_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
+                  ((is_eval_free t && (not (vfree_in v t))) ||
+                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
                   (is_eval_free s && (not (vfree_in x s))) ||
-                  is_a_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s)))) ilist'
+                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s))))) ilist'
                   then Abs(v,s') else
                   (* There is an unresolvable subsitution. *)
                   if not (is_eval_free s) ||
@@ -672,9 +672,12 @@ let rec type_subst i ty =
                   let s' = vsubst ilist' s in
                   if s' == s then tm else
                   (* There are no variable captures. *)
-                  if forall (fun (t,x) -> 
-                               (is_eval_free t && (not (vfree_in v t))) ||
-                               (is_eval_free s && (not (vfree_in x s)))) ilist'
+                  if forall (fun (t,x) ->
+                    (*Todo: Fix this to properly use is_effective_in*)
+                  ((is_eval_free t && (not (vfree_in v t))) ||
+                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
+                  (is_eval_free s && (not (vfree_in x s))) ||
+                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s))))) ilist'
                   then Abs(v,s') else
                   (* There is an unresolvable subsitution. *)
                   if not (is_eval_free s) ||
