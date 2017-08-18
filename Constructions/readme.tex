@@ -1,0 +1,261 @@
+\documentclass{article}
+\usepackage{graphicx}
+
+\def\c#1{\texttt{#1}}
+
+\begin {document}
+\title{HOL Light QE Overview}
+\author{Patrick Laskowski}
+
+\maketitle
+\newpage
+\tableofcontents
+
+\newpage
+\section{Introduction}
+This document aims to give a detailed overview of the changes made to John Harrison's HOL Light QE proof system. The location of each major change to the system in the code base will be provided, along with an explanation of what the change accomplishes and, where applicable, how it works.
+\newpage
+\section{type}
+The \c{type} type is an addition made in \c{define.ml}.\\
+The \c{type} type is an inductive type defined in HOL Light's logic system that is responsible for storing type information. All members are either a \c{TyVar}, \c{TyBase}, \c{TyMonoCons}, or \c{TyBiCons}. The \c{type} type is only compatible with HOL types that contain up to and including two type parameters, as no default HOL type exceeds two type parameters. If compatability with more type parameters is desired, the \c{type} type may be modified accordingly. More information about each of the individual members is located below.
+
+\subsection{TyVar}
+\c{TyVar} takes a HOL string and is used to represent paramaeterized types (not to be confused with type paramaters in HOL types) in a term. For example, the type of  equality in HOL is defined as \c{A->A->bool}. A \c{TyVar "A"} would be used to represent \c{A} in this type definition.
+
+\subsection{TyBase}
+\c{TyBase} takes a HOL string and is used to represent a HOL type that takes no type parameters. For example, if one wished to represent the HOL type \c{num}, they would use \c{TyBase "num"}.
+
+\subsection{TyMonoCons}
+\c{TyMonoCons} takes a HOL string and an instance of the \c{type} type, and is used to represent a HOL type that takes one type paramater. For example, expressing the type of a list of numbers, which would appear as \c{(num)list} inside HOL, can be accomplished with \c{TyMonoCons "list" (TyBase "num")}.
+
+\subsection{TyBiCons}
+\c{TyBiCons} takes a HOL string, an instance of the \c{type} type, and a second instance of the \c{type} type, and is used to represent a HOL type that takes two type parameters. For example, expressing the type of a function from the numbers to the booleans, which appears as \c{num->bool} inside HOL, can be accomplished with \c{TyBiCons "fun" (TyBase "num") (TyBase "bool")}.
+
+\newpage
+
+\section{epsilon}
+The \c{epsilon} type is an addition made in \c{define.ml}.\\
+The \c{epsilon} type is an inductive type defined in HOL Light's logic system that is responsible for the representation of a term's syntax. All members are either a \c{QuoVar}, \c{QuoConst}, \c{App}, \c{Abs}, or \c{Quo}. Every quoted term should be eval-free i.e. does not contain an evaluation, therefore, there is no support for the representation of \c{Eval} in epsilon.
+
+\subsection{QuoVar}
+\c{QuoVar} takes a HOL string and an instance of the \c{type} type, and is used to represent a HOL variable. The HOL term \c{x:num} would be expressed in epsilon as \c{QuoVar "x" (TyBase "num")}.
+
+\subsection{QuoConst}
+\c{QuoConst} takes a HOL string and an instance of the \c{type} type, and is used to represent a HOL constant. The HOL term \c{F} would be expressed in epsilon as \c{QuoConst "F" (TyBase "bool")}.
+
+\subsection{App}
+\c{App} takes a member of type \c{epsilon} and another memeber of type \c{epsilon}, and is used to represent the application of a function (first argument) to a term (second argument). Although any term of type \c{epsilon} is accepted as the first argument, the term will be ill-formed if it does not represent the syntax of a function. The HOL term \c{T \char`\\/ F} would be expressed in epsilon as \c{App (App (QuoConst "\char`\\\char`\\/" (TyBiCons "fun" (TyBase "bool") (TyBiCons "fun" (TyBase "bool") (TyBase "bool")))) (QuoConst "T" (TyBase "bool"))) (QuoConst "F" (TyBase "bool"))}. 
+
+\subsection{Abs}
+\c{Abs} takes a member of type \c{epsilon} and another member of type \c{epsilon}, and is used to represent a lambda expression. The first argument should be a \c{QuoVar} that represents the variable to be bound in the second term. Again, this restriction is not enforced, but the term will not be well formed unless the restriction is satisfied. The HOL term \c{\char`\\x.x:bool} would be expressed in epsilon as \c{Abs (QuoVar "x" (TyBase "bool")) (QuoVar "x" (TyBase "bool"))}.
+
+\subsection{Quo}
+\c{Quo} takes a member of type \c{epsilon}, and is used to represent a quotation. The HOL term \c{Q\char`\_  x:bool \char`\_Q} would be expressed in epsilon as \c{Quo (QuoVar "x" (TyBase "bool"))}.
+
+\newpage
+
+\section{Kernel Modifications}
+This section covers additions and changes made to \c{fusion.ml}.
+
+\subsection{term}
+Three new members have been added to the definition of the \c{term} type.
+
+\subsubsection{Quote}
+This member takes a term and a HOL type that should be equivelant to the type of the term, and is used to signify a quoted term.
+
+\subsubsection{Hole}
+This member is used inside of \c{Quote} terms to indicate a usage of quasiquotation. It takes a single term and a HOL type that should be equivelant to the type of the term.
+
+\subsubsection{Eval}
+This member takes a term and an HOL type and expresses an evaluation of the syntax in the term to a value of the given type.
+
+\subsection{Term constructors}
+Term constructors have been added for the three additions to the \c{term} type.
+
+\subsubsection{mk\_quote}
+\c{mk\char`\_quote} takes a term and returns a new term structurally equivelant to \c{Quote(term,type\char`\_of(term))}.
+
+\subsubsection{mk\_hole}
+\c{mk\char`\_hole} takes a term and returns a new term structurally equivelant to \c{Hole(term,type\char`\_of(term))}.
+
+\subsubsection{mk\_eval}
+\c{mk\char`\_eval} takes a pair \c{(term,HOL\char`\_type)} and returns a new term structurally equivelant to \c{Eval(term,HOL\char`\_type)}.
+
+\subsection{Term destructors}
+Term destructors have been added for the three additions to the \c{term} type.
+
+\subsubsection{dest\_quote}
+\c{dest\char`\_quote} takes a term of the format \c{Quote(e,t)} and returns the pair \c{(e,t)}.
+
+\subsubsection{dest\_hole}
+\c{dest\char`\_hole} takes a term of the format \c{Hole(e,t)} and returns the pair \c{(e,t)}.
+
+\subsubsection{dest\_eval}
+\c{dest\char`\_eval} takes a term of the format \c{Eval(e,t)} and returns the pair \c{(e,t)}.
+
+\subsection{Rules of Inference}
+The following rules of inference have been added to the HOL kernel. 
+
+\subsubsection{termToConstruction}
+\c{termToConstruction} takes a term of the form \c{Quote(e,t)} and returns a theorem stating that the term is equal to the representation of \c{e} in \c{epsilon}. This can also be done in the logic using the term \c{TTC}.
+
+\subsubsection{constructionToTerm}
+\c{constructionToTerm} takes a term of type \c{epsilon} and returns a theorem stating that the term is equal to the term that would have to be given to \c{termToConstruction} in order to generate the input term. \c{constructionToTerm} is the inverse of \c{termToConstruction}.
+
+\subsubsection{LAW\_OF\_QUO}
+\c{LAW\char`\_OF\char`\_QUO} takes a term of type \c{Quote(e,t)} and attempts to instantiate this term into the law of quotation.
+
+\subsubsection{VAR\_DISQUO}
+\c{VAR\char`\_DISQUO} takes a term with the format \c{eval quo (QuoVar x ty)} and returns a theorem stating that the term is equal to x.
+
+\subsubsection{CONST\_DISQUO}
+\c{CONST\char`\_DISQUO} takes a term with the format \c{eval quo (QuoConst x ty)} and returns a theorem stating that the term is equal to x.
+
+\subsubsection{QUOTABLE}
+\c{QUOTABLE} takes a term of type \c{epsilon} and returns an instantiated theorem for Axiom B10(5).
+
+\subsubsection{ABS\_SPLIT}
+\c{ABS\char`\_SPLIT} takes a term of type \c{epsilon} and a second term of type \c{epsilon} and attempts to instantiate the first term in for \c{x} and the second in for \c{A} inside Axiom B10(4).
+
+\subsubsection{APP\_SPLIT}
+\c{APP\char`\_SPLIT} takes a term of type \c{epsilon} and a second term of type \c{epsilon} and attempts to instantiate the first term in for \c{A} and the second in for \c{B} inside Axiom B10(3).
+
+\subsubsection{BETA\_EVAL}
+\c{BETA\char`\_EVAL} takes a term of type \c{epsilon} and a second term of type \c{epsilon} and attempts to instantiate the first term in for \c{x} and the second in for \c{B} inside Axiom B11(a).
+
+\subsubsection{BETA\_REVAL}
+\c{BETA\char`\_REVAL} takes three terms of type \c{epsilon}, and attempts to instantiate the first term in for \c{x}, the second term in for \c{A}, and the third in for \c{B} inside Axiom B11(b).
+
+\subsubsection{NOT\_FREE\_OR\_EFFECTIVE\_IN}
+\c{NOT\char`\_FREE\char`\_OR\char`\_EFFECTIVE\char`\_IN} takes a term of type \c{epsilon} and a second term of type \c{epsilon}, and attempts to instantiate the first term in for \c{x} and the second term in for \c{B} inside Axiom B12.
+
+\subsubsection{NEITHER\_EFFECTIVE}
+\c{NEITHER\char`\_EFFECTIVE} takes four terms of type \c{epsilon} and attempts to instantiate the first in for \c{x}, the second in for \c{y}, the third in for \c{A}, and the fourth in for \c{B} inside Axiom B13.
+
+\subsubsection{effectiveIn}
+\c{effectiveIn} takes a term of type \c{epsilon} and a second term of type \c{epsilon} and attempts to instantiate the first in for \c{x} and the second in for \c{B} into the definition of \c{IS-EFFECTIVE-IN} (as defined in "Incorporating Quotation and Evaluation Into Church’s Type Theory").
+
+\subsubsection{EVAL\_QUOTE}
+\c{EVAL\char`\_QUOTE} takes a term of the format \c{Eval(e,t)} and attempts to evaluate the syntax of e to a term of type t. If succesful, it returns a theorem asserting that this evaluated term and the input term are equal.
+
+\subsubsection{UNQUOTE}
+\c{UNQUOTE} takes a Hole with a constant epsilon term inside it, and returns a theorem that removes the hole to bring the epsilon term into the rest of the quotation. For example, \c{UNQUOTE `Q\char`\_ 2 + H\char`\_ Q\char`\_ 3 \char`\_Q \char`\_H \char`\_Q`} results in the theorem \c{Q\char`\_ (2 + H\char`\_ (Q\char`\_ (3) \char`\_Q) \char`\_H) \char`\_Q = Q\char`\_ (2 + 3) \char`\_Q}. 
+
+\section{Parser changes}
+These changes have been made in \c{parser.ml} and \c{preterm.ml}. \c{printer.ml} has also been modified to support printing of these terms.
+
+\subsection{Q\_ operator}
+To input a quoted term, one can wrap the term in \c{Q\char`\_} and \c{\char`\_Q}. For example: \c{Q\char`\_ x * y \char`\_Q}.
+
+\subsection{H\_ operator}
+To input a hole, one can wrap the term in \c{H\char`\_} and \c{\char`\_H}. For example: \c{Q\char`\_ H\char`\_  f:epsilon \char`\_H \char`\_Q}.
+
+\subsection{eval operator}
+To input an evaluation, one must use the format \c{eval term to type}. For example, \c{eval Q\char`\_ 3 + 2 \char`\_Q to num}.
+
+\section{Tactics}
+These changes have been made in \c{Constructions/ConstructionTactics.ml} and \c{Constructions/QuotationTactics.ml}.
+
+\subsection{TERM\_TO\_CONSTRUCTION\_TAC}
+\c{TERM\char`\_TO\char`\_CONSTRUCTION\char`\_TAC} searches through the currently active goal to find the first instance it can apply \c{TERM\char`\_TO\char`\_CONSTRUCTION} to, and performs this rewrite.
+
+\subsection{UNQUOTE\_TAC}
+\c{UNQUOTE\char`\_TAC} searches through the currently active goal to find the first instance it can apply \c{UNQUOTE} to, then performs the appropriate rewrite.
+
+\subsection{EVAL\_QUOTE\_TAC}
+\c{EVAL\char`\_QUOTE\char`\_TAC} searches through the currently active goal to find the first instance it can apply \c{EVAL\char`\_QUOTE} to, then performs the appropraite rewrite.
+
+\subsection{INTERNAL\_TTC\_TAC}
+\c{INTERNAL\char`\_TTC\char`\_TAC} performs the same task as \c{TERM\char`\_TO\char`\_CONSTRUCTION\char`\_TAC}, however, rather than seek out quoted terms, it attempts to turn any term applied to the \c{TTC} function into a representation of type \c{epsilon}.
+
+\subsection{ASM Modifier}
+The above tactics can all be used with the prefix \c{ASM\char`\_}, for example, \c{ASM\char`\_UNQUOTE\char`\_TAC}, in order to use terms in the goalstack's assumption list during the term rewrite process. These should be used when the success of a tactic relies on the truth of terms in the assumption list. 
+
+\subsection{STRING\_FETCH\_TAC}
+\c{STRING\char`\_FETCH\char`\_TAC} is used to automatically resolve all possible string comparisons inside the goal. This is due to possible large amounts of string comparisons that would be tediuous to compare manually through HOL's native tactics.
+
+\section{Epsilon Additions}
+These are defined in \c{epsilon.ml}, and are a collection of theorems and HOL functions (not OCaml functions) defined on the \c{epsilon} and \c{type} types.
+
+\subsection{typeDistinct}
+\c{typeDistinct} is a theorem that asserts that different members of \c{type} cannot be equal to each other.
+
+\subsection{epsilonDistinct}
+\c{epsilonDistinct} is a theorem that asserts that different members of \c{epsilon} cannot be equal to each other.
+
+\subsection{ep\_constructor}
+\c{ep\char`\_constructor} is a function that takes a member of type \c{epsilon} and returns which member it is as an HOL string.
+
+\subsection{ep\_type}
+\c{ep\char`\_type} is a function that takes a memeber of type \c{epsilon} and returns it's type as a member of type \c{type}. \c{ep\char`\_type} is only defined for \c{QuoVar}, \c{QuoConst}, and \c{Quo}. \c{combinatoryType} should be used for more advanced terms.
+
+\subsection{stripFunc}
+\c{stripFunc} takes a \c{TyBiCons} representing a function type and returns a member of \c{type} denoting the type the function returns.
+
+\subsection{headFunc}
+\c{headFunc} takes a \c{TyBiCons} representing a function type and returns a member of \c{type} denoting the type of argument the function accepts.
+
+\subsection{combinatoryType}
+\c{combinatoryType} takes a member of \c{epsilon} and returns a member of \c{type} equivalent to the HOL type that would be obtained from running \c{type\char`\_of} on the HOL representation of the term.
+
+\subsection{isVar}
+\c{isVar} takes a member of \c{epsilon} and returns true or false as an HOL constant denoting whether or not the given term is a \c{QuoVar}
+
+\subsection{isConst}
+\c{isConst} takes a member of \c{epsilon} and returns true or false as an HOL constant denoting whether or not the given term is a \c{QuoConst}
+
+\subsection{isAbs}
+\c{isAbs} takes a member of \c{epsilon} and returns true or false as an HOL constant denoting whether or not the given term is a \c{Abs}
+
+\subsection{isApp}
+\c{isApp} takes a member of \c{epsilon} and returns true or false as an HOL constant denoting whether or not the given term is a \c{App}
+
+\subsection{isFunction}
+\c{isFunction} takes a member of \c{type} and returns a boolean expression to determine whether or not the term denotes the type of a function.
+
+\subsection{isValidConstName}
+\c{isValidConstName} takes an HOL string and determines whether or not the string is a valid constant name according to a list of all valid constant names. This does not automatically update, and new valid constant names can be added here.
+
+\subsection{isValidType}
+\c{isValidType} takes a member of \c{type} and determines whether or not the type represents a valid HOL type. Like \c{isValidConstantName}, the check is done with a static list of valid type names, and new valid type names can be added here if needed.
+
+\subsection{typeMismatch}
+\c{typeMismatch} takes a member of \c{epsilon} that must be a \c{QuoVar} and a second memeber of \c{epsilon}. \c{typeMismatch} then returns a HOL boolean constant denoting whether or not a variable of the same name as the first term but with a different type appears in the second term.
+
+\subsection{isExpr}
+\c{isExpr} takes a member of \c{epsilon} and returns a boolean constant denoting whether or not the given member of \c{epsilon} represents a well formed term in HOL. 
+
+\subsection{isVarType}
+\c{isVarType} takes a member of \c{epsilon} and a member of \c{type} and returns a boolean constant denoting whether or not the given member of \c{epsilon} is a \c{QuoVar} with a type equivelant to the given memeber of \c{type}.
+
+\subsection{isConstType}
+\c{isConstType} takes a member of \c{epsilon} and a member of \c{type} and returns a boolean constant denoting whether or not the given member of \c{epsilon} is a \c{QuoConst} with a type equivelant to the given memeber of \c{type}.
+
+\subsection{isExprType}
+\c{isExprType} takes a member of \c{epsilon} and a memeber of \c{type} and returns a boolean constant denoting whether or not the given member of \c{epsilon} represents a well formed term in HOL and whether or not the term's type is equivelant to the given member of \c{type}.
+
+\subsection{isProperSubexpressionOf}
+\c{isProperSubexpressionOf} takes a member of \c{epsilon} and a second member of \c{epsilon} and returns a boolean constant whether or not the first given member of \c{epsilon} represents a well formed term in HOL, and whether or not the first given member of \c{epsilon} appears anywhere inside the second given member of \c{epsilon}.
+
+\subsection{e\_abs}
+\c{e\char`\_abs} takes a member of type \c{epsilon} e and a second member of type \c{epsilon} f and returns \c{Abs e f}.
+
+\subsection{app}
+\c{app} takes a member of type \c{epsilon} e and a second member of type \c{epsilon} f and returns \c{App e f}.
+
+\subsection{quo}
+\c{quo} takes a member of type \c{epsilon} and returns \c{Quo e}.
+
+\subsection{eqTypes}
+\c{eqTypes} takes a member of \c{type} and a second member of \c{type} and returns a boolean constant denoting whether or not the types are equivalent.
+
+\subsection{isConstruction}
+\c{isConstruction} takes a member of \c{epsilon} and returns a boolean constant denoting whether or not the given member of \c{epsilon} is a valid construction i.e. has no holes in it.
+
+\subsection{appQuo}
+\c{appQuo} is Axiom 8.1 defined on members of type \c{epsilon}. 
+
+\subsection{absQuo}
+\c{absQuo} is Axiom 8.2 defined on members of type \c{epsilon}.
+
+\end{document}
