@@ -4,5 +4,5 @@
 #use "Constructions/pseudoquotation.ml";;
 #use "Constructions/QuotationTactics.ml";;
 #use "Constructions/QuotationOperatorTests.ml";;
-#use "Constructions/Induction Schema Example.ml";;
-#use "Constructions/LEM Example.ml";;
+#use "Constructions/Induction_Schema_Example.ml";;
+#use "Constructions/LEM_Example.ml";;

@@ -89,9 +89,7 @@ module type Hol_kernel =
       val concl : thm -> term
       val orda: (term * term) list -> term -> term -> int
       val REFL : term -> thm
-      val QUOTE : term -> thm
       val TERM_TO_CONSTRUCTION : term -> thm
-      val QUOTE_CONV : term -> thm
       val TERM_TO_CONSTRUCTION_CONV : term -> thm
       val CONSTRUCTION_TO_TERM : term -> thm
       val TRANS : thm -> thm -> thm
@@ -263,7 +261,7 @@ let rec type_subst i ty =
 
 
   let the_term_constants =
-     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"_Q_",Tyapp("fun",[aty;Tyapp("epsilon",[])]);"TTC",Tyapp("fun",[aty;Tyapp("epsilon",[])])]
+     ref ["=",Tyapp("fun",[aty;Tyapp("fun",[aty;bool_ty])]);"TTC",Tyapp("fun",[aty;Tyapp("epsilon",[])])]
 
   (*Check if two quotes are equal for use in match_type*)
   let rec isQuoteSame tm tm2 = match tm,tm2 with
@@ -627,7 +625,6 @@ let rec type_subst i ty =
       | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
       | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
-      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
      | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
@@ -664,7 +661,6 @@ let rec type_subst i ty =
       | Const(_,_) -> tm
       | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
       | Eval(e,ty) -> mkNewEval ilist tm
-      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
      | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
@@ -710,7 +706,6 @@ let rec type_subst i ty =
       | Const(c,ty) -> let ty' = type_subst tyin ty in
                        if ty' == ty then tm else Const(c,ty')
       | Quote(e,_)    -> let newquo = (qinst tyin e) in Quote(newquo,(type_of newquo)) 
-      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(f,x)   -> let f' = oinst env tyin f and x' = oinst env tyin x in
                        if f' == f && x' == x then tm else Comb(f',x')
       | Abs(y,t)    -> let y' = oinst [] tyin y in
@@ -748,7 +743,6 @@ let rec type_subst i ty =
       | Const(c,ty) -> let ty' = type_subst tyin ty in
                        if ty' == ty then tm else Const(c,ty')
       | Quote(e,_)-> let newquo = (qinst tyin e) in Quote(newquo,(qcheck_type_of newquo))
-      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(f,x)   -> let f' = inst env tyin f and x' = inst env tyin x in
                        if f' == f && x' == x then tm else Comb(f',x')
       | Abs(y,t)    -> (let y' = inst [] tyin y in
@@ -1201,20 +1195,9 @@ let rec type_subst i ty =
   
   let CONSTRUCTION_TO_TERM tm = try Sequent([],safe_mk_eq tm (mk_quote (constructionToTerm tm))) with Failure _ -> failwith "CONSTRUCTION_TO_TERM"
 
-  (*Returns a theorem asserting that the quotation of a term is equivelant to wrapping Quote around it*)
-  (*i.e. _Q_ P <=> (Q(P)Q)*)   
-  let QUOTE tm = match tm with
-      |  Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),qtm) -> Sequent([],safe_mk_eq tm (Quote (qtm,type_of qtm)))
-      |  _ -> failwith "QUOTE"
 
   (*These conversion functions can be used on their own but mainly will be used to construct tactics. They will search through a term for the first applicable instance and return the result of applying
   the relevant function to it*)
-
-  let rec QUOTE_CONV tm = match tm with
-    | Const(a,b) -> failwith "QUOTE_CONV"
-    | Comb(Const("_Q_",Tyapp("fun",[_;(Tyapp ("epsilon",[]))])),_) -> QUOTE tm
-    | Comb(a,b) -> try QUOTE_CONV a with Failure _ -> try QUOTE_CONV b with Failure _ -> failwith "QUOTE_CONV"
-    | _ -> failwith "QUOTE_CONV"
 
   let rec TERM_TO_CONSTRUCTION_CONV tm = match tm with
     | Const(a,b) -> failwith "TERM_TO_CONSTRUCTION_CONV"
