@@ -120,7 +120,6 @@ let subst =
       if ilist = [] then tm else
       try fst (find ((aconv tm) o snd) ilist) with Failure _ ->
       match tm with
-      | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
       | Comb(f,x) -> let f' = osubs ilist f and x' = osubs ilist x in
                      if f' == f && x' == x then tm else mk_comb(f',x')
       | Abs(v,bod) ->
@@ -138,7 +137,6 @@ let subst =
     if ilist = [] then tm else
     try fst (find ((aconv tm) o snd) ilist) with Failure _ ->
     match tm with
-    | Comb(Const("_Q_",Tyapp ("fun",[_;Tyapp ("epsilon",[])])),_) -> tm
     | Comb(f,x) -> let f' = ssubst ilist f and x' = ssubst ilist x in
                    if f' == f && x' == x then tm else mk_comb(f',x')
     | Abs(v,bod) ->
