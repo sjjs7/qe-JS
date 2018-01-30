@@ -633,7 +633,6 @@ let rec type_subst i ty =
                   if s' == s then tm else
                   (* There are no variable captures. *)
                   if forall (fun (t,x) ->
-                    (*Todo: Fix this to properly use is_effective_in*)
                   ((is_eval_free t && (not (vfree_in v t))) ||
                   is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
                   (is_eval_free s && (not (vfree_in x s))) ||
@@ -669,7 +668,6 @@ let rec type_subst i ty =
                   if s' == s then tm else
                   (* There are no variable captures. *)
                   if forall (fun (t,x) ->
-                    (*Todo: Fix this to properly use is_effective_in*)
                   ((is_eval_free t && (not (vfree_in v t))) ||
                   is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
                   (is_eval_free s && (not (vfree_in x s))) ||
