@@ -566,7 +566,6 @@ let rec type_subst i ty =
       in
     match sL with
     | (a,b) :: rest when a = b -> mkNewEval rest tm
-    | (a,b) :: rest when not (VarInTerm b tm) -> mkNewEval rest tm
     | (a,b) :: rest -> Comb(Abs(b,(mkNewEval rest tm)),a)
     | [] -> tm 
   (*Removes all abstractions*) 
