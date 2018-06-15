@@ -259,7 +259,7 @@ let TOPOLOGICAL_SORT = prove
 (* Analogous finiteness theorem for segments of integers.                    *)
 (* ------------------------------------------------------------------------- *)
 
-let FINITE_INTSEG = prove
+let FINITE_INT_SEG = prove
  (`(!l r. FINITE {x:int | l <= x /\ x <= r}) /\
    (!l r. FINITE {x:int | l <= x /\ x < r}) /\
    (!l r. FINITE {x:int | l < x /\ x <= r}) /\
@@ -377,7 +377,7 @@ let ITERATE_EXPAND_CASES = prove
 let ITERATE_CLAUSES_GEN = prove
  (`!op. monoidal op
         ==> (!(f:A->B). iterate op {} f = neutral op) /\
-            (!f x s. monoidal op /\ FINITE(support op (f:A->B) s)
+            (!f x s. FINITE(support op (f:A->B) s)
                      ==> (iterate op (x INSERT s) f =
                                 if x IN s then iterate op s f
                                 else op (f x) (iterate op s f)))`,

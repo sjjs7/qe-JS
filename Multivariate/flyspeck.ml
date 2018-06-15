@@ -4479,11 +4479,7 @@ let AREA_UNIT_CBALL = prove
     MATCH_MP_TAC REAL_CONTINUOUS_ON_COMPOSE THEN
     SIMP_TAC[REAL_CONTINUOUS_ON_SUB; REAL_CONTINUOUS_ON_POW;
              REAL_CONTINUOUS_ON_ID; REAL_CONTINUOUS_ON_CONST] THEN
-    MATCH_MP_TAC REAL_CONTINUOUS_ON_SQRT THEN
-    REWRITE_TAC[FORALL_IN_IMAGE; IN_REAL_INTERVAL] THEN
-    REWRITE_TAC[REAL_ARITH `&0 <= &1 - x <=> x <= &1 pow 2`] THEN
-    REWRITE_TAC[GSYM REAL_LE_SQUARE_ABS; REAL_ABS_NUM] THEN
-    REAL_ARITH_TAC;
+    REWRITE_TAC[REAL_CONTINUOUS_ON_SQRT];
     REWRITE_TAC[IN_REAL_INTERVAL; REAL_BOUNDS_LT] THEN REPEAT STRIP_TAC THEN
     REAL_DIFF_TAC THEN
     CONV_TAC NUM_REDUCE_CONV THEN
@@ -5290,7 +5286,7 @@ let MEASURE_CLOSED_SECTOR_LE = prove
              REAL_FIELD `&0 < p ==> t / (&2 * p) * &2 * p = t`] THEN
     DISCH_THEN MATCH_MP_TAC THEN MP_TAC PI_POS THEN ASM_REAL_ARITH_TAC] THEN
   REWRITE_TAC[] THEN REPEAT STRIP_TAC THENL
-   [MATCH_MP_TAC REALLIM_TRANSFORM_BOUND THEN
+   [MATCH_MP_TAC REALLIM_NULL_COMPARISON THEN
     EXISTS_TAC `\t. r pow 2 * sin(t)` THEN REWRITE_TAC[] THEN CONJ_TAC THENL
      [REWRITE_TAC[EVENTUALLY_WITHINREAL] THEN EXISTS_TAC `pi / &2` THEN
       SIMP_TAC[PI_POS; REAL_LT_DIV; IN_ELIM_THM; REAL_OF_NUM_LT; ARITH] THEN
@@ -6975,83 +6971,6 @@ Def 4.9:          vertices
                   edges
 
 ****)
-
-(* ------------------------------------------------------------------------- *)
-(* Temporary backwards-compatible fix for introduction of "sphere" and       *)
-(* "relative_frontier".                                                      *)
-(* ------------------------------------------------------------------------- *)
-
-let COMPACT_SPHERE =
-  REWRITE_RULE[sphere; NORM_ARITH `dist(a:real^N,b) = norm(b - a)`]
-  COMPACT_SPHERE;;
-
-let FRONTIER_CBALL = REWRITE_RULE[sphere] FRONTIER_CBALL;;
-
-let NEGLIGIBLE_SPHERE = REWRITE_RULE[sphere] NEGLIGIBLE_SPHERE;;
-
-let RELATIVE_FRONTIER_OF_POLYHEDRON = RELATIVE_BOUNDARY_OF_POLYHEDRON;;
-
-(* ------------------------------------------------------------------------- *)
-(* Also, the finiteness hypothesis was removed from this theorem.            *)
-(* Put back the old version since that might break some proofs.              *)
-(* ------------------------------------------------------------------------- *)
-
-let SUM_POS_LE = prove
- (`!f s. FINITE s /\ (!x. x IN s ==> &0 <= f(x)) ==> &0 <= sum s f`,
-  REWRITE_TAC[REWRITE_RULE[SUM_0] (ISPEC `\x. &0` SUM_LE)]);;
-
-(* ------------------------------------------------------------------------- *)
-(* Also, the definition of sqrt was totalized, so keep old theorems          *)
-(* that have more hypotheses than the current ones.                          *)
-(* ------------------------------------------------------------------------- *)
-
-let SQRT_MUL = prove
- (`!x y. &0 <= x /\ &0 <= y ==> sqrt(x * y) = sqrt x * sqrt y`,
-  MESON_TAC[SQRT_MUL]);;
-
-let SQRT_INV = prove
- (`!x. &0 <= x ==> (sqrt (inv x) = inv(sqrt x))`,
-  MESON_TAC[SQRT_INV]);;
-
-let SQRT_DIV = prove
- (`!x y. &0 <= x /\ &0 <= y ==> sqrt(x / y) = sqrt x / sqrt y`,
-  MESON_TAC[SQRT_DIV]);;
-
-let SQRT_LT_0 = prove
- (`!x. &0 <= x ==> (&0 < sqrt x <=> &0 < x)`,
-  MESON_TAC[SQRT_LT_0]);;
-
-let SQRT_EQ_0 = prove
- (`!x. &0 <= x ==> ((sqrt x = &0) <=> (x = &0))`,
-  MESON_TAC[SQRT_EQ_0]);;
-
-let SQRT_MONO_LT = prove
- (`!x y. &0 <= x /\ x < y ==> sqrt(x) < sqrt(y)`,
-  MESON_TAC[SQRT_MONO_LT]);;
-
-let SQRT_MONO_LE = prove
- (`!x y. &0 <= x /\ x <= y ==> sqrt(x) <= sqrt(y)`,
-  MESON_TAC[SQRT_MONO_LE]);;
-
-let SQRT_MONO_LT_EQ = prove
- (`!x y. &0 <= x /\ &0 <= y ==> (sqrt(x) < sqrt(y) <=> x < y)`,
-  MESON_TAC[SQRT_MONO_LT_EQ]);;
-
-let SQRT_MONO_LE_EQ = prove
- (`!x y. &0 <= x /\ &0 <= y ==> (sqrt(x) <= sqrt(y) <=> x <= y)`,
-  MESON_TAC[SQRT_MONO_LE_EQ]);;
-
-let SQRT_INJ = prove
- (`!x y. &0 <= x /\ &0 <= y ==> ((sqrt(x) = sqrt(y)) <=> (x = y))`,
-  MESON_TAC[SQRT_INJ]);;
-
-let REAL_LE_LSQRT = prove
- (`!x y. &0 <= x /\ &0 <= y /\ x <= y pow 2 ==> sqrt(x) <= y`,
-  MESON_TAC[REAL_LE_LSQRT]);;
-
-let REAL_LT_LSQRT = prove
- (`!x y. &0 <= x /\ &0 <= y /\ x < y pow 2 ==> sqrt x < y`,
-  MESON_TAC[REAL_LT_LSQRT]);;
 
 (* ------------------------------------------------------------------------- *)
 (* Fix the congruence rules as expected in Flyspeck.                         *)

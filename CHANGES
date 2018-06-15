@@ -4,9 +4,837 @@
   * Multivariate theories are excluded, simply because there are    *
   * so many of them that tracking them would be tedious. For more   *
   * detailed update lists, consult the git logs ("git log" if you   *
-  * have the system downloaed) or the list of commits on the Web    *
+  * have the system downloaded) or the list of commits on the Web   *
   * page: https://github.com/jrh13/hol-light/commits/master         *
   * *****************************************************************
+
+Sun 10th Jun 2018       Library/grouptheory.ml
+
+Added a few more or less trivial theorems about group isomorphisms up
+to swapping of pairs:
+
+  GROUP_ISOMORPHISMS_PROD_GROUP_SWAP =
+    |- !G H.
+           group_isomorphisms (prod_group G H,prod_group H G)
+           ((\(x,y). y,x),(\(y,x). x,y))
+
+  ISOMORPHIC_GROUP_PROD_GROUP_SYM =
+    |- !G H. prod_group G H isomorphic_group prod_group H G
+
+  ISOMORPHIC_GROUP_PROD_GROUP_SWAP_LEFT =
+    |- !G H K.
+           prod_group G H isomorphic_group K <=>
+           prod_group H G isomorphic_group K
+
+  ISOMORPHIC_GROUP_PROD_GROUP_SWAP_RIGHT =
+    |- !G H K.
+           G isomorphic_group prod_group H K <=>
+           G isomorphic_group prod_group K H
+
+Sun 13th May 2018       Examples/digit_serial_methods.ml [new file]
+
+Added a new file with the HOL Light formalizations mentioned in the paper by
+Warren Ferguson, Jesse Bingham, Levent Erkok, John Harrison and Joe
+Leslie-Hurd: "Digit Serial Methods with Applications to Division and Square
+Root", IEEE Transactions on Computers, vol. 67, issue 3, pp. 449-456, 2017.
+
+Fri 11th May 2018       drule.ml
+
+Added two new functions "type_unify" for unifying types and "term_type_unify"
+for unifying terms by instantiating both term and type variables, both
+contributed by Michael Faerber. Also fixed a bug he pointed out in the existing
+"term_unify" which does term unification only when the types are already
+compatible. Since this is essentially subsumed anyway by the new
+"term_type_unify" it might be appropriate to simply delete "term_unify", but as
+the interface is minutely different and it's used in a few places I kept it for
+now.
+
+Sat 24th Mar 2018       lists.ml
+
+Added a trivial but sometimes convenient list theorem:
+
+  MEM_REPLICATE =
+   |- !n x y:A. MEM x (REPLICATE n y) <=> x = y /\ ~(n = 0)
+
+Sat 10th Mar 2018       int.ml
+
+Added a somewhat surprising missing lemma:
+
+  INT_MUL_EQ_1 =
+    |- !x y:int. x * y = &1 <=> x = &1 /\ y = &1 \/ x = --(&1) /\ y = --(&1)
+
+Sat 10th Feb 2018       iterate.ml, Library/grouptheory.ml,
+
+Fixed a couple of name collisions, renaming the GROUP_SUM in the group theory
+library to GROUP_SUM_CLAUSES to avoid clashing with the theorem about
+rearranging real sums into groups, and renamed FINITE_INTSEG in iterate.ml to
+FINITE_INT_SEG to avoid the other theorem of the same name in Library/floor.ml.
+
+Sat 27th Jan 2018       int.ml, sets.ml
+
+Added a few trivial theorems, two about integer division, one about sets:
+
+  INT_LT_REM = |- !x n. &0 < n ==> x rem n < n
+
+  INT_REM_DIV = |- !m n. m rem n = m - m div n * n
+
+  INTERS_ANTIMONO_GEN =
+    |- !s t. (!y. y IN t ==> ?x. x IN s /\ x SUBSET y)
+             ==> INTERS s SUBSET INTERS t
+
+Mon 22nd Jan 2018         Library/grouptheory.ml
+
+Added a few more theorems to the group theory library, and in the process
+created a dependency of this file on Library/card.ml, since all of these
+theorems use material from there.
+
+  CARD_EQ_FREE_ABELIAN_GROUP_INFINITE =
+    |- !s. INFINITE s ==> group_carrier (free_abelian_group s) =_c s
+
+  CARD_EQ_HOMOMORPHISMS_FROM_FREE_ABELIAN_GROUP =
+    |- !s G.
+           abelian_group G
+           ==> {f | EXTENSIONAL (group_carrier (free_abelian_group s)) f /\
+                    group_homomorphism (free_abelian_group s,G) f} =_c
+               group_carrier G ^_c s
+
+  FINITE_PRODUCT_GROUP =
+    |- !k G.
+           FINITE (group_carrier (product_group k G)) <=>
+           FINITE {i | i IN k /\ ~trivial_group (G i)} /\
+           (!i. i IN k ==> FINITE (group_carrier (G i)))
+
+  ISOMORPHIC_FREE_ABELIAN_GROUPS =
+    |- !s t.
+           free_abelian_group s isomorphic_group free_abelian_group t <=>
+           s =_c t
+
+Sun 31st Dec 2017         Examples/padics.ml [new file]
+
+Added a construction of the p-adic numbers. This is mostly meant as an example
+of using metric space completion, but some effort is made to create a usable
+theory, with the p-adics for each p occupying the whole type ":padic" and with
+the embeddings of naturals overlaid in the same way for all p.
+
+Tue  5th Dec 2017         int.ml
+
+Beefed up the previously minimal set of theorems about integer division and
+remainder with the following:
+
+  INT_ADD_REM =
+    |- !m n p. (m rem p + n rem p) rem p = (m + n) rem p
+
+  INT_DIVISION_DECOMP =
+    |- !m n. m div n * n + m rem n = m
+
+  INT_DIV_0 =
+    |- !m. m div &0 = &0
+
+  INT_DIV_LT =
+    |- !m n. (~(n = &0) ==> &0 <= m) /\ m < n ==> m div n = &0
+
+  INT_DIV_RNEG =
+    |- !m n. m div --n = --(m div n)
+
+  INT_DIV_UNIQ =
+    |- !m n q r. m = q * n + r /\ &0 <= r /\ r < abs n ==> m div n = q
+
+  INT_DIV_ZERO =
+    |- !n. &0 div n = &0
+
+  INT_MUL_REM =
+    |- !m n p. (m rem p * n rem p) rem p = (m * n) rem p
+
+  INT_REM_0 =
+    |- !m. m rem &0 = m
+
+  INT_REM_EQ =
+    |- !m n p. m rem p = n rem p <=> (m == n) (mod p)
+
+  INT_REM_EQ_0 =
+    |- !m n. m rem n = &0 <=> n divides m
+
+  INT_REM_LT =
+    |- !m n. (~(n = &0) ==> &0 <= m) /\ m < n ==> m rem n = m
+
+  INT_REM_MOD_SELF =
+    |- !m n. (m rem n == m) (mod n)
+
+  INT_REM_REM =
+    |- !m n. m rem n rem n = m rem n
+
+  INT_REM_RNEG =
+    |- !m n. m rem --n = m rem n
+
+  INT_REM_UNIQ =
+    |- !m n q r. m = q * n + r /\ &0 <= r /\ r < abs n ==> m rem n = r
+
+  INT_REM_ZERO =
+    |- !n. &0 rem n = &0
+
+Sat  2nd Dec 2017       real.ml, sets.ml
+
+Added a couple of somewhat random but useful theorems:
+
+  CARTESIAN_PRODUCT_AS_RESTRICTIONS =
+    |- !k s.
+         cartesian_product k s =
+         {RESTRICTION k f |f| !i. i IN k ==> f i IN s i}
+
+  REAL_POS_EQ_SQUARE =
+    |- !x. &0 <= x <=> ?y. y pow 2 = x
+
+Sat  2nd Dec 2017       Library/card.ml
+
+Added a few elementary cardinality theorems, some of them surprising gaps:
+
+  CARD_EQ_INT_NUM = |- (:int) =_c (:num)
+
+  CARD_EXP_FINITE_EQ =
+   |- !s t. FINITE(s ^_c t) <=>
+          (?a. s SUBSET {a}) \/ t = {} \/ FINITE s /\ FINITE t
+
+  CARD_LE_RESTRICTED_FUNSPACE =
+   |- !s t k.
+           {f | IMAGE f s SUBSET t /\
+               {x | ~(f x = k x)} SUBSET s /\
+               FINITE {x | ~(f x = k x)}}
+          <=_c {u | u SUBSET (s CROSS t) /\ FINITE u}
+
+  INT_COUNTABLE = |- COUNTABLE (:int)
+
+  int_INFINITE = |- INFINITE (:int)
+
+Sat  2nd Dec 2017       README
+
+Updated the build instructions, in particular taking into account the fact
+(pointed out by John O'Leary) that OCaml >= 4.06 no longer includes the
+"num" library by default.
+
+Sat 18th Nov 2017       Makefile, update_database_3.ml, update_database_4.ml [new file]
+
+Incorporated an improved "update_database.ml" file from Michael Färber which
+handles theorems inside modules; this had otherwise started failing in more
+recent versions of OCaml. Rather than add yet more version-dependent logic into
+the files themselves, renamed the old "update_database.ml" file as
+"update_database_3.ml", called the new one "update_database_4.ml" and modified
+the Makefile to copy the appropriate one to "update_database.ml".
+
+Mon 29th Oct 2017       iter.ml
+
+Fixed a weird fumble in ITERATE_CLAUSES_GEN where there was a
+redundant instance of the "monoidal" hypothesis.
+
+Wed 11th Oct 2017       sets.ml
+
+Added three more simple lemmas about the "cartesian_product" construct:
+
+  CARTESIAN_PRODUCT_EMPTY =
+    |- !s. cartesian_product {} s = {(\i. ARB)}
+
+  CARTESIAN_PRODUCT_EQ_MEMBERS_EQ =
+    |- !k s x y.
+          x IN cartesian_product k s /\
+          y IN cartesian_product k s
+          ==> (x = y <=> !i. i IN k ==> x i = y i)
+
+  RESTRICTION_IN_CARTESIAN_PRODUCT =
+    |- !k s (f:K->A).
+          RESTRICTION k f IN cartesian_product k s <=>
+          !i. i IN k ==> (f i) IN (s i)
+
+Mon  2nd Oct 2017       parser.ml
+
+Fixed an amazingly stupid and longstanding bug arising from mis-use of an
+accumulator variable in preterm parsing. As a consequence "pfrees" could be
+wrong in situations where the same variable appears both free and bound, which
+can have consequences for determining the relevant variables in a set
+abstraction, typified by the mis-parsing of this:
+
+ `{{x | x IN (\i. T) /\ x i = 1} | i IN 1..n}`;;
+
+versus the correctly parsed:
+
+  `{{x | x IN (\j. T) /\ x i = 1} | i IN 1..n}`;;
+
+Sat 30th Sep 2017       Multivariate/homology.ml [new file]
+
+Added a new file with an initial development of singular homology.
+
+Sun 24th Sep 2017       Ntrie/ntrie.ml
+
+Added a complete revision from Marco Maggesi of the "Ntrie" library for
+manipulation of concrete numeral sets using a trie-like representation. Among
+other improvements, the conversions have been made cleaner (always failing
+predictably on non-minimal ntries) and much more efficient (typically 5x-15x as
+fast), and a syntax extension for ntries has been added.
+
+Wed 20th Sep 2017       int.ml, Library/prime.ml
+
+Moved a few existing things (theorems DIVIDES_ANTISYM, DIVIDES_LE_STRONG,
+DIVIDES_ONE and the definition of "prime") from "Library/prime.ml" into the
+core, to avoid loading all that file for a few more simple facts, and also
+added two new (and trivial) theorems:
+
+  ONE_OR_PRIME =
+    |- !p. p = 1 \/ prime p <=> (!n. n divides p ==> n = 1 \/ n = p)
+
+  FORALL_INT_CASES =
+    |- !P:int->bool. (!x. P x) <=> (!n. P(&n)) /\ (!n. P(-- &n))
+
+Sat 16th Sep 2017       Library/frag.ml [new file], Library/grouptheory.ml
+
+Added another file "Library/frag.ml" with a type constructor for defining the
+free Abelian group on a given type. Incorporated this into the general group
+theory. In that "Library/grouptheory.ml" file, systematically adopted a
+multiplicative terminology (changing various names from "op/OP" to "mul/MUL")
+as well as adding new material: powers (natural number and integer), trivial
+homomorphisms, Abelian groups, cyclic groups and the group of integers.
+
+Sun 10th Sep 2017       Library/grouptheory.ml [new file]
+
+Added a new file with a basic development of group theory, using a type of
+":(A)group" for a group on a (subset of a) type ":A". So far this is all pretty
+elementary but it's good to have some standard version of groups.
+
+Fri  1st Sep 2017       sets.ml
+
+Added a simple theorem about the image of a Cartesian product:
+
+  IMAGE_PAIRED_CROSS =
+    |- !f g s t.
+           IMAGE (\(x,y). f x,g y) (s CROSS t) = IMAGE f s CROSS IMAGE g t
+
+Thu 24th Aug 2017       passim
+
+Eliminated a number of duplicated theorems (often exact duplicates,
+otherwise differing at most in their outer universal quantifiers or
+bound variable names):
+
+        BOREL_INDUCT_OPEN_UNIONS_INTERS -> BOREL_INDUCT_UNIONS_INTERS
+        CLOSED_SIMPLEX -> SIMPLEX_IMP_CLOSED
+        COMPACT_IN_SUBTOPOLOGY_EQ -> COMPACT_IN_SUBTOPOLOGY
+        COMPACT_SIMPLEX -> SIMPLEX_IMP_COMPACT
+        COMPLEX_DIFFERENTIABLE_COMPOSE -> COMPLEX_DIFFERENTIABLE_COMPOSE_AT
+        CONVEX_SIMPLEX -> SIMPLEX_IMP_CONVEX
+        DIAGONAL_MATRIX_MUL_EXPLICIT -> MATRIX_MUL_DIAGONAL
+        DOT_NORM_NEG -> DOT_NORM_SUB
+        FINITE_EMPTY_INTERIOR -> EMPTY_INTERIOR_FINITE
+        HAS_VECTOR_DERIVATIVE_UNIQUE_AT -> VECTOR_DERIVATIVE_AT
+        HAUSDIST_TRANS -> HAUSDIST_TRIANGLE
+        INT_LE_NEG -> INT_LE_NEG2
+        INT_LT_NEG -> INT_LT_NEG2
+        INT_NEGNEG -> INT_NEG_NEG
+        INT_OF_REAL_OF_INT -> int_abstr
+        LAMBDA_UNPAIR_THM -> LAMBDA_PAIR
+        LIM_NULL_COMPLEX_BOUND -> LIM_NULL_COMPARISON_COMPLEX
+        MATRIX_LEFT_INVERTIBLE_NULLSPACE -> MATRIX_LEFT_INVERTIBLE_KER
+        MBOUNDED_IFF_FINITE_DIAMETER -> MBOUNDED_ALT
+        PSUBSET_MEMBER -> PSUBSET_ALT
+        REALLIM_TRANSFORM_BOUND -> REALLIM_NULL_COMPARISON
+        REAL_LE_NEG -> REAL_LE_NEG2
+        REAL_LT_NEG -> REAL_LT_NEG2
+        REAL_NEGNEG -> REAL_NEG_NEG
+        REAL_POS_NZ -> REAL_LT_IMP_NZ
+        RELATIVE_FRONTIER_CONVEX_HULL_CASES -> RELATIVE_FRONTIER_OF_CONVEX_HULL
+        SETDIST_LIPSCHITZ -> SETDIST_SING_TRIANGLE
+        num_RECURSION_STD -> num_RECURSION
+
+Also changed the following to be the genuinely distinct theorems that were
+presumably intended:
+
+  ABS_DROP (was same as NORM_1)
+  ANGLE_EQ_PI_RIGHT (was same as ANGLE_EQ_PI_LEFT)
+  CLOSURE_RATIONALS_IN_OPEN_SET (was same as CLOSURE_DYADIC_RATIONALS_IN_OPEN_SET)
+  CONNECTED_CONVEX_1_GEN (was same as CONVEX_CONNECTED_1_GEN)
+
+Fri 18th Aug 2017       real.ml
+
+Added quite a few new and fairly basic real number theorems (some of the convex
+bounds ones were moved out of Multivariate/misc.ml).
+
+  REAL_ABS_LE_SQRT =
+   |- !x y. abs (sqrt x - sqrt y) <= sqrt (&2 * abs (x - y))
+
+  REAL_ABS_LE_SQRT_POS =
+    |- !x y. &0 <= x /\ &0 <= y ==> abs (sqrt x - sqrt y) <= sqrt (abs (x - y))
+
+  REAL_ABS_SQRT =
+    |- !x. abs (sqrt x) = sqrt (abs x)
+
+  REAL_CONVEX_BOUND2_LE =
+    |- !x y a u v.
+           x <= a /\ y <= b /\ &0 <= u /\ &0 <= v /\ u + v = &1
+           ==> u * x + v * y <= u * a + v * b
+
+  REAL_CONVEX_BOUND2_LT =
+    |- !x y a u v.
+           x < a /\ y < b /\ &0 <= u /\ &0 <= v /\ u + v = &1
+           ==> u * x + v * y < u * a + v * b
+
+  REAL_CONVEX_BOUNDS_LE =
+    |- !x y a b u v.
+           a <= x /\
+           x <= b /\
+           a <= y /\
+           y <= b /\
+           &0 <= u /\
+           &0 <= v /\
+           u + v = &1
+           ==> a <= u * x + v * y /\ u * x + v * y <= b
+
+  REAL_CONVEX_BOUNDS_LT =
+    |- !x y a b u v.
+           a < x /\ x < b /\ a < y /\ y < b /\ &0 <= u /\ &0 <= v /\ u + v = &1
+           ==> a < u * x + v * y /\ u * x + v * y < b
+
+  REAL_CONVEX_BOUND_GE =
+    |- !x y a u v.
+           a <= x /\ a <= y /\ &0 <= u /\ &0 <= v /\ u + v = &1
+           ==> a <= u * x + v * y
+
+  REAL_CONVEX_BOUND_GT =
+    |- !x y a u v.
+           a < x /\ a < y /\ &0 <= u /\ &0 <= v /\ u + v = &1
+           ==> a < u * x + v * y
+
+  REAL_CONVEX_BOUND_LE =
+    |- !x y a u v.
+           x <= a /\ y <= a /\ &0 <= u /\ &0 <= v /\ u + v = &1
+           ==> u * x + v * y <= a
+
+  REAL_CONVEX_BOUND_LT =
+    |- !x y a u v.
+           x < a /\ y < a /\ &0 <= u /\ &0 <= v /\ u + v = &1
+           ==> u * x + v * y < a
+
+  REAL_DIV_EQ_1 =
+    |- !x y. x / y = &1 <=> x = y /\ ~(x = &0) /\ ~(y = &0)
+
+  SQRT_EQ_1 =
+    |- !x. sqrt x = &1 <=> x = &1
+
+Fri  4th Aug 2017       IsabelleLight/new_tactics.ml
+
+Made a tiny tweak of adding parens where very old versions of OCaml
+expect them.
+
+Thu  3rd Aug 2017       Makefile, pa_j_4.xx_7.xx.ml [new file]
+
+Made some changes suggested by Hendrik Tews to support the latest OCaml (4.05)
+and camlp5 (7.01).
+
+Sat 29th Jul 2017       passim
+
+Merged in three github pull requests from asr (Makefile), Hendrik Tews
+(parallel tests) and Petros Papapanagiotou (Isabelle Light and
+Boyer-Moore improvements).
+
+Thu 22nd Jun 2017       sets.ml, Multivariate/misc.ml
+
+Added three new theorems about Cartesian product as well as moving the
+definition of and lemmas about RESTRICTION into the main sets.ml file,
+so overall we have these new theorems in the core:
+
+  CARTESIAN_PRODUCT_SINGS =
+    |- !k x. EXTENSIONAL k x ==> cartesian_product k (\i. {x i}) = {x}
+
+  CARTESIAN_PRODUCT_SINGS_GEN =
+    |- !k x. cartesian_product k (\i. {x i}) = {RESTRICTION k x}
+
+  FORALL_CARTESIAN_PRODUCT_ELEMENTS_EQ =
+    |- !P k s.
+         ~(cartesian_product k s = {})
+         ==> ((!i x. i IN k /\ x IN s i ==> P i x) <=>
+              (!z i. z IN cartesian_product k s /\ i IN k ==> P i (z i)))
+
+  IMAGE_RESTRICTION =
+    |- !f s t. s SUBSET t ==> IMAGE (RESTRICTION t f) s = IMAGE f s
+
+  RESTRICTION =
+    |- !s f x. RESTRICTION s f x = (if x IN s then f x else ARB)
+
+  RESTRICTION_COMPOSE =
+    |- !f g s t.
+         IMAGE f s SUBSET t
+         ==> RESTRICTION s (RESTRICTION t g o RESTRICTION s f) =
+             RESTRICTION s (g o f)
+
+  RESTRICTION_COMPOSE_LEFT =
+    |- !f g s t.
+         IMAGE f s SUBSET t
+         ==> RESTRICTION s (RESTRICTION t g o f) = RESTRICTION s (g o f)
+
+  RESTRICTION_COMPOSE_RIGHT =
+    |- !f g s. RESTRICTION s (g o RESTRICTION s f) = RESTRICTION s (g o f)
+
+  RESTRICTION_DEFINED =
+    |- !s f x. x IN s ==> RESTRICTION s f x = f x
+
+  RESTRICTION_EQ =
+    |- !s f x y. x IN s /\ f x = y ==> RESTRICTION s f x = y
+
+  RESTRICTION_EXTENSION =
+    |- !s f g. RESTRICTION s f = RESTRICTION s g <=> (!x. x IN s ==> f x = g x)
+
+  RESTRICTION_FIXPOINT =
+    |- !s f. RESTRICTION s f = f <=> f IN EXTENSIONAL s
+
+  RESTRICTION_IDEMP =
+    |- !s f. RESTRICTION s (RESTRICTION s f) = RESTRICTION s f
+
+  RESTRICTION_IN_EXTENSIONAL =
+    |- !s f. RESTRICTION s f IN EXTENSIONAL s
+
+  RESTRICTION_RESTRICTION =
+    |- !s t f. s SUBSET t ==> RESTRICTION s (RESTRICTION t f) = RESTRICTION s f
+
+  RESTRICTION_UNDEFINED =
+    |- !s f x. ~(x IN s) ==> RESTRICTION s f x = ARB
+
+Tue 13th Jun 2017       drule.ml, grobner.ml
+
+Fixed a couple of cases where "||" was used instead of "or" in error
+strings, as a result of overenthusiastic search-and-replace.
+
+Wed  7th Jun 2017       arith.ml, sets.ml, Library/card.ml
+
+Added a few miscellaneous theorems including some basics about
+cardinality of Cartesian products:
+
+  CARD_DIFF_CONG =
+    |- !s s' t t'.
+         s' SUBSET s /\
+         t' SUBSET t /\
+         s =_c t /\
+         s' =_c t' /\
+         (INFINITE s ==> s' <_c s)
+         ==> s DIFF s' =_c t DIFF t'
+
+  CARD_EQ_REAL_SUBSET =
+    |- !s a b. a < b /\ (!x. a < x /\ x < b ==> x IN s) ==> s =_c (:real)
+
+  CARD_LE_1 =
+    |- !s. FINITE s /\ CARD s <= 1 <=> (?a. s SUBSET {a})
+
+  CARD_LE_CARTESIAN_PRODUCT =
+    |- !s t k.
+         (!i. i IN k ==> s i <=_c t i)
+         ==> cartesian_product k s <=_c cartesian_product k t
+
+  CARD_LE_CARTESIAN_PRODUCT_SUBINDEX =
+    |- !s k l.
+         k SUBSET l /\ ~(cartesian_product l s = {})
+         ==> cartesian_product k s <=_c cartesian_product l s
+
+  CARD_LE_EQ_SUBSET_UNIV =
+    |- !s. (?t. t =_c s) <=> s <=_c (:B)
+
+  CARD_LE_SING =
+    |- !c s. s <=_c {c} <=> (?a. s SUBSET {a})
+
+  CARTESIAN_PRODUCT_CONST =
+    |- !s t. cartesian_product t (\i. s) = s ^_c t
+
+  CARTESIAN_PRODUCT_EQ_MEMBERS =
+    |- !k s x y.
+         x IN cartesian_product k s /\
+         y IN cartesian_product k s /\
+         (!i. i IN k ==> x i = y i)
+         ==> x = y
+
+  COUNTABLE_CARTESIAN_PRODUCT =
+    |- !s k.
+         COUNTABLE (cartesian_product k s) <=>
+         cartesian_product k s = {} \/
+         FINITE {i | i IN k /\ ~(?a. s i SUBSET {a})} /\
+         (!i. i IN k ==> COUNTABLE (s i))
+
+  COUNTABLE_RESTRICTED_FUNSPACE =
+    |- !s t k.
+         COUNTABLE s /\ COUNTABLE t
+         ==> COUNTABLE
+             {f | IMAGE f s SUBSET t /\
+                  {x | ~(f x = k x)} SUBSET s /\
+                  FINITE {x | ~(f x = k x)}}
+
+  EQ_C_BIJECTIONS_DISJOINT =
+    |- !s s' t t'.
+         DISJOINT s s' /\ DISJOINT t t'
+         ==> (s =_c t /\ s' =_c t' <=>
+              (?f g.
+                   (!x. x IN s ==> f x IN t /\ g (f x) = x) /\
+                   (!y. y IN t ==> g y IN s /\ f (g y) = y) /\
+                   (!x. x IN s' ==> f x IN t' /\ g (f x) = x) /\
+                   (!y. y IN t' ==> g y IN s' /\ f (g y) = y)))
+
+  EQ_C_BIJECTIONS_EXTEND =
+    |- !f g s s' t t'.
+         s SUBSET s' /\
+         t SUBSET t' /\
+         s' DIFF s =_c t' DIFF t /\
+         (!x. x IN s ==> f x IN t /\ g (f x) = x) /\
+         (!y. y IN t ==> g y IN s /\ f (g y) = y)
+         ==> (?f' g'.
+                  (!x. x IN s' ==> f' x IN t' /\ g' (f' x) = x) /\
+                  (!y. y IN t' ==> g' y IN s' /\ f' (g' y) = y) /\
+                  (!x. x IN s ==> f' x = f x) /\
+                  (!y. y IN t ==> g' y = g y))
+
+  EQ_C_BIJECTIONS_SUBSETS =
+    |- !s s' t t'.
+         s' SUBSET s /\ t' SUBSET t
+         ==> (s' =_c t' /\ s DIFF s' =_c t DIFF t' <=>
+              (?f g.
+                   (!x. x IN s ==> f x IN t /\ g (f x) = x) /\
+                   (!y. y IN t ==> g y IN s /\ f (g y) = y) /\
+                   IMAGE f s' = t' /\
+                   IMAGE g t' = s'))
+
+  EQ_C_BIJECTIONS_SUBSETS_LT =
+    |- !s s' t t'.
+         s' SUBSET s /\ t' SUBSET t /\ (INFINITE s ==> s' <_c s)
+         ==> (s =_c t /\ s' =_c t' <=>
+              (?f g.
+                   (!x. x IN s ==> f x IN t /\ g (f x) = x) /\
+                   (!y. y IN t ==> g y IN s /\ f (g y) = y) /\
+                   IMAGE f s' = t' /\
+                   IMAGE g t' = s'))
+
+  EQ_C_INVOLUTION =
+    |- !f s t.
+         (!x. x IN s ==> f x IN t) /\
+         (!x. x IN t ==> f x IN s) /\
+         (!x. x IN s \/ x IN t ==> f (f x) = x)
+         ==> s =_c t
+
+  FINITE_CARTESIAN_PRODUCT =
+    |- !s k.
+         FINITE (cartesian_product k s) <=>
+         cartesian_product k s = {} \/
+         FINITE {i | i IN k /\ ~(?a. s i SUBSET {a})} /\
+         (!i. i IN k ==> FINITE (s i))
+
+  FINITE_POWERSET_EQ =
+    |- !s. FINITE {t | t SUBSET s} <=> FINITE s
+
+  FINITE_RESTRICTED_FUNSPACE =
+    |- !s t k.
+         FINITE s /\ FINITE t
+         ==> FINITE {f | IMAGE f s SUBSET t /\ {x | ~(f x = k x)} SUBSET s}
+
+  LT_IMP_NE =
+    |- !m n. m < n ==> ~(m = n)
+
+Tue  6th Jun 2017       calc_rat.ml
+
+Added some basic properties of the "shrinking" mapping x |-> x / (1 + |x|)
+and its inverse. These have natural generalizations to R^n (see
+CONVEXITY_PRESERVING_SHRINK_0 in "Multivariate/convex.ml") but these simple
+forms are nice to have too:
+
+  REAL_GROW_SHRINK =
+    |- !x y. x / (&1 + abs x) / (&1 - abs (x / (&1 + abs x))) = x
+
+  REAL_SHRINK_EQ =
+    |- !x y. x / (&1 + abs x) = y / (&1 + abs y) <=> x = y
+
+  REAL_SHRINK_GALOIS =
+    |- !x y. x / (&1 + abs x) = y <=> abs y < &1 /\ y / (&1 - abs y) = x
+
+  REAL_SHRINK_GROW =
+    |- !x y. abs x < &1
+             ==> x / (&1 - abs x) / (&1 + abs (x / (&1 - abs x))) = x
+
+  REAL_SHRINK_GROW_EQ =
+    |- !x y. x / (&1 - abs x) / (&1 + abs (x / (&1 - abs x))) = x <=>
+             abs x < &1
+
+  REAL_SHRINK_LE =
+    |- !x y. x / (&1 + abs x) <= y / (&1 + abs y) <=> x <= y
+
+  REAL_SHRINK_LT =
+    |- !x y. x / (&1 + abs x) < y / (&1 + abs y) <=> x < y
+
+  REAL_SHRINK_RANGE =
+    |- !x. abs (x / (&1 + abs x)) < &1
+
+Sat  3rd Jun 2017       Library/floor.ml
+
+Added some more specific versions of rational approximation where we
+want to choose "p-adic" rationals:
+
+  PADIC_RATIONAL_APPROXIMATION_STRADDLE =
+    |- !p x e.
+         &0 < e /\ &1 < p
+         ==> (?n q r.
+                  integer q /\
+                  integer r /\
+                  q / p pow n < x /\
+                  x < r / p pow n /\
+                  abs (q / p pow n - r / p pow n) < e)
+
+  PADIC_RATIONAL_APPROXIMATION_STRADDLE_POS =
+    |- !p x e.
+         &0 < e /\ &1 < p /\ &0 < x
+         ==> (?n q r.
+                  &q / p pow n < x /\
+                  x < &r / p pow n /\
+                  abs (&q / p pow n - &r / p pow n) < e)
+
+  PADIC_RATIONAL_APPROXIMATION_STRADDLE_POS_LE =
+    |- !p x e.
+         &0 < e /\ &1 < p /\ &0 <= x
+         ==> (?n q r.
+                  &q / p pow n <= x /\
+                  x < &r / p pow n /\
+                  abs (&q / p pow n - &r / p pow n) < e)
+
+Sat  3rd Jun 2017       real.ml, sets.ml, passim
+
+Moved a few theorems into the core that were formerly tucked away in
+"Multivariate/misc.ml", including variants of the Archimedean property:
+
+  REAL_ARCH_INV =
+    |- !e. &0 < e <=> (?n. ~(n = 0) /\ &0 < inv (&n) /\ inv (&n) < e)
+
+  REAL_ARCH_POW =
+    |- !x y. &1 < x ==> (?n. y < x pow n)
+
+  REAL_ARCH_POW2 =
+    |- !x. ?n. x < &2 pow n
+
+  REAL_ARCH_POW_INV =
+    |- !x y. &0 < y /\ x < &1 ==> (?n. x pow n < y)
+
+  REAL_MAX_SUP =
+    |- !x y. max x y = sup {x, y}
+
+  REAL_MIN_INF =
+     |- !x y. min x y = inf {x, y}
+
+  REAL_POW_LBOUND =
+    |- !x n. &0 <= x ==> &1 + &n * x <= (&1 + x) pow n
+
+Sun 21st May 2017       arith.ml
+
+Added ternary versions of the basic "WLOG" lemma for naturals, reals and
+integers, as well as adding missing binary versions for integers:
+
+  INT_WLOG_LE =
+    |- (!x y. P x y <=> P y x) /\ (!x y. x <= y ==> P x y) ==> (!x y. P x y)
+
+  INT_WLOG_LT =
+    |- (!x. P x x) /\ (!x y. P x y <=> P y x) /\ (!x y. x < y ==> P x y)
+       ==> (!x y. P x y)
+
+  INT_WLOG_LE_3 =
+    |- !P. (!x y z. P x y z ==> P y x z /\ P x z y) /\
+           (!x y z. x <= y /\ y <= z ==> P x y z)
+           ==> (!x y z. P x y z)
+
+  REAL_WLOG_LE_3 =
+    |- !P. (!x y z. P x y z ==> P y x z /\ P x z y) /\
+           (!x y z. x <= y /\ y <= z ==> P x y z)
+           ==> (!x y z. P x y z)
+
+  WLOG_LE_3 =
+    |- !P. (!x y z. P x y z ==> P y x z /\ P x z y) /\
+           (!x y z. x <= y /\ y <= z ==> P x y z)
+           ==> (!x y z. P x y z)
+
+Sat 13th May 2017       printer.ml
+
+Added a patch to the prettyprinter from Marco Maggesi that ensures better
+printing of set enumerations and lists by inserting split hints in a correct
+way. A typical example where this helps is the following term, which now prints
+as shown, but was formerly broken up irregularly and hence was much less
+readable.
+
+  `{[a 1 2 3 4 5 6 7 8; b 1 2 3 4 5 6 7 8 9; c 1 2 3 4 5; d 1 2 3 4 5 6 7],
+    [e 1 2 3 4 5 6; f 1 2 3 4 5 6 7 8; g 1 2 3 4 5],
+    [h 1 2 3 4 5 6 7 8 9 10 11; i 1 2 3 4 5 6 7 8 9 10; j 1 2 3 4 5 6 7 8 9;
+     k 1 2 3 4 5],
+    [l 1 2 3 4 5 6 7 8 9; m 1 2 3 4 5 6 7 8; n 1 2 3 4 5 6 7 8 9;
+     p 2 3 4 5 6 7 8 9]}`
+
+Thu 11th May 2017       sets.ml
+
+Added one more handy little theorem about arbitrary unions:
+
+  ARBITRARY_UNION_OF_ALT =
+    |- !B s.
+         (ARBITRARY UNION_OF B) s <=>
+         (!x. x IN s ==> (?u. u IN B /\ x IN u /\ u SUBSET s))
+
+Sat  6th May 2017       sets.ml, Library/card.ml
+
+Added four theorems that are rather easy special cases of existing
+ones (FORALL_COUNTABLE_SUBSET_IMAGE_INJ etc.), but awkward enough
+to derive by 1-liners that they are worth having for themselves:
+
+  FINITE_IMAGE_EQ =
+    |- !f s.
+         FINITE (IMAGE f s) <=>
+         (?t. FINITE t /\ t SUBSET s /\ IMAGE f s = IMAGE f t)
+
+  FINITE_IMAGE_EQ_INJ =
+    |- !f s.
+         FINITE (IMAGE f s) <=>
+         (?t. FINITE t /\
+              t SUBSET s /\
+              IMAGE f s = IMAGE f t /\
+              (!x y. x IN t /\ y IN t ==> (f x = f y <=> x = y)))
+
+  COUNTABLE_IMAGE_EQ =
+    |- !f s.
+         COUNTABLE (IMAGE f s) <=>
+         (?t. COUNTABLE t /\ t SUBSET s /\ IMAGE f s = IMAGE f t)
+
+  COUNTABLE_IMAGE_EQ_INJ =
+    |- !f s.
+         COUNTABLE (IMAGE f s) <=>
+         (?t. COUNTABLE t /\
+              t SUBSET s /\
+              IMAGE f s = IMAGE f t /\
+              (!x y. x IN t /\ y IN t ==> (f x = f y <=> x = y)))
+
+Sat 30th Apr 2017       pair.ml, sets.ml, Library/card.ml
+
+Added various simple lemmas, the only one that isn't completely trivial
+being FORALL_CARTESIAN_PRODUCT_ELEMENTS:
+
+  CARD_LE_COUNTABLE_INFINITE =
+    |- !s t. COUNTABLE s /\ INFINITE t ==> s <=_c t
+
+  CARD_LT_COUNTABLE_UNCOUNTABLE =
+    |- !s t. COUNTABLE s /\ ~COUNTABLE t ==> s <_c t
+
+  CARD_LT_NUM_REAL =
+    |- (:num) <_c (:real)
+
+  EXISTS_UNPAIR_FUN_THM =
+    |- !P. (?f g. P f g) <=> (?h. P (FST o h) (SND o h))
+
+  FORALL_CARTESIAN_PRODUCT_ELEMENTS =
+    |- !P k s.
+         (!z i. z IN cartesian_product k s /\ i IN k ==> P i (z i)) <=>
+         cartesian_product k s = {} \/ (!i x. i IN k /\ x IN s i ==> P i x)
+
+  FORALL_UNPAIR_FUN_THM =
+    |- !P. (!f g. P f g) <=> (!h. P (FST o h) (SND o h))
+
+  INTERS_ANTIMONO =
+    |- !f g. g SUBSET f ==> INTERS f SUBSET INTERS g
+
+  IN_GSPEC =
+    |- !s. {x | x IN s} = s
+
+  UNIONS_SINGS =
+    |- !s. UNIONS {{x} | x IN s} = s
+
+  UNIONS_SINGS_GEN =
+    |- !P. UNIONS {{x} | P x} = {x | P x}
 
 Wed 11th Apr 2017       pair.ml, sets.ml, cart.ml
 

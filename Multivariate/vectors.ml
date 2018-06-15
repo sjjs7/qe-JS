@@ -1072,11 +1072,6 @@ let DOT_NORM = prove
  (`!x y. x dot y = (norm(x + y) pow 2 - norm(x) pow 2 - norm(y) pow 2) / &2`,
   REWRITE_TAC[NORM_POW_2; DOT_LADD; DOT_RADD; DOT_SYM] THEN REAL_ARITH_TAC);;
 
-let DOT_NORM_NEG = prove
- (`!x y. x dot y = ((norm(x) pow 2 + norm(y) pow 2) - norm(x - y) pow 2) / &2`,
-  REWRITE_TAC[NORM_POW_2; DOT_LADD; DOT_RADD; DOT_LSUB; DOT_RSUB; DOT_SYM] THEN
-  REAL_ARITH_TAC);;
-
 let DOT_NORM_SUB = prove
  (`!x y. x dot y = ((norm(x) pow 2 + norm(y) pow 2) - norm(x - y) pow 2) / &2`,
   REWRITE_TAC[NORM_POW_2; DOT_LSUB; DOT_RSUB; DOT_SYM] THEN REAL_ARITH_TAC);;
@@ -3705,6 +3700,38 @@ let ONORM_COVARIANCE_ALT = prove
   REWRITE_TAC[ADJOINT_MATRIX; MATRIX_VECTOR_MUL_LINEAR; o_DEF] THEN
   REWRITE_TAC[MATRIX_VECTOR_MUL_ASSOC]);;
 
+let ONORM_LE_EQ_2,ONORM_LE_EQ_2_ABS = (CONJ_PAIR o prove)
+ (`(!f:real^M->real^N b.
+        linear f
+        ==> (onorm f <= b <=> !x y. x dot (f y) <= b * norm x * norm y)) /\
+   (!f:real^M->real^N b.
+        linear f
+        ==> (onorm f <= b <=> !x y. abs(x dot (f y)) <= b * norm x * norm y))`,
+  REWRITE_TAC[AND_FORALL_THM] THEN REPEAT GEN_TAC THEN
+  ASM_CASES_TAC `linear(f:real^M->real^N)` THEN ASM_REWRITE_TAC[] THEN
+  MATCH_MP_TAC(TAUT
+   `(r ==> q) /\ (p ==> r) /\ (q ==> p) ==> (p <=> q) /\ (p <=> r)`) THEN
+  CONJ_TAC THENL
+   [REPEAT(MATCH_MP_TAC MONO_FORALL THEN GEN_TAC) THEN REAL_ARITH_TAC;
+    ASM_SIMP_TAC[ONORM_LE_EQ]] THEN
+  CONJ_TAC THEN DISCH_TAC THENL
+   [MAP_EVERY X_GEN_TAC [`x:real^N`; `y:real^M`] THEN
+    TRANS_TAC REAL_LE_TRANS `norm(x:real^N) * norm((f:real^M->real^N) y)` THEN
+    REWRITE_TAC[NORM_CAUCHY_SCHWARZ_ABS] THEN
+    GEN_REWRITE_TAC RAND_CONV [REAL_ARITH `b * x * y:real = x * b * y`] THEN
+    ASM_SIMP_TAC[REAL_LE_LMUL; NORM_POS_LE];
+    X_GEN_TAC `x:real^M` THEN
+    ASM_CASES_TAC `(f:real^M->real^N) x = vec 0` THENL
+     [ASM_CASES_TAC `x:real^M = vec 0` THEN
+      ASM_REWRITE_TAC[NORM_0; REAL_MUL_RZERO; REAL_LE_REFL] THEN
+      FIRST_X_ASSUM(MP_TAC o SPECL [`basis 1:real^N`; `x:real^M`]) THEN
+      ASM_SIMP_TAC[DOT_RZERO; NORM_BASIS; LE_REFL;
+                   DIMINDEX_GE_1; REAL_MUL_LID];
+      FIRST_ASSUM(MP_TAC o SPECL [`(f:real^M->real^N) x`; `x:real^M`]) THEN
+      REWRITE_TAC[GSYM NORM_POW_2; REAL_ARITH
+       `y pow 2 <= b * y * x <=> y * y <= y * b * x`] THEN
+      ASM_SIMP_TAC[REAL_LE_LMUL_EQ; NORM_POS_LT]]]);;
+
 (* ------------------------------------------------------------------------- *)
 (* It's handy to "lift" from R to R^1 and "drop" from R^1 to R.              *)
 (* ------------------------------------------------------------------------- *)
@@ -3899,8 +3926,8 @@ let DIST_LIFT = prove
   REWRITE_TAC[DIST_REAL; LIFT_COMPONENT]);;
 
 let ABS_DROP = prove
- (`!x. norm x = abs(drop x)`,
-  REWRITE_TAC[FORALL_LIFT; LIFT_DROP; NORM_LIFT]);;
+ (`!x. abs(drop x) = norm x`,
+  REWRITE_TAC[NORM_1]);;
 
 let LINEAR_VMUL_DROP = prove
  (`!f v. linear f ==> linear (\x. drop(f x) % v)`,
@@ -4497,9 +4524,22 @@ let SUBSPACE_MUL = prove
  (`!x c s. subspace s /\ x IN s ==> (c % x) IN s`,
   SIMP_TAC[subspace]);;
 
+let SUBSPACE_MUL_EQ = prove
+ (`!s c x:real^N. subspace s ==> ((c % x) IN s <=> c = &0 \/ x IN s)`,
+  REPEAT STRIP_TAC THEN ASM_CASES_TAC `c:real = &0` THEN
+  ASM_SIMP_TAC[VECTOR_MUL_LZERO; SUBSPACE_0] THEN
+  EQ_TAC THEN ASM_SIMP_TAC[SUBSPACE_MUL] THEN DISCH_TAC THEN
+  SUBGOAL_THEN `x:real^N = inv c % (c % x)` SUBST1_TAC THENL
+   [ASM_SIMP_TAC[VECTOR_MUL_ASSOC; REAL_MUL_LINV; VECTOR_MUL_LID];
+    ASM_SIMP_TAC[SUBSPACE_MUL]]);;
+
 let SUBSPACE_NEG = prove
  (`!x s. subspace s /\ x IN s ==> (--x) IN s`,
   SIMP_TAC[VECTOR_ARITH `--x = --(&1) % x`; SUBSPACE_MUL]);;
+
+let SUBSPACE_NEG_EQ = prove
+ (`!s x:real^N. subspace s ==> (--x IN s <=> x IN s)`,
+  MESON_TAC[SUBSPACE_NEG; VECTOR_NEG_NEG]);;
 
 let SUBSPACE_SUB = prove
  (`!x y s. subspace s /\ x IN s /\ y IN s ==> (x - y) IN s`,
@@ -5862,7 +5902,7 @@ let LINEAR_INDEP_IMAGE_LEMMA = prove
    [ASM_MESON_TAC[VECTOR_ARITH `x - &0 % y = x`]; ALL_TAC] THEN
   DISCH_THEN(MP_TAC o SPEC `--inv(k)` o MATCH_MP SPAN_MUL) THEN
   REWRITE_TAC[VECTOR_MUL_ASSOC; REAL_MUL_LNEG; REAL_MUL_RNEG] THEN
-  SIMP_TAC[REAL_NEGNEG; REAL_MUL_LINV; ASSUME `~(k = &0)`] THEN
+  SIMP_TAC[REAL_NEG_NEG; REAL_MUL_LINV; ASSUME `~(k = &0)`] THEN
   REWRITE_TAC[VECTOR_MUL_LID] THEN
   FIRST_X_ASSUM(MP_TAC o GEN_REWRITE_RULE I [independent]) THEN
   REWRITE_TAC[dependent; NOT_EXISTS_THM] THEN
@@ -6230,13 +6270,6 @@ let MATRIX_LEFT_INVERTIBLE_SPAN_ROWS = prove
  (`!A:real^N^M. (?B:real^M^N. B ** A = mat 1) <=> span(rows A) = (:real^N)`,
   MESON_TAC[RIGHT_INVERTIBLE_TRANSP; COLUMNS_TRANSP;
             MATRIX_RIGHT_INVERTIBLE_SPAN_COLUMNS]);;
-
-let MATRIX_LEFT_INVERTIBLE_NULLSPACE = prove
- (`!A:real^M^N.
-      (?B:real^N^M. B ** A = mat 1) <=> (!x. A ** x = vec 0 ==> x = vec 0)`,
-  GEN_TAC THEN REWRITE_TAC[MATRIX_LEFT_INVERTIBLE_INJECTIVE] THEN
-  MATCH_MP_TAC LINEAR_INJECTIVE_0 THEN
-  SIMP_TAC[MATRIX_VECTOR_MUL_LINEAR]);;
 
 (* ------------------------------------------------------------------------- *)
 (* An injective map real^N->real^N is also surjective.                       *)
