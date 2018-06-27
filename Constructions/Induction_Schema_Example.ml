@@ -99,23 +99,26 @@ REWRITE_TAC[isPeano;COND_ELIM_THM;epsilonDistinct;epsilonInjective;] THEN
 STRING_FETCH_TAC THEN
 REWRITE_TAC[isPeano]);;
 
-(*Specialize instance of induction on the natural numbers*)
+(* Specialize instance of induction on the natural numbers *)
 let indinst = SPEC `P:num->bool` num_INDUCTION;;
 
-(*Prove that a variable capture does not occur*)
-let nei_peano = prove(`~(?y. ~((\(n:num). (eval (f:epsilon) to (num->bool))) y = (eval (f) to (num->bool))))`,
-BETA_TAC THEN
-REWRITE_TAC[]
-);;
-
-(*Add the theorem to the proven theorems list*)
-addThm nei_peano;;
-
-(*Perform instantiation on indinst to get instantiated theorem*)
+(* Perform instantiation on indinst to get instantiated theorem *)
 INST [`eval (f:epsilon) to (num->bool)`,`P:num->bool`] indinst;;
+
+(* Induction schema for Peano arithmetic *)
+let peanoIndSchema = `!f:epsilon. (isExprType (f:epsilon) (TyBiCons "fun" (TyVar "num") (TyBase "bool"))) /\ ~(isFreeIn (QuoVar "n" (TyBase "num")) (f:epsilon)) /\ (isPeano f) ==> (eval (f:epsilon) to (num->bool)) 0 /\ (!n:num. (eval (f:epsilon) to (num->bool)) n ==> (eval (f:epsilon) to (num->bool)) (SUC n)) ==> (!n:num. (eval (f:epsilon) to (num->bool)) n)`;;
+
+(* Perform instantiation on peanoIndSchema to get instantiated induction schema *)
+let peanoIndSchemaInst = 
+  vsubst [`Q_ \x:num . x + 1 = 1 + x _Q`,`f:epsilon`] (snd (dest_forall peanoIndSchema));;
+
+
+(* OLD THEOREM
 
 let peanoInduction = prove(`!f:epsilon. (isExprType (f:epsilon) (TyBiCons "fun" (TyVar "num") (TyBase "bool"))) /\ (isPeano f) ==> (eval (f:epsilon) to (num->bool)) 0 /\ (!n:num. (eval (f:epsilon) to (num->bool)) n ==> (eval (f:epsilon) to (num->bool)) (SUC n)) ==> (!n:num. (eval (f:epsilon) to (num->bool)) n)`,
 	GEN_TAC THEN
 	DISCH_TAC THEN
 	REWRITE_TAC[INST [`eval (f:epsilon) to (num->bool)`,`P:num->bool`] indinst]
 );;
+
+*)

@@ -265,7 +265,7 @@ let rec type_subst i ty =
 
   (*Check if two quotes are equal for use in match_type*)
   let rec isQuoteSame tm tm2 = match tm,tm2 with
-    | Quote(e1,t),Quote(e2,t2) -> isQuoteSame e1 e2
+    | Quote(e1,t1),Quote(e2,t2) -> isQuoteSame e1 e2
     | Comb(l,r),Comb(l2,r2) -> isQuoteSame l l2 && isQuoteSame r r2
     | Const(a,b),Const(c,d) | Var(a,b),Var(c,d)  -> a = c && b = d
     | Abs(a,b),Abs(c,d) -> a = c && b = d
@@ -544,6 +544,8 @@ let rec type_subst i ty =
 (* ------------------------------------------------------------------------- *)
 
   (*Checks is a term is free in terms of another term*)
+
+(* APPEARS TO BE INCORRECT
  
   (*Handles variable substitution for evaluations*)
     (* | (a,b) :: rest when a = b -> mkNewEval rest tm *)
@@ -573,6 +575,7 @@ let rec type_subst i ty =
   | Abs(a,b) -> int_no_abs b
   | _ -> tm
 
+*)
 
   let rec makeAbsSubst sl tm = 
     let com = dest_comb tm in
@@ -626,24 +629,26 @@ let rec type_subst i ty =
       | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
-     | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
-                  if ilist' = [] then tm else
-                  let s' = vsubst ilist' s in
-                  if s' == s then tm else
-                  (* There are no variable captures. *)
-                  if forall (fun (t,x) ->
-                  ((is_eval_free t && (not (vfree_in v t))) ||
-                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
-                  (is_eval_free s && (not (vfree_in x s))) ||
-                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s))))) ilist'
-                  then Abs(v,s') else
-                  (* There is an unresolvable subsitution. *)
-                  if not (is_eval_free s) ||
-                     exists (fun (t,x) -> not (is_eval_free t)) ilist'
-                  then failwith "Possible variable capture in eval detected"
-                  (* All substitutions are resolvable. *)
-                  else let v' = variant [s'] v in
-                       Abs(v',vsubst ((v',v)::ilist') s) in
+      | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
+                    if ilist' = [] then tm else
+                    let s' = vsubst ilist' s in
+                    if s' == s then tm else
+                    (* There are no variable captures. *)
+                    if forall (fun (t,x) ->
+                    ((is_eval_free t && (not (vfree_in v t))) ||
+                    is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
+                    (is_eval_free s && (not (vfree_in x s))) ||
+                    is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s))))) ilist'
+                    then Abs(v,s') else
+                    (* There is an unresolvable subsitution. *)
+                    if not (is_eval_free s) || 
+                       exists (fun (t,x) -> not (is_eval_free t)) ilist'
+                    then (match ilist with
+                          | [(t,x)] -> Comb(Abs(x,tm),t)
+                          | _ -> failwith "More than one substitution into an abstraction with an resolved substitution.")
+                    (* All substitutions are resolvable. *)
+                    else let v' = variant [s'] v in
+                    Abs(v',vsubst ((v',v)::ilist') s) in
     match tm with
     | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
     | Comb(s,t) -> let s' = qsubst ilist s and t' = qsubst ilist t in
@@ -658,27 +663,32 @@ let rec type_subst i ty =
       | Var(_,_) -> rev_assocd tm ilist tm
       | Const(_,_) -> tm
       | Quote(e,ty) -> let newquo = qsubst ilist e in Quote(newquo,qcheck_type_of newquo)
-      | Eval(e,ty) -> mkNewEval ilist tm
+      | Eval(e,ty) -> (match ilist with
+                       | [(t,x)] when t = x -> tm
+                       | [(t,x)] -> Comb(Abs(x,tm),t)
+                       | _ -> failwith "More than one substitution into an evaluation.")
       | Comb(s,t) -> let s' = vsubst ilist s and t' = vsubst ilist t in
                      if s' == s && t' == t then tm else Comb(s',t')
-     | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
-                  if ilist' = [] then tm else
-                  let s' = vsubst ilist' s in
-                  if s' == s then tm else
-                  (* There are no variable captures. *)
-                  if forall (fun (t,x) ->
-                  ((is_eval_free t && (not (vfree_in v t))) ||
-                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
-                  (is_eval_free s && (not (vfree_in x s))) ||
-                  is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s))))) ilist'
-                  then Abs(v,s') else
-                  (* There is an unresolvable subsitution. *)
-                  if not (is_eval_free s) ||
-                     exists (fun (t,x) -> not (is_eval_free t)) ilist'
-                  then failwith "Possible variable capture in eval detected"
-                  (* All substitutions are resolvable. *)
-                  else let v' = variant [s'] v in
-                       Abs(v',vsubst ((v',v)::ilist') s) in
+      | Abs(v,s) -> let ilist' = filter (fun (t,x) -> x <> v) ilist in
+                    if ilist' = [] then tm else
+                    let s' = vsubst ilist' s in
+                    if s' == s then tm else
+                    (* There are no variable captures. *)
+                    if forall (fun (t,x) ->
+                    ((is_eval_free t && (not (vfree_in v t))) ||
+                    is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn v t))) ||
+                    (is_eval_free s && (not (vfree_in x s))) ||
+                    is_proven_thm (mk_comb((Const("~",(Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))])))),(effectiveIn x s))))) ilist'
+                    then Abs(v,s') else
+                    (* There is an unresolvable subsitution. *)
+                    if not (is_eval_free s) || 
+                       exists (fun (t,x) -> not (is_eval_free t)) ilist'
+                    then (match ilist with
+                          | [(t,x)] -> Comb(Abs(x,tm),t)
+                          | _ -> failwith "More than one substitution into an abstraction with an resolved substitution.")
+                    (* All substitutions are resolvable. *)
+                    else let v' = variant [s'] v in
+                    Abs(v',vsubst ((v',v)::ilist') s) in
     fun theta ->
       if theta = [] then (fun tm -> tm) else
       if forall (function (t,Var(_,y)) -> Pervasives.compare (type_of t) y = 0
@@ -900,6 +910,13 @@ let rec type_subst i ty =
 (* Trivial case of lambda calculus beta-conversion.                          *)
 (* ------------------------------------------------------------------------- *)
 
+  let BETA tm =
+    match tm with
+      Comb(Abs(v,bod),arg) when Pervasives.compare arg v = 0
+        -> Sequent([],safe_mk_eq tm bod)
+    | _ -> failwith "BETA: not a trivial beta-redex"
+
+(*
   let rec BETA tm =
     (*
     Newvar - what to replace oldvar with
@@ -974,6 +991,8 @@ let rec type_subst i ty =
         -> Sequent([],safe_mk_eq tm bod)
     |  Comb(Abs(v,bod),arg) when not (VarInTerm v bod) -> Sequent([],safe_mk_eq tm bod)
     | _ -> failwith "BETA: not a trivial beta-redex"
+
+*)
 
 (* ------------------------------------------------------------------------- *)
 (* Rules connected with deduction.                                           *)
