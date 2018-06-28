@@ -43,6 +43,14 @@ let mk_primed_var =
 (* General case of beta-conversion.                                          *)
 (* ------------------------------------------------------------------------- *)
 
+let BETA_CONV tm =
+  try BETA tm with Failure _ ->
+  try let f,arg = dest_comb tm in
+      let v = bndvar f in
+      INST [arg,v] (BETA (mk_comb(f,v)))
+  with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
+
+(*
   (*Grabs first availible eval in the equation - this allows beta operations on the inside of evals but stops BETA from destroying a beta reduction on an eval itself*)
   let rec firstEvalInTerm tm = 
     match tm with
@@ -65,6 +73,8 @@ let rec BETA_CONV tm =
       let v = bndvar f in
       INST [arg,v] (BETA (mk_comb(f,v))) 
   with Failure _ -> try let _ = dest_quote tm in QBETA_CONV tm BETA_CONV with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
+
+*)
 
 (* ------------------------------------------------------------------------- *)
 (* A few very basic derived equality rules.                                  *)
