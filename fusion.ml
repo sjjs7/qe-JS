@@ -124,8 +124,7 @@ module type Hol_kernel =
       val QUOTABLE : term -> thm
       val ABS_SPLIT : term -> term -> thm
       val APP_SPLIT : term -> term -> thm
-      val BETA_EVAL : term -> term -> thm
-      val BETA_REVAL : term -> term -> term -> thm
+      val BETA_REDUCE_EVAL : term -> term -> term -> hol_type -> thm
       val NOT_FREE_OR_EFFECTIVE : term -> term -> thm
       val NEITHER_EFFECTIVE : term -> term -> term -> term -> thm
       val EVAL_VSUB : thm -> term -> thm
@@ -916,84 +915,6 @@ let rec type_subst i ty =
         -> Sequent([],safe_mk_eq tm bod)
     | _ -> failwith "BETA: not a trivial beta-redex"
 
-(*
-  let rec BETA tm =
-    (*
-    Newvar - what to replace oldvar with
-    Oldvar - bound variable to replace
-    Tm - term to perform replacement in
-    shouldEvalFree - Whether or not the term is supposed to be eval-free. Causes exceptions to be thrown if an Eval is encountered in an eval-free term.
-    *)
-    let rec betarep newvar oldvar tm shouldEvalFree = match tm with
-      | Comb(a,b) -> Comb(betarep newvar oldvar a shouldEvalFree, betarep newvar oldvar b shouldEvalFree)
-      | Abs(a,b) -> Abs(betarep newvar oldvar a shouldEvalFree, betarep newvar oldvar b shouldEvalFree)
-      | Var(a,b) -> if (dest_var tm) = (dest_var oldvar) then newvar else tm
-      | Quote(a,b) -> Quote(a,b)
-      | Hole(a,b) -> Hole(betarep newvar oldvar a shouldEvalFree,b)
-      | Eval(a,b) -> if shouldEvalFree then failwith "BETA: Unexpected eval in what should be an eval free term" else Comb(Abs(oldvar,tm),newvar)
-      | Const(a,b) -> Const(a,b)
-    in(*
-
-    if not (is_eval_free tm) then (
-        (
-        let rec VarInTerm vr trm = 
-        let rec Q_VarInTerm vr trm = match trm with
-          | Hole(t,ty) -> VarInTerm vr trm
-          | Quote(t,ty) -> Q_VarInTerm vr trm
-          | Comb(a,b) -> (Q_VarInTerm vr trm) || (Q_VarInTerm vr trm)
-          | _ -> false
-        in
-      match trm with
-      | Var (_,_) -> (dest_var vr) = (dest_var trm)
-      | Const (_,_) -> false
-      | Comb (a,b) -> (VarInTerm vr a) || (VarInTerm vr b)
-      | Abs (a,b) -> not ((dest_var vr) = (dest_var a)) && VarInTerm vr b
-      | Quote (e,ty) -> Q_VarInTerm vr e
-      | Hole (e,ty) -> Q_VarInTerm vr e
-      | Eval(e,ty) -> VarInTerm vr e
-      in
-        match tm with
-        (*
-        (*Instance of B11.1, can cancel out the beta conversion automatically across the entire term*)
-        | Comb(Abs(a,b),c) when a = c -> Sequent([], safe_mk_eq tm b)
-        (*There's no evals in the term substitution actually takes place in, so it can proceed as normal*)
-        | Comb(Abs(a,b),c) when (is_eval_free b) && (is_eval_free a) -> Sequent([], safe_mk_eq tm (betarep c a b true))
-        (*There is an eval in b but b itself is not JUST an eval - need to bring the eval into the term*)
-        | Comb(Abs(a,b),c) when not (is_eval b) -> Sequent([], safe_mk_eq tm (betarep c a b false))
-        (*A simplifcation of B11.2 - if the variable to beta reduce does not appear anywhere inside the term, it is clearly not free in the term, giving us eval (\x. y) z, but, as previously established,
-         x does not appear in y, so we are able to remove the entire reduction. *)
-        | Comb(Abs(a,b),c) when not (VarInTerm a b) -> Sequent([], safe_mk_eq tm b)
-        (*Everything else*)
-      *)
-        | _ -> failwith "BETA: Not eval free"
-        )
-    ) else
-  *)
-  let rec VarInTerm vr trm = 
-        let rec Q_VarInTerm vr trm = match trm with
-          | Hole(t,ty) -> VarInTerm vr t
-          | Quote(t,ty) -> Q_VarInTerm vr t
-          | Comb(a,b) -> (Q_VarInTerm vr a) || (Q_VarInTerm vr b)
-          | _ -> false
-        in
-      match trm with
-      | Var (_,_) -> (dest_var vr) = (dest_var trm)
-      | Const (_,_) -> false
-      | Comb (a,b) -> (VarInTerm vr a) || (VarInTerm vr b)
-      | Abs (a,b) -> not ((dest_var vr) = (dest_var a)) && VarInTerm vr b
-      | Quote (e,ty) -> Q_VarInTerm vr e
-      | Hole (e,ty) -> Q_VarInTerm vr e
-      | Eval(e,ty) -> VarInTerm vr e
-      in
-    match tm with
-    |  Comb(Abs(v,Eval(e,ty)),b) when not (vfree_in v (Comb(Abs(v,e),b))) -> Sequent([],safe_mk_eq tm (Eval(Comb(Abs(v,e),b),ty)))
-    |  Comb(Abs(v,bod),arg) when Pervasives.compare arg v = 0
-        -> Sequent([],safe_mk_eq tm bod)
-    |  Comb(Abs(v,bod),arg) when not (VarInTerm v bod) -> Sequent([],safe_mk_eq tm bod)
-    | _ -> failwith "BETA: not a trivial beta-redex"
-
-*)
-
 (* ------------------------------------------------------------------------- *)
 (* Rules connected with deduction.                                           *)
 (* ------------------------------------------------------------------------- *)
@@ -1156,7 +1077,7 @@ let rec type_subst i ty =
 
   (*Helper functions to make vital functions more readable*)
   let makeHolFunction a b = Tyapp("fun",[a;b]);;
-  let makeHolType a b = Tyapp(a,b)
+  let makeHolType a b = Tyapp(a,b);;
   let makeGenericComb constName ty firstArg secondArg = Comb(Comb(Const(constName,ty),firstArg),secondArg);;
   let makeQuoVarComb a b = makeGenericComb "QuoVar" (makeHolFunction (makeHolType "list" [makeHolType "char" []]) (makeHolFunction (makeHolType "type" []) (makeHolType "epsilon" [])) ) (tmp_mk_string (explode a)) b;;
   let makeQuoConstComb a b = makeGenericComb "QuoConst" (makeHolFunction (makeHolType "list" [makeHolType "char" []]) (makeHolFunction (makeHolType "type" []) (makeHolType "epsilon" [])) ) (tmp_mk_string (explode a)) b;;
@@ -1329,7 +1250,11 @@ let rec type_subst i ty =
   | Eval(Comb(Const("quo",Tyapp("fun",[Tyapp("epsilon",[]);Tyapp("epsilon",[])])),Comb(Comb(Const("QuoConst",Tyapp("fun",[Tyapp("list",[Tyapp("char",[])]);Tyapp("fun",[Tyapp("type",[]);Tyapp("epsilon",[])])])),a),b)),c) -> Sequent([],safe_mk_eq tm (Comb(Comb(Const("QuoConst",Tyapp("fun",[Tyapp("list",[Tyapp("char",[])]);Tyapp("fun",[Tyapp("type",[]);Tyapp("epsilon",[])])])),a),b)))
   | _ -> failwith "VAR_DISQUO"
 
-  (*Defining local mk_imp function to make the other three axioms easier to implement*)
+  (*Defining functions for making axioms easier to implement*)
+  let internal_make_conj a b = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),a),b)
+
+  let internal_make_disj a b = Comb(Comb(Const("\\/",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),a),b)
+
   let internal_make_imp a b = Comb(Comb(Const("==>",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),a),b)
 
 
@@ -1355,13 +1280,35 @@ let rec type_subst i ty =
     let conclud = safe_mk_eq (Eval(Comb(Comb(Const("app",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),tm1),tm2),((type_of tm1)))) (Comb(Eval(tm1,makeHolFunction (type_of tm1) (type_of tm2)),Eval(tm2,(type_of tm2)))) in
                            Sequent([], internal_make_imp anticed conclud)
 
-  (*Axiom B11 (1)*)
-  let BETA_EVAL var beta = if not ((is_var var) || ((type_of beta) = Tyapp("epsilon",[]))) then failwith "BETA_EVAL" else
-  let lhs = Comb(Abs(var,Eval(beta,Tyvar "B")),var) in
-  let rhs = Eval(beta,Tyvar "B") in
-  Sequent([], safe_mk_eq lhs rhs)
+  (*Axiom B11.1 is subsumed by the BETA rule. *)
 
-  (*Axiom B11 (2)*)
+  (*Axiom B11.2*)
+
+  let BETA_REDUCE_EVAL var arg body beta = 
+    if not ((is_var var) && 
+            ((type_of var) = (type_of arg)) &&
+            ((type_of body) = Tyapp("epsilon",[])) &&
+            ((is_type beta)))
+    then failwith "BETA_REDUCE_EVAL: Improper arguments." 
+    else
+      let epsilonToTypeToBool = Tyapp ("fun",[(Tyapp ("epsilon",[]));(Tyapp ("fun",[(Tyapp ("type",[]));(Tyapp ("bool",[]))]))]) in
+      let boolToBool = Tyapp ("fun",[(Tyapp ("bool",[]));(Tyapp ("bool",[]))]) in
+      let epsilonToEpsilonToBool = Tyapp ("fun",[(Tyapp ("epsilon",[]));(Tyapp ("fun",[(Tyapp ("epsilon",[]));(Tyapp ("bool",[]))]))]) in 
+      let lambdaApp = Comb(Abs(var,body),arg) in 
+      let iet = Comb(Comb(Const("isExprType",epsilonToTypeToBool),
+                          lambdaApp),
+                     (matchType beta)) in
+      let ifi = Comb(Const("~",boolToBool),
+                     Comb(Comb(Const("isFreeIn",epsilonToEpsilonToBool),
+                               termToConstruction var),
+                          lambdaApp)) in
+      let lhs = Comb(Abs(var,Eval(body,beta)),arg) in
+      let rhs = Eval(lambdaApp,beta) in
+      let antecedent = internal_make_conj iet ifi in
+      let succedent = safe_mk_eq lhs rhs in
+      Sequent([], internal_make_imp antecedent succedent)
+
+(* old code 
   let BETA_REVAL var alpha beta = if not ((is_var var) || ((type_of beta) = Tyapp("epsilon",[])) || (type_of alpha) = Tyapp("epsilon",[])) then failwith "BETA_EVAL" else
   let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction (Comb(Abs(var,beta),alpha)))),matchType (type_of beta)) in
   let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),(termToConstruction (Comb(Abs(var,beta),alpha))))) in
@@ -1370,6 +1317,7 @@ let rec type_subst i ty =
   let rhs = Eval(Comb(Abs(var,beta),alpha),(type_of beta)) in
   let conclud = safe_mk_eq lhs rhs in
   Sequent([], internal_make_imp anticed conclud)
+*)
 
  (*Axiom B12*)
   let NOT_FREE_OR_EFFECTIVE var tm = if not (is_var var) then failwith "NOT_FREE_OR_EFFECTIVE" else
