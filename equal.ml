@@ -50,32 +50,6 @@ let BETA_CONV tm =
       INST [arg,v] (BETA (mk_comb(f,v)))
   with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
 
-(*
-  (*Grabs first availible eval in the equation - this allows beta operations on the inside of evals but stops BETA from destroying a beta reduction on an eval itself*)
-  let rec firstEvalInTerm tm = 
-    match tm with
-    | Quote (_,_) -> fail() (*All quotes must be eval free so this operates off of the assumption that they are*)
-    | Eval (_,_) -> tm
-    | Const _ | Var _ -> fail()
-    | Comb(a,b) -> (try firstEvalInTerm a with Failure _ -> firstEvalInTerm b)
-    | Hole(_,_) -> fail()
-    | Abs(a,b) -> fail()
-
-let rec BETA_CONV tm =
-(*	
-  if not (is_eval_free tm) then (try BETA_CONV (fst (dest_eval (firstEvalInTerm tm))) with Failure _ -> BETA tm)
-  (*This is not an eval free term, attempt to automatically convert it to proper format*)
-  else
-*)
-  try BETA tm with Failure _ ->
-  let v,bod = dest_abs (fst (dest_comb tm)) in
-  try let f,arg = dest_comb tm in
-      let v = bndvar f in
-      INST [arg,v] (BETA (mk_comb(f,v))) 
-  with Failure _ -> try let _ = dest_quote tm in QBETA_CONV tm BETA_CONV with Failure _ -> failwith "BETA_CONV: Not a beta-redex";;
-
-*)
-
 (* ------------------------------------------------------------------------- *)
 (* A few very basic derived equality rules.                                  *)
 (* ------------------------------------------------------------------------- *)
