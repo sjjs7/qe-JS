@@ -125,13 +125,14 @@ module type Hol_kernel =
       val ABS_SPLIT : term -> term -> thm
       val APP_SPLIT : term -> term -> thm
       val BETA_REDUCE_EVAL : term -> term -> term -> hol_type -> thm
-      val NOT_FREE_OR_EFFECTIVE : term -> term -> thm
-      val NEITHER_EFFECTIVE : term -> term -> term -> term -> thm
+      val EVAL_FREE_NOT_EFFECTIVE_IN: term -> term -> term -> thm
+      val BETA_REDUCE_ABS : term -> term -> term -> term -> term -> term -> thm
       val EVAL_VSUB : thm -> term -> thm
       val EVAL_GOAL_VSUB : term list * term -> thm 
       val is_eval_free : term -> bool
-      val stackAbs : (term * term) list -> term -> term
+      val mk_not_effective_in : term -> term -> term -> term
       val effectiveIn : term -> term -> term
+      val stackAbs : (term * term) list -> term -> term
       val addThm : thm -> unit
       val is_proven_thm : term -> bool
 end;;
@@ -343,8 +344,8 @@ let rec type_subst i ty =
     | Comb(l,r) when type_of tm = Tyapp("epsilon",[]) -> ftype_of l 
     | _ -> failwith "Incomplete or mistyped function" 
 
-    (*Checks if a term is eval-free*)
-    let rec is_eval_free tm = match tm with
+  (*Checks if a term is eval-free*)
+  let rec is_eval_free tm = match tm with
     | Var(_,_) -> true
     | Const(_,_) -> true
     | Comb(a,b) -> is_eval_free a && is_eval_free b
@@ -587,6 +588,8 @@ let rec type_subst i ty =
     | (a,b) :: rest ->  if (vfree_in var (Comb(Abs(var,e),a))) then Comb(Abs(b,(makeAbsSubst rest tm)),a) else (makeAbsSubst rest (Eval(Comb(Abs(var,e),a),type_of ((Comb(Abs(var,e),a))))))
     | [] -> tm
 
+(* Eventually remove effectiveIn. *)
+
     (*Constructs an effectiveIn expression for the given variable in the given term*)
   let effectiveIn var tm = 
     (*This function checks that the variable name  does not exist in the term - if it does, it adds ' until a valid name is found*)
@@ -611,7 +614,6 @@ let rec type_subst i ty =
     let neqTerm = mk_comb(mk_const("~",[]),eqTerm) in
     let toExst = mk_abs(y,neqTerm) in
     mk_comb(mk_const("?",[type_of y,Tyvar "A"]),toExst);;
-
 
   let rec stackAbs l tm = match l with
   | (a,b) :: rest when List.length l > 1 -> Comb(Abs(b,(stackAbs rest tm)),a)
@@ -1319,13 +1321,61 @@ let rec type_subst i ty =
   Sequent([], internal_make_imp anticed conclud)
 *)
 
- (*Axiom B12*)
+  (* Constructs a NOT-EFFECTIVE-IN term. *)
+
+  let mk_not_effective_in var tm var_aux = 
+    if not ((is_var var) && 
+            (is_var var_aux) && 
+            ((type_of var) = (type_of var_aux)) &&
+            (var <> var_aux))
+    then failwith "mk_not_effective_in: Improper arguments."
+    else
+      let lhs = Comb(Abs(var,tm),var_aux) in 
+      let body = safe_mk_eq lhs tm in
+      let lambda = Abs(var_aux,body) in 
+      let forallConst = mk_const("!",[type_of var_aux,Tyvar "A"]) in
+      Comb(forallConst,lambda)
+
+  (*Axiom B12*)
+
+  let EVAL_FREE_NOT_EFFECTIVE_IN var tm var_aux =
+    if not ((is_var var) && 
+            (is_var var_aux) && 
+            ((type_of var) = (type_of var_aux)) &&
+            (var <> var_aux) &&
+            (is_eval_free tm))
+    then failwith "EVAL_FREE_NOT_EFFECTIVE_IN: Improper arguments."
+    else
+      if vfree_in var tm
+      then failwith ("EVAL_FREE_NOT_EFFECTIVE_IN: variable is free in term.")
+      else Sequent([], mk_not_effective_in var tm var_aux)
+
+(* old code
   let NOT_FREE_OR_EFFECTIVE var tm = if not (is_var var) then failwith "NOT_FREE_OR_EFFECTIVE" else
   let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),termToConstruction tm)) in
   let nei = Comb(Const( "~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("effectiveIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),termToConstruction tm)) in
   Sequent([], internal_make_imp ifi nei)
+*)
 
   (*Axiom B13*)
+
+  let BETA_REDUCE_ABS x x_aux y y_aux arg body =
+    if not ((is_var x) && (is_var x_aux) && (is_var x) && (is_var y_aux) &&
+            ((type_of x) = (type_of x_aux)) && ((type_of y) = (type_of y_aux)) &&
+            (x <> x_aux) && (x <> y) && (x <> y_aux) &&
+            (x_aux <> y) && (x_aux <> y_aux) && (y <> y_aux) &&
+            ((type_of x) = type_of arg))
+    then failwith "BETA_REDUCE_ABS: Improper arguments."
+    else
+      let nei1 = mk_not_effective_in y arg y_aux in
+      let nei2 = mk_not_effective_in x body x_aux in
+      let lhs = Comb(Abs(x,Abs(y,body)),arg) in
+      let rhs = Abs(y,Comb(Abs(x,body),arg)) in
+      let antecedent = internal_make_disj nei1 nei2 in
+      let succedent = safe_mk_eq lhs rhs in
+      Sequent([], internal_make_imp antecedent succedent)
+
+(* old code
   let NEITHER_EFFECTIVE x y tm1 tm2 = if not ((is_var x) || (is_var y)) then failwith "NEITHER_EFFECTIVE" else
   let nei1 = Comb(Const( "~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("effectiveIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction y),termToConstruction tm1)) in
   let nei2 = Comb(Const( "~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("effectiveIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction x),termToConstruction tm2)) in
@@ -1334,6 +1384,7 @@ let rec type_subst i ty =
   let rhs = Abs(y,Comb(Abs(x,tm2),tm1)) in
   let fin = safe_mk_eq lhs rhs in 
   Sequent([],internal_make_imp disjunct_nei fin)
+*)
 
   (*For evaluation substiution conversions to beta evaluations*)
   let EVAL_VSUB (tm:thm) (trm:term) = 
@@ -1382,7 +1433,6 @@ let rec type_subst i ty =
   | Comb(a,b) | Abs(a,b) -> (try EVAL_GOAL_VSUB (asm,a) with Failure _ -> try EVAL_GOAL_VSUB (asm,b) with Failure _ -> failwith "EVAL_GOAL_VSUB")
   | Eval(e,b) -> (MATCH_ASMS_TO_EVAL asm tm asm)
   | _ -> failwith "EVAL_GOAL_VSUB"
-
 
 
 (* ------------------------------------------------------------------------- *)
