@@ -57,19 +57,19 @@ INST [`QuoConst "T" (TyBase "bool")`,`x:epsilon`] lem;;
 
 	(*And finally, the theorem we've all been waiting for:*)
 
-	let constLEM = prove(`(eval (QuoConst "T" (TyBase "bool")) to (bool)) \/ ~(eval (QuoConst "T" (TyBase "bool")) to (bool))`,
+	let trueLEM = prove(`(eval (QuoConst "T" (TyBase "bool")) to (bool)) \/ ~(eval (QuoConst "T" (TyBase "bool")) to (bool))`,
 	REWRITE_TAC[GSYM eval_abs_equivalence] THEN
 	REWRITE_TAC[abs_constLEM]
 	);;
 
-	let const_LEM = prove(`(eval (QuoConst "T" (TyBase "bool")) to (bool)) \/ ~(eval (QuoConst "T" (TyBase "bool")) to (bool))`,
+	let true_LEM = prove(`(eval (QuoConst "T" (TyBase "bool")) to (bool)) \/ ~(eval (QuoConst "T" (TyBase "bool")) to (bool))`,
 	REWRITE_TAC[GSYM (MP (EQ_MP (ONCE_DEPTH_CONV BETA_CONV (concl (BETA_REDUCE_EVAL `x:epsilon` `(QuoConst "T" (TyBase "bool"))` `x:epsilon` `:bool`))) (BETA_REDUCE_EVAL `x:epsilon` `(QuoConst "T" (TyBase "bool"))` `x:epsilon` `:bool`)) (MESON[CONJ ((REWRITE_CONV[isExprType;isExpr;isValidConstName;isValidType;EX;combinatoryType]) `isExprType (QuoConst "T" (TyBase "bool")) (TyBase "bool")`) ((REWRITE_CONV[isFreeIn]) `~isFreeIn (QuoVar "x" (TyBase "epsilon")) (QuoConst "T" (TyBase "bool"))`)] `isExprType (QuoConst "T" (TyBase "bool")) (TyBase "bool") /\ ~isFreeIn (QuoVar "x" (TyBase "epsilon")) (QuoConst "T" (TyBase "bool"))`))] THEN
 	REWRITE_TAC [(MP (SPEC `QuoConst "T" (TyBase "bool")` lem) (MESON[((REWRITE_CONV[isExprType;isExpr;isValidConstName;isValidType;EX;combinatoryType]) `isExprType (QuoConst "T" (TyBase "bool")) (TyBase "bool")`)] `isExprType (QuoConst "T" (TyBase "bool")) (TyBase "bool")`))]
 	);;
 
 INST [`QuoConst "F" (TyBase "bool")`,`x:epsilon`] lem;;
 
-	let const_LEM = prove(`(eval (QuoConst "F" (TyBase "bool")) to (bool)) \/ ~(eval (QuoConst "F" (TyBase "bool")) to (bool))`,
+	let false_LEM = prove(`(eval (QuoConst "F" (TyBase "bool")) to (bool)) \/ ~(eval (QuoConst "F" (TyBase "bool")) to (bool))`,
 	REWRITE_TAC[GSYM (MP (EQ_MP (ONCE_DEPTH_CONV BETA_CONV (concl (BETA_REDUCE_EVAL `x:epsilon` `(QuoConst "F" (TyBase "bool"))` `x:epsilon` `:bool`))) (BETA_REDUCE_EVAL `x:epsilon` `(QuoConst "F" (TyBase "bool"))` `x:epsilon` `:bool`)) (MESON[CONJ ((REWRITE_CONV[isExprType;isExpr;isValidConstName;isValidType;EX;combinatoryType]) `isExprType (QuoConst "F" (TyBase "bool")) (TyBase "bool")`) ((REWRITE_CONV[isFreeIn]) `~isFreeIn (QuoVar "x" (TyBase "epsilon")) (QuoConst "F" (TyBase "bool"))`)] `isExprType (QuoConst "F" (TyBase "bool")) (TyBase "bool") /\ ~isFreeIn (QuoVar "x" (TyBase "epsilon")) (QuoConst "F" (TyBase "bool"))`))] THEN
 	REWRITE_TAC [(MP (SPEC `QuoConst "F" (TyBase "bool")` lem) (MESON[((REWRITE_CONV[isExprType;isExpr;isValidConstName;isValidType;EX;combinatoryType]) `isExprType (QuoConst "F" (TyBase "bool")) (TyBase "bool")`)] `isExprType (QuoConst "F" (TyBase "bool")) (TyBase "bool")`))]
 	);;
