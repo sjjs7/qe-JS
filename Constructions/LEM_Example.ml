@@ -79,5 +79,3 @@ INST [`Q_ (0 = 0) _Q`,`x:epsilon`] lem;;
 
 
 
-
-
