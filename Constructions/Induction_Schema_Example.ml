@@ -105,23 +105,22 @@ let indinst = SPEC `P:num->bool` num_INDUCTION;;
 (* Perform instantiation on indinst to get instantiated theorem *)
 INST [`eval (f:epsilon) to (num->bool)`,`P:num->bool`] indinst;;
 
-(* Induction schema for Peano arithmetic *)
-let peanoIndSchema1 = `!f:epsilon. (isExprType (f:epsilon) (TyBiCons "fun" (TyVar "num") (TyBase "bool"))) /\ ~(isFreeIn (QuoVar "n" (TyBase "num")) (f:epsilon)) /\ (isPeano f) ==> (eval (f:epsilon) to (num->bool)) 0 /\ (!) ((\P n:num. P n ==> P (SUC n)) (eval (f) to (num->bool))) ==> (!) ((\P n:num. P n) (eval (f) to (num->bool)))`;;
-
-prove(peanoIndSchema1,
+let peanoIndSchema1 = prove(`!f:epsilon. (isExprType (f:epsilon) (TyBiCons "fun" (TyVar "num") (TyBase "bool"))) /\ ~(isFreeIn (QuoVar "n" (TyBase "num")) (f:epsilon)) /\ (isPeano f) ==> (eval (f:epsilon) to (num->bool)) 0 /\ (!) ((\P n:num. P n ==> P (SUC n)) (eval (f) to (num->bool))) ==> (!) ((\P n:num. P n) (eval (f) to (num->bool)))`,
 GEN_TAC THEN
 DISCH_TAC THEN
 REWRITE_TAC[INST [`eval (f:epsilon) to (num->bool)`,`P:num->bool`] indinst]
 );;
 
 (* Perform instantiation on peanoIndSchema1 to get instantiated induction schema *)
+let peanoIndSchema1Body = SPEC `f:epsilon` peanoIndSchema1;;
 let peanoIndSchema1Inst = 
-  vsubst [`Q_ \x:num . x + 1 = 1 + x _Q`,`f:epsilon`] (snd (dest_forall peanoIndSchema1));;
+  INST [`Q_ \x:num . x + 1 = 1 + x _Q`,`f:epsilon`] peanoIndSchema1Body;;
 
 (* Better, but harder to prove, induction schema for Peano arithmetic *)
 let peanoIndSchema2 = `!f:epsilon. (isExprType (f:epsilon) (TyBiCons "fun" (TyVar "num") (TyBase "bool"))) /\ ~(isFreeIn (QuoVar "n" (TyBase "num")) (f:epsilon)) /\ (isPeano f) ==> (eval (f:epsilon) to (num->bool)) 0 /\ (!n:num. (eval (f:epsilon) to (num->bool)) n ==> (eval (f:epsilon) to (num->bool)) (SUC n)) ==> (!n:num. (eval (f:epsilon) to (num->bool)) n)`;;
 
-
+let peanoIndSchema2Inst = 
+  vsubst [`Q_ \x:num . x + 1 = 1 + x _Q`,`f:epsilon`] (snd (dest_forall peanoIndSchema2));;
 
 
 (* OLD FAULTY THEOREM
