@@ -76,6 +76,67 @@ INST [`QuoConst "F" (TyBase "bool")`,`x:epsilon`] lem;;
 
 INST [`Q_ (0 = 0) _Q`,`x:epsilon`] lem;;
 
+	
+	(*The proof structure used previously requires a construction not a term, therefore we will do the proof with the right hand side of this equivalence, and them make the substitution at the end.*)
+	let quote_construct_equiv = TERM_TO_CONSTRUCTION `Q_ (0 = 0) _Q`;;
+	let construction_form = rhs (concl quote_construct_equiv);;
+
+	let quoteLEM_with_assumption = SPEC construction_form lem;;
+	(*desired_rawBETA is the statement that is needed to properly instantiate LEM with the QuoConst*)
+	let desired_rawBETA_quote = EQ_MP (ONCE_DEPTH_CONV BETA_CONV (concl (BETA_REDUCE_EVAL `x:epsilon` construction_form `x:epsilon` `:bool`))) (BETA_REDUCE_EVAL `x:epsilon` construction_form `x:epsilon` `:bool`);;
+	(*Now what needs to be proven are the two antecedents of desired_rawBETA*)
+
+
+	(*FIRST ANTECEDENT: isExprType isExprType construction_form*)
+	let inst_isExpr_quote = prove(`isExprType (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (TyBase "bool")`,
+		REWRITE_TAC[isExprType] THEN
+		REWRITE_TAC[isExpr] THEN
+		REWRITE_TAC[combinatoryType] THEN
+		REWRITE_TAC[stripFunc] THEN
+		REWRITE_TAC[headFunc] THEN
+		REWRITE_TAC[isFunction;isAbs;isApp;isConst] THEN
+		REWRITE_TAC[isValidType;isValidConstName] THEN
+		REWRITE_TAC[EX;ep_constructor] THEN
+		REPEAT CONJ_TAC THENL [
+			EXISTS_TAC `TyBase "num"` THEN EXISTS_TAC `TyBase "bool"` THEN REFL_TAC;
+			EXISTS_TAC `TyBase "num"` THEN EXISTS_TAC `TyBase "num"` THEN REFL_TAC; 
+			EXISTS_TAC `TyBase "num"` THEN EXISTS_TAC `TyBiCons "fun" (TyBase "num") (TyBase "bool")` THEN REFL_TAC;
+			EXISTS_TAC `TyBase "num"` THEN EXISTS_TAC `TyBase "num"` THEN REFL_TAC
+			]
+	);;
+
+	(*SECOND ANTECEDENT: ~isFreeIn (QuoVar "x" (TyBase "epsilon")) (QuoConst "T" (TyBase "bool"))*)
+	let notIsFree_quote = prove(`~isFreeIn (QuoVar "x" (TyBase "epsilon")) (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num"))))`,
+		REWRITE_TAC[isFreeIn]);;
+
+	(*Now we can easily prove the relationship between the abstracted version of the eval and the eval with QuoConst inside*)
+
+	let eval_abs_equivalence_quote = prove(`((\x. (eval (x) to (bool))) (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) <=> (eval (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) to (bool)))`,
+		ASSUME_TAC (CONJ inst_isExpr_quote notIsFree_quote) THEN
+		UNDISCH_TAC (concl (CONJ inst_isExpr_quote notIsFree_quote)) THEN
+		REWRITE_TAC[desired_rawBETA_quote]
+	);;
+
+	(*Now, lets prove the abstracted version of LEM with QuoConst, no assumptions:*)
+	let abs_quoteLEM = prove(`(\x. (eval (x) to (bool))) (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num"))))  \/ ~(\x. (eval (x) to (bool))) (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) `,
+	ASSUME_TAC inst_isExpr_quote THEN
+	UNDISCH_TAC (concl inst_isExpr_quote) THEN
+	REWRITE_TAC[quoteLEM_with_assumption]	
+	);;
+
+	(*And finally, the theorem we've all been waiting for:*)
+
+	let quoteLEM = prove(`(eval (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) to (bool)) \/ ~(eval (App (App (QuoConst "=" (TyBiCons "fun" (TyBase "num") (TyBiCons "fun" (TyBase "num") (TyBase "bool")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) (App (QuoConst "NUMERAL" (TyBiCons "fun" (TyBase "num") (TyBase "num"))) (QuoConst "_0" (TyBase "num")))) to (bool))`,
+	REWRITE_TAC[GSYM eval_abs_equivalence_quote] THEN
+	REWRITE_TAC[abs_quoteLEM]
+	);;
+
+	let quoteLEM2 = prove (`(eval (Q_ (0 = 0) _Q) to (bool)) \/ ~ (eval (Q_ (0 = 0) _Q) to (bool))`,
+		REWRITE_TAC[quote_construct_equiv] THEN
+		REWRITE_TAC[quoteLEM]
+	);;
+
+
 
 
 
