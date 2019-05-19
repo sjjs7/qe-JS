@@ -121,9 +121,9 @@ module type Hol_kernel =
       val VAR_DISQUO : term -> thm
       val CONST_DISQUO : term -> thm
       val LAW_OF_QUO : term -> thm
-      val QUOTABLE : term -> thm
-      val ABS_SPLIT : term -> term -> thm
-      val APP_SPLIT : term -> term -> thm
+      val QUO_DISQUO : term -> thm
+      val ABS_DISQUO : term -> term -> thm
+      val APP_DISQUO : term -> term -> thm
       val BETA_REDUCE_EVAL : term -> term -> term -> hol_type -> thm
       val EVAL_FREE_NOT_EFFECTIVE_IN: term -> term -> term -> thm
       val BETA_REDUCE_ABS : term -> term -> term -> term -> term -> term -> thm
@@ -686,7 +686,7 @@ let rec type_subst i ty =
                        exists (fun (t,x) -> not (is_eval_free t)) ilist'
                     then (match ilist with
                           | [(t,x)] -> Comb(Abs(x,tm),t)
-                          | _ -> failwith "More than one substitution into an abstraction with an resolved substitution.")
+                          | _ -> failwith "More than one substitution into an abstraction with a resolved substitution.")
                     (* All substitutions are resolvable. *)
                     else let v' = variant [s'] v in
                     Abs(v',vsubst ((v',v)::ilist') s) in
@@ -1260,22 +1260,22 @@ let rec type_subst i ty =
   let internal_make_imp a b = Comb(Comb(Const("==>",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),a),b)
 
 
-  let QUOTABLE tm = match type_of tm with
+  let QUO_DISQUO tm = match type_of tm with
   | Tyapp("epsilon",[]) -> let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction tm)),matchType (Tyapp("epsilon",[]))) in
                            Sequent([],(internal_make_imp iet (safe_mk_eq (Eval(Comb(Const("Quo",makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" [])),(termToConstruction tm)),Tyapp("epsilon",[]))) tm)))
-  | _ -> failwith "QUOTABLE"
+  | _ -> failwith "QUO_DISQUO"
 
-  let ABS_SPLIT var tm = 
-  if not (is_var var) then failwith "ABS_SPLIT" else
+  let ABS_DISQUO var tm = 
+  if not (is_var var) then failwith "ABS_DISQUO" else
   match type_of tm with
   | Tyapp("epsilon",[]) -> let iet =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),(termToConstruction tm)),matchType (type_of tm)) in
                            let ifi = Comb(Const("~",(makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),Comb(Comb(Const("isFreeIn",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "bool" []))),termToConstruction var),termToConstruction tm)) in
                            let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet),ifi) in 
                            let conclud = safe_mk_eq (Eval(Comb(Comb(Const("abs",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "epsilon" []) (makeHolType "epsilon" []))),termToConstruction var),tm),(makeHolFunction (type_of var) ((type_of tm))))) (Abs(var,Eval(tm,((type_of tm))))) in
                            Sequent([], internal_make_imp anticed conclud)
-  | _ -> failwith "ABS_SPLIT"
+  | _ -> failwith "ABS_DISQUO"
 
-  let APP_SPLIT tm1 tm2 = if (not (type_of tm1 = Tyapp("epsilon",[]))) or (not (type_of tm2 = Tyapp("epsilon",[]))) then failwith "APP_SPLIT" else
+  let APP_DISQUO tm1 tm2 = if (not (type_of tm1 = Tyapp("epsilon",[]))) or (not (type_of tm2 = Tyapp("epsilon",[]))) then failwith "APP_DISQUO" else
     let iet1 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm1),matchType (makeHolFunction (type_of tm1) (type_of tm2))) in
     let iet2 =  Comb(Comb(Const("isExprType",makeHolFunction (makeHolType "epsilon" []) (makeHolFunction (makeHolType "type" []) (makeHolType "bool" []))),tm2),matchType (type_of tm2)) in
     let anticed = Comb(Comb(Const("/\\",makeHolFunction (makeHolType "bool" []) (makeHolFunction (makeHolType "bool" []) (makeHolType "bool" []))),iet1),iet2) in  
