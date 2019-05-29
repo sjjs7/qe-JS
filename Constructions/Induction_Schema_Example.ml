@@ -115,7 +115,7 @@ REWRITE_TAC[INST [`eval (f:epsilon) to (num->bool)`,`P:num->bool`] indinst]
 );;
 
 (* Perform instantiation on peanoIndSchema1 to get instantiated induction schema *)
-let peanoIndSchema1Body = SPEC `f:epsilon` peanoIndSchema1;;
+let peanoIndSchema1Body = SPEC `f:epsilon` peanoIndSchema1_thm;;
 let peanoIndSchema1Inst = 
   INST [`Q_ \x:num . x + 1 = 1 + x _Q`,`f:epsilon`] peanoIndSchema1Body;;
 
