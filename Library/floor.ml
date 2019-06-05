@@ -558,7 +558,11 @@ let INTEGER_EXISTS_BETWEEN_ABS_LT = prove
   REPEAT STRIP_TAC THEN ASM_REWRITE_TAC[]);;
 
 (* ------------------------------------------------------------------------- *)
+<<<<<<< HEAD
 (* A couple more theorems about real_of_int.                                 *)
+=======
+(* More trivial theorems about real_of_int.                                  *)
+>>>>>>> hol/master
 (* ------------------------------------------------------------------------- *)
 
 let INT_OF_REAL_OF_INT = prove
@@ -568,6 +572,11 @@ let INT_OF_REAL_OF_INT = prove
 let REAL_OF_INT_OF_REAL = prove
  (`!x. integer(x) ==> real_of_int(int_of_real x) = x`,
   SIMP_TAC[int_rep]);;
+
+let IMAGE_REAL_OF_INT_UNIV = prove
+ (`IMAGE real_of_int (:int) = integer`,
+  REWRITE_TAC[EXTENSION; IN_IMAGE; IN_UNIV] THEN
+  REWRITE_TAC[IN] THEN MESON_TAC[int_tybij]);;
 
 (* ------------------------------------------------------------------------- *)
 (* Finiteness of bounded set of integers.                                    *)

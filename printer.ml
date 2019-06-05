@@ -5,6 +5,11 @@
 (*                                                                           *)
 (*            (c) Copyright, University of Cambridge 1998                    *)
 (*              (c) Copyright, John Harrison 1998-2007                       *)
+<<<<<<< HEAD
+=======
+(*                 (c) Copyright, Marco Maggesi 2017                         *)
+(*     (c) Copyright, Andrea Gabrielli, Marco Maggesi 2017-2018              *)
+>>>>>>> hol/master
 (* ========================================================================= *)
 
 needs "nets.ml";;
@@ -162,6 +167,7 @@ let pp_print_type,pp_print_qtype =
     if flag then "("^s^")" else s in
   let rec sot pr ty =
     try dest_vartype ty with Failure _ ->
+    try string_of_num(dest_finty ty) with Failure _ ->
     match dest_type ty with
       con,[] -> con
     | "fun",[ty1;ty2] -> soc "->" (pr > 0) [sot 1 ty1; sot 0 ty2]
@@ -233,6 +239,10 @@ let pp_print_term =
     if name_of s = "_SEQPATTERN" && length args = 2 then
       dest_clause (hd args)::dest_clauses(hd(tl args))
     else [dest_clause tm] in
+  let pdest_cond tm =
+    match tm with
+      Comb(Comb(Comb(Const("COND",_),i),t),e) -> (i,t),e
+    | _ -> failwith "pdest_cond" in
   fun fmt ->
     let rec print_term prec tm =
       try try_user_printer fmt tm with Failure _ ->
@@ -338,18 +348,35 @@ let pp_print_term =
          if prec = 0 then () else pp_print_string fmt ")")
       with Failure _ ->
       if s = "COND" && length args = 3 then
-        (if prec = 0 then () else pp_print_string fmt "(";
+        ((if prec = 0 then () else pp_print_string fmt "(");
          pp_open_hvbox fmt (-1);
-         pp_print_string fmt "if ";
-         print_term 0 (hd args);
-         pp_print_break fmt 0 0;
-         pp_print_string fmt " then ";
-         print_term 0 (hd(tl args));
-         pp_print_break fmt 0 0;
-         pp_print_string fmt " else ";
-         print_term 0 (hd(tl(tl args)));
+         (let ccls,ecl = splitlist pdest_cond tm in
+          if length ccls <= 4 then
+           (pp_print_string fmt "if ";
+            print_term 0 (hd args);
+            pp_print_break fmt 0 0;
+            pp_print_string fmt " then ";
+            print_term 0 (hd(tl args));
+            pp_print_break fmt 0 0;
+            pp_print_string fmt " else ";
+            print_term 0 (hd(tl(tl args)))
+           )
+          else
+           (pp_print_string fmt "if ";
+            print_term 0 (fst(hd ccls));
+            pp_print_string fmt " then ";
+            print_term 0 (snd(hd ccls));
+            pp_print_break fmt 0 0;
+            do_list (fun (i,t) ->
+              pp_print_string fmt " else if ";
+              print_term 0 i;
+              pp_print_string fmt " then ";
+              print_term 0 t;
+              pp_print_break fmt 0 0) (tl ccls);
+            pp_print_string fmt " else ";
+            print_term 0 ecl));
          pp_close_box fmt ();
-         if prec = 0 then () else pp_print_string fmt ")")
+         (if prec = 0 then () else pp_print_string fmt ")"))
       else if is_prefix s && length args = 1 then
         (if prec = 1000 then pp_print_string fmt "(" else ();
          pp_print_string fmt s;
@@ -517,9 +544,9 @@ let print_thm = pp_print_thm std_formatter;;
 (* Install all the printers.                                                 *)
 (* ------------------------------------------------------------------------- *)
 
-#install_printer print_qtype;;
-#install_printer print_qterm;;
-#install_printer print_thm;;
+#install_printer pp_print_qtype;;
+#install_printer pp_print_qterm;;
+#install_printer pp_print_thm;;
 
 (* ------------------------------------------------------------------------- *)
 (* Conversions to string.                                                    *)

@@ -33,7 +33,7 @@ HOLSRC=system.ml lib.ml fusion.ml basics.ml nets.ml preterm.ml          \
 OCAML_VERSION=`ocamlc -version | cut -c1-4`
 OCAML_BINARY_VERSION=`ocamlc -version | cut -c1-3`
 CAMLP5_BINARY_VERSION=`camlp5 -v 2>&1 | cut -f3 -d' ' | cut -c1`
-CAMLP5_VERSION=`camlp5 -v 2>&1 | cut -f3 -d' ' | cut -f1-3 -d'.' | cut -c1-6`
+CAMLP5_VERSION=`camlp5 -v 2>&1 | cut -f3 -d' ' | cut -f1-3 -d'.' | cut -f1 -d'-' | cut -c1-6`
 
 # Build the camlp4 syntax extension file (camlp5 for OCaml >= 3.10)
 
@@ -58,6 +58,7 @@ pa_j.cmo: pa_j.ml; if test ${OCAML_BINARY_VERSION} = "3.0" ; \
 pa_j.ml: pa_j_3.07.ml pa_j_3.08.ml pa_j_3.09.ml pa_j_3.1x_5.xx.ml pa_j_3.1x_6.xx.ml; \
         if test ${OCAML_BINARY_VERSION} = "3.0"  ; \
         then cp pa_j_${OCAML_VERSION}.ml pa_j.ml ; \
+<<<<<<< HEAD
         else if test ${CAMLP5_VERSION} = "6.02.1" ; \
              then cp pa_j_3.1x_6.02.1.ml pa_j.ml; \
              else if test ${CAMLP5_VERSION} = "6.02.2" -o ${CAMLP5_VERSION} = "6.02.3" -o ${CAMLP5_VERSION} = "6.03" -o ${CAMLP5_VERSION} = "6.04" -o ${CAMLP5_VERSION} = "6.05" -o ${CAMLP5_VERSION} = "6.06" ; \
@@ -65,6 +66,21 @@ pa_j.ml: pa_j_3.07.ml pa_j_3.08.ml pa_j_3.09.ml pa_j_3.1x_5.xx.ml pa_j_3.1x_6.xx
                   else if test ${CAMLP5_VERSION} = "6.06" -o ${CAMLP5_VERSION} = "6.07" -o ${CAMLP5_VERSION} = "6.08" -o ${CAMLP5_VERSION} = "6.09" -o ${CAMLP5_VERSION} = "6.10" -o ${CAMLP5_VERSION} = "6.11" -o ${CAMLP5_VERSION} = "6.12" -o ${CAMLP5_VERSION} = "6.13" -o ${CAMLP5_VERSION} = "6.14" -o ${CAMLP5_VERSION} = "6.15" -o ${CAMLP5_VERSION} = "6.16" -o ${CAMLP5_VERSION} = "6.17" ; \
                        then cp pa_j_3.1x_6.11.ml pa_j.ml; \
                        else cp pa_j_3.1x_${CAMLP5_BINARY_VERSION}.xx.ml pa_j.ml; \
+=======
+        else if test ${CAMLP5_BINARY_VERSION} = "7" ; \
+             then if test ${CAMLP5_VERSION} = "7.01" -o ${CAMLP5_VERSION} = "7.02" -o ${CAMLP5_VERSION} = "7.03" -o ${CAMLP5_VERSION} = "7.04" -o ${CAMLP5_VERSION} = "7.05" -o ${CAMLP5_VERSION} = "7.06" ; \
+									then cp pa_j_4.xx_7.06.ml pa_j.ml; \
+									else cp pa_j_4.xx_7.xx.ml pa_j.ml; \
+									fi \
+             else if test ${CAMLP5_VERSION} = "6.02.1" ; \
+                  then cp pa_j_3.1x_6.02.1.ml pa_j.ml; \
+                  else if test ${CAMLP5_VERSION} = "6.02.2" -o ${CAMLP5_VERSION} = "6.02.3" -o ${CAMLP5_VERSION} = "6.03" -o ${CAMLP5_VERSION} = "6.04" -o ${CAMLP5_VERSION} = "6.05" -o ${CAMLP5_VERSION} = "6.06" ; \
+                       then cp pa_j_3.1x_6.02.2.ml pa_j.ml; \
+                       else if test ${CAMLP5_VERSION} = "6.06" -o ${CAMLP5_VERSION} = "6.07" -o ${CAMLP5_VERSION} = "6.08" -o ${CAMLP5_VERSION} = "6.09" -o ${CAMLP5_VERSION} = "6.10" -o ${CAMLP5_VERSION} = "6.11" -o ${CAMLP5_VERSION} = "6.12" -o ${CAMLP5_VERSION} = "6.13" -o ${CAMLP5_VERSION} = "6.14" -o ${CAMLP5_VERSION} = "6.15" -o ${CAMLP5_VERSION} = "6.16" -o ${CAMLP5_VERSION} = "6.17" ; \
+                            then cp pa_j_3.1x_6.11.ml pa_j.ml; \
+                            else cp pa_j_3.1x_${CAMLP5_BINARY_VERSION}.xx.ml pa_j.ml; \
+                            fi \
+>>>>>>> hol/master
                        fi \
                   fi \
              fi \

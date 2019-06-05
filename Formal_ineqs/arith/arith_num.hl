@@ -20,6 +20,7 @@ module type Arith_hash_sig =
     val dest_numeral_hash : term -> num
     val NUMERAL_TO_NUM_CONV : term -> thm
     val NUM_TO_NUMERAL_CONV : term -> thm
+<<<<<<< HEAD
     val raw_suc_conv_hash : term -> thm
     val NUM_SUC_HASH_CONV : term -> thm
     val raw_eq0_hash_conv : term -> thm
@@ -28,10 +29,29 @@ module type Arith_hash_sig =
     val NUM_PRE_HASH_CONV : term -> thm
     val raw_gt0_hash_conv : term -> thm
     val NUM_GT0_HASH_CONV : term -> thm
+=======
+        (* SUC *)
+    val raw_suc_conv_hash : term -> thm
+    val NUM_SUC_HASH_CONV : term -> thm
+        (* eq0 *)
+    val raw_eq0_hash_conv : term -> thm
+    val NUM_EQ0_HASH_CONV : term -> thm
+        (* PRE *)
+    val raw_pre_hash_conv : term -> thm
+    val NUM_PRE_HASH_CONV : term -> thm
+        (* gt0 *)
+    val raw_gt0_hash_conv : term -> thm
+    val NUM_GT0_HASH_CONV : term -> thm
+        (* eq *)
+        val raw_eq_hash_conv : term -> thm
+        val NUM_EQ_HASH_CONV : term -> thm
+        (* lt, le *)
+>>>>>>> hol/master
     val raw_lt_hash_conv : term -> thm
     val raw_le_hash_conv : term -> thm
     val NUM_LT_HASH_CONV : term -> thm
     val NUM_LE_HASH_CONV : term -> thm
+<<<<<<< HEAD
     val raw_add_conv_hash : term -> thm
     val NUM_ADD_HASH_CONV : term -> thm
     val raw_sub_hash_conv : term -> thm
@@ -42,6 +62,22 @@ module type Arith_hash_sig =
     val raw_div_hash_conv : term -> thm
     val NUM_DIV_HASH_CONV : term -> thm
 
+=======
+        (* add *)
+    val raw_add_conv_hash : term -> thm
+    val NUM_ADD_HASH_CONV : term -> thm
+        (* sub *)
+    val raw_sub_hash_conv : term -> thm
+    val raw_sub_and_le_hash_conv : term -> term -> thm * thm
+    val NUM_SUB_HASH_CONV : term -> thm
+        (* mul *)
+    val raw_mul_conv_hash : term -> thm
+    val NUM_MULT_HASH_CONV : term -> thm
+        (* DIV *)
+    val raw_div_hash_conv : term -> thm
+    val NUM_DIV_HASH_CONV : term -> thm
+        (* EVEN, ODD *)
+>>>>>>> hol/master
     val raw_even_hash_conv : term -> thm
     val raw_odd_hash_conv : term -> thm
     val NUM_EVEN_HASH_CONV : term -> thm
@@ -470,7 +506,11 @@ let rec raw_pre_hash_conv tm =
       let cn = fst(dest_const btm) in
         if (cn = b0_name) then
           let n_th = raw_eq0_hash_conv ntm in
+<<<<<<< HEAD
             if (rand(concl n_th) = false_const) then
+=======
+            if (rand(concl n_th) = f_const) then
+>>>>>>> hol/master
               let th0 = INST[ntm, n_var_num] PRE_B0_n1 in
               let th1 = MY_PROVE_HYP n_th th0 in
               let ltm, rtm = dest_comb(rand(concl th1)) in
@@ -507,8 +547,11 @@ let GT0_NUM = (REWRITE_RULE[GSYM num_def] o prove)(`0 < NUMERAL n <=> _0 < n`, R
 let gt0_0 = prove(`_0 < _0 <=> F`, REWRITE_TAC[ARITH_LT]);;
 let gt0_b0 = (REWRITE_RULE[NUMERAL] o prove)(mk_eq (mk_binop lt_op_num `0` (mk_comb(b0_const, n_var_num)), `0 < n`),
                    REWRITE_TAC[b0_def] THEN ARITH_TAC);;
+<<<<<<< HEAD
 
 let zero = `0`;;
+=======
+>>>>>>> hol/master
 
 let gt0_th i =
   let bi = const_array.(i) in
@@ -538,6 +581,123 @@ let NUM_GT0_HASH_CONV rtm =
   let th = INST [n_tm, n_var_num] GT0_NUM in
     TRANS th (raw_gt0_hash_conv n_tm);;
 
+<<<<<<< HEAD
+=======
+(*************************************)
+(* EQ *)
+
+let EQ_NUM = (REWRITE_RULE[SYM num_def] o prove)(`NUMERAL m = NUMERAL n <=> m = n`, REWRITE_TAC[NUMERAL]);;
+
+
+(* EQ tables *)
+
+(* Generates the theorem |- D_i(m) = D_j(n) <=> F if i <> j and D_i(m) = D_i(n) <=> m = n *)
+let gen_bi_eq_bj =
+  let aux_th = prove(`i < b /\ j < b /\ ~(i = j) ==> ~(b * m + i = b * n + j:num)`,
+                     ONCE_REWRITE_TAC[ARITH_RULE `b * m + i = b * n + j <=> m * b + i = n * b + j:num`] THEN
+                       STRIP_TAC THEN POP_ASSUM MP_TAC THEN
+                       SUBGOAL_THEN `~(b = 0)` ASSUME_TAC THENL [POP_ASSUM MP_TAC THEN ARITH_TAC; ALL_TAC] THEN
+                       REWRITE_TAC[CONTRAPOS_THM] THEN
+                       DISCH_TAC THEN FIRST_ASSUM (MP_TAC o AP_TERM `\x. x DIV b`) THEN REWRITE_TAC[] THEN
+                       FIRST_ASSUM (MP_TAC o MATCH_MP(CONJUNCT1 DIV_MULT_ADD)) THEN
+                       DISCH_THEN (fun th -> REWRITE_TAC[th]) THEN
+                       SUBGOAL_THEN `i DIV b = 0 /\ j DIV b = 0` (fun th -> REWRITE_TAC[th]) THENL
+                         [
+                           FIRST_ASSUM (ASSUME_TAC o MATCH_MP DIV_EQ_0) THEN ASM_REWRITE_TAC[];
+                           ALL_TAC
+                         ] THEN
+                         REWRITE_TAC[ADD_0] THEN DISCH_TAC THEN
+                         UNDISCH_TAC `m * b + i = n * b + j:num` THEN
+                         ASM_REWRITE_TAC[] THEN ARITH_TAC) in
+    fun i j ->
+      let bi_m = mk_comb (const_array.(i), m_var_num) in
+      let bj_n = mk_comb (const_array.(j), n_var_num) in
+      let eq_tm = mk_binop eq_op_num bi_m bj_n in
+        if i = j then
+          prove (mk_eq (eq_tm, mk_binop eq_op_num m_var_num n_var_num), REWRITE_TAC[def_array.(i)] THEN ARITH_TAC)
+        else
+          prove (mk_eq (eq_tm, f_const), REWRITE_TAC[def_array.(i); def_array.(j)] THEN
+                   MATCH_MP_TAC aux_th THEN CONV_TAC NUM_REDUCE_CONV);;
+
+
+let gen_next_eq_thm =
+  let suc_eq_th = ARITH_RULE `SUC m = SUC n <=> m = n` in
+    fun th ->
+      let ltm, n_tm = (dest_comb o lhand o concl) th in
+      let m_tm = rand ltm in
+      let th0 = INST[m_tm, m_var_num; n_tm, n_var_num] suc_eq_th in
+      let suc_m = raw_suc_conv_hash (mk_comb (suc_op_num, m_tm)) in
+      let suc_n = raw_suc_conv_hash (mk_comb (suc_op_num, n_tm)) in
+      let th1 = SYM (MK_COMB ((AP_TERM eq_op_num suc_m), suc_n)) in
+        TRANS (TRANS th1 th0) th;;
+
+
+let th_eq_table = Hashtbl.create (maximum * maximum);;
+
+
+for i = 0 to maximum - 1 do
+  let sym = INST[n_var_num, m_var_num; m_var_num, n_var_num] o CONV_RULE (LAND_CONV SYM_CONV) in
+  let th = ref (gen_bi_eq_bj 0 i) in
+  let name_left = names_array.(0) and
+      name_right = names_array.(i) in
+  let _ = Hashtbl.add th_eq_table (name_left ^ name_right) !th in
+  let _ = if i > 0 then
+    Hashtbl.add th_eq_table (name_right ^ name_left) (sym !th)
+  else () in
+    for k = 1 to maximum - i - 1 do
+      let x = k and y = i + k in
+      let name_left = names_array.(x) and
+          name_right = names_array.(y) in
+      let _ = th := gen_next_eq_thm (!th) in
+      let _ = Hashtbl.add th_eq_table (name_left ^ name_right) !th in
+        if y > x then
+          Hashtbl.add th_eq_table (name_right ^ name_left) (sym !th)
+        else
+          ()
+    done;
+done;;
+
+
+(* Conversion *)
+
+let eq_0_sym = (REWRITE_RULE[NUMERAL] o prove)(`0 = n <=> n = 0`, REWRITE_TAC[EQ_SYM_EQ]);;
+
+let rec raw_eq_hash_conv tm =
+  let ltm, rtm = dest_comb tm in
+  let ltm = rand ltm in
+    if is_const rtm then
+      (* n = _0 *)
+      raw_eq0_hash_conv ltm
+    else
+      (* n <> _0 *)
+      if is_const ltm then
+        (* m = _0 *)
+        let th0 = raw_eq0_hash_conv rtm in
+        let th1 = INST[rtm, n_var_num] eq_0_sym in
+          TRANS th1 th0
+      else
+        (* m <> _0 *)
+        let bm_tm, m_tm = dest_comb ltm in
+        let bn_tm, n_tm = dest_comb rtm in
+        let cbm = (fst o dest_const) bm_tm in
+        let cbn = (fst o dest_const) bn_tm in
+        let th0 = INST[m_tm, m_var_num; n_tm, n_var_num] (Hashtbl.find th_eq_table (cbm^cbn)) in
+          if cbm <> cbn then
+            th0
+          else
+            let th1 = raw_eq_hash_conv (rand (concl th0)) in
+              TRANS th0 th1;;
+
+
+let NUM_EQ_HASH_CONV tm =
+  let atm, rtm = dest_comb tm in
+  let ltm = rand atm in
+  let th = INST [rand ltm, m_var_num; rand rtm, n_var_num] EQ_NUM in
+  let rtm = rand(concl th) in
+    TRANS th (raw_eq_hash_conv rtm);;
+
+
+>>>>>>> hol/master
 
 (*************************************)
 (* LT and LE *)
@@ -949,12 +1109,20 @@ let raw_sub_hash_conv tm =
     if t >=/ num_0 then
       let t_tm = rand (mk_numeral_array t) in
       let th0 = INST[n_tm, n_var_num; t_tm, t_var_num; m_tm, m_var_num] SUB_lemma1 in
+<<<<<<< HEAD
       let th_add = raw_add_conv_hash (mk_binop plus_op_num n_tm t_tm) in
+=======
+      let th_add = raw_add_conv_hash (mk_binop add_op_num n_tm t_tm) in
+>>>>>>> hol/master
         MY_PROVE_HYP th_add th0
     else
       let t_tm = rand (mk_numeral_array (Num.abs_num t)) in
       let th0 = INST[m_tm, m_var_num; t_tm, t_var_num; n_tm, n_var_num] SUB_lemma2 in
+<<<<<<< HEAD
       let th_add = raw_add_conv_hash (mk_binop plus_op_num m_tm t_tm) in
+=======
+      let th_add = raw_add_conv_hash (mk_binop add_op_num m_tm t_tm) in
+>>>>>>> hol/master
         MY_PROVE_HYP th_add th0;;
 
 (* Returns either (tm1 - tm2, tm2 <= tm1) or (tm2 - tm1, tm1 <= tm2) *)
@@ -967,14 +1135,22 @@ let raw_sub_and_le_hash_conv tm1 tm2 =
       let inst = INST[tm2, n_var_num; t_tm, t_var_num; tm1, m_var_num] in
       let th_sub = inst SUB_lemma1 in
       let th_le = inst LE_lemma in
+<<<<<<< HEAD
       let th_add = raw_add_conv_hash (mk_binop plus_op_num tm2 t_tm) in
+=======
+      let th_add = raw_add_conv_hash (mk_binop add_op_num tm2 t_tm) in
+>>>>>>> hol/master
         (MY_PROVE_HYP th_add th_sub, MY_PROVE_HYP th_add th_le)
     else
       let t_tm = rand (mk_numeral_array (Num.abs_num t)) in
       let inst = INST[tm2, m_var_num; t_tm, t_var_num; tm1, n_var_num] in
       let th_sub = inst SUB_lemma1 in
       let th_le = inst LE_lemma in
+<<<<<<< HEAD
       let th_add = raw_add_conv_hash (mk_binop plus_op_num tm1 t_tm) in
+=======
+      let th_add = raw_add_conv_hash (mk_binop add_op_num tm1 t_tm) in
+>>>>>>> hol/master
         (MY_PROVE_HYP th_add th_sub, MY_PROVE_HYP th_add th_le);;
 
 let NUM_SUB_HASH_CONV tm =

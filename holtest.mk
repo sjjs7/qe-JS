@@ -57,6 +57,7 @@ EXTENDED_EXAMPLES:=\
 	Arithmetic/make \
 	Boyer_Moore/make \
 	Complex/make \
+	Geometric_Algebra/make \
 	IEEE/make \
 	IsabelleLight/make \
 	Jordan/make \
@@ -80,6 +81,8 @@ EXTENDED_EXAMPLES:=\
 	Multivariate/gamma \
 	Multivariate/geom \
 	Multivariate/lpspaces \
+	Multivariate/msum \
+	Multivariate/specialtopologies \
 	Multivariate/tarski \
 	RichterHilbertAxiomGeometry/Topology \
 	RichterHilbertAxiomGeometry/TarskiAxiomGeometry_read \

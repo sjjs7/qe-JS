@@ -129,6 +129,10 @@ let ZIP = prove
    (ZIP (CONS h1 t1) (CONS h2 t2) = CONS (h1,h2) (ZIP t1 t2))`,
   REWRITE_TAC[ZIP_DEF; HD; TL]);;
 
+let ALLPAIRS = new_recursive_definition list_RECURSION
+  `(ALLPAIRS f [] l <=> T) /\
+   (ALLPAIRS f (CONS h t) l <=> ALL (f h) l /\ ALLPAIRS f t l)`;;
+
 let PAIRWISE = new_recursive_definition list_RECURSION
   `(PAIRWISE (r:A->A->bool) [] <=> T) /\
    (PAIRWISE (r:A->A->bool) (CONS h t) <=> ALL (r h) t /\ PAIRWISE r t)`;;
@@ -166,6 +170,10 @@ let REVERSE_APPEND = prove
 let REVERSE_REVERSE = prove
  (`!l:A list. REVERSE(REVERSE l) = l`,
   LIST_INDUCT_TAC THEN ASM_REWRITE_TAC[REVERSE; REVERSE_APPEND; APPEND]);;
+
+let REVERSE_EQ_EMPTY = prove
+ (`!l:A list. REVERSE l = [] <=> l = []`,
+  MESON_TAC[REVERSE_REVERSE; REVERSE]);;
 
 let CONS_11 = prove
  (`!(h1:A) h2 t1 t2. (CONS h1 t1 = CONS h2 t2) <=> (h1 = h2) /\ (t1 = t2)`,
@@ -208,6 +216,12 @@ let LENGTH_EQ_CONS = prove
   LIST_INDUCT_TAC THEN REWRITE_TAC[LENGTH; NOT_SUC; NOT_CONS_NIL] THEN
   ASM_REWRITE_TAC[SUC_INJ; CONS_11] THEN MESON_TAC[]);;
 
+let LENGTH_REVERSE = prove
+ (`!l:A list. LENGTH(REVERSE l) = LENGTH l`,
+  LIST_INDUCT_TAC THEN
+  ASM_REWRITE_TAC[REVERSE; LENGTH_APPEND; LENGTH] THEN
+  REWRITE_TAC[ADD_CLAUSES; MULT_CLAUSES]);;
+
 let MAP_o = prove
  (`!f:A->B. !g:B->C. !l. MAP (g o f) l = MAP g (MAP f l)`,
   GEN_TAC THEN GEN_TAC THEN LIST_INDUCT_TAC THEN
@@ -237,6 +251,13 @@ let ALL_MAP = prove
  (`!P f l. ALL P (MAP f l) <=> ALL (P o f) l`,
   GEN_TAC THEN GEN_TAC THEN LIST_INDUCT_TAC THEN
   ASM_REWRITE_TAC[ALL; MAP; o_THM]);;
+
+let ALL_EQ = prove
+ (`!l. ALL R l /\ (!x. R x ==> (P x <=> Q x))
+       ==> (ALL P l <=> ALL Q l)`,
+  LIST_INDUCT_TAC THEN REWRITE_TAC[ALL] THEN
+  STRIP_TAC THEN BINOP_TAC THEN FIRST_ASSUM MATCH_MP_TAC THEN
+  ASM_REWRITE_TAC[]);;
 
 let ALL_T = prove
  (`!l. ALL (\x. T) l`,
@@ -395,6 +416,29 @@ let AND_ALL2 = prove
   LIST_INDUCT_TAC THEN LIST_INDUCT_TAC THEN ASM_REWRITE_TAC[ALL2] THEN
   REWRITE_TAC[CONJ_ACI]);;
 
+let ALLPAIRS_SYM = prove
+ (`!P l m. ALLPAIRS P l m <=> ALLPAIRS (\x y. P y x) m l`,
+  GEN_TAC THEN LIST_INDUCT_TAC THEN REWRITE_TAC[ALLPAIRS] THEN
+  LIST_INDUCT_TAC THEN ASM_REWRITE_TAC[ALLPAIRS; ALL] THEN
+  ASM_MESON_TAC[]);;
+
+let ALLPAIRS_MEM = prove
+ (`!P l m. (!x y. MEM x l /\ MEM y m ==> P x y) <=> ALLPAIRS P l m`,
+  GEN_TAC THEN
+  LIST_INDUCT_TAC THEN REWRITE_TAC[ALLPAIRS; GSYM ALL_MEM; MEM] THEN
+  ASM_MESON_TAC[]);;
+
+let ALLPAIRS_MAP = prove
+ (`!P l m. ALLPAIRS P (MAP f l) (MAP g m) <=>
+           ALLPAIRS (\x y. P (f x) (g y)) l m`,
+  REWRITE_TAC[GSYM ALLPAIRS_MEM; MEM_MAP] THEN MESON_TAC[]);;
+
+let ALLPAIRS_EQ = prove
+ (`!l m. !P Q. ALL P (l:A list) /\ ALL Q (m:B list) /\
+               (!p q. P p /\ Q q ==> (R p q <=> R' p q))
+               ==> (ALLPAIRS R l m <=> ALLPAIRS R' l m)`,
+  REWRITE_TAC[GSYM ALLPAIRS_MEM; GSYM ALL_MEM] THEN MESON_TAC[]);;
+
 let ALL2_ALL = prove
  (`!P l. ALL2 P l l <=> ALL (\x. P x x) l`,
   GEN_TAC THEN LIST_INDUCT_TAC THEN
@@ -415,9 +459,16 @@ let APPEND_RCANCEL = prove
   REWRITE_TAC[REVERSE_APPEND; APPEND_LCANCEL]);;
 
 let LENGTH_MAP2 = prove
- (`!f l m. (LENGTH l = LENGTH m) ==> (LENGTH(MAP2 f l m) = LENGTH m)`,
+ (`!f l m. LENGTH l = LENGTH m ==> LENGTH(MAP2 f l m) = LENGTH m`,
   GEN_TAC THEN LIST_INDUCT_TAC THEN LIST_INDUCT_TAC THEN
   ASM_SIMP_TAC[LENGTH; NOT_CONS_NIL; NOT_SUC; MAP2; SUC_INJ]);;
+
+let EL_MAP2 = prove
+ (`!f l m k. k < LENGTH l /\ k < LENGTH m
+             ==> EL k (MAP2 f l m) = f (EL k l) (EL k m)`,
+  GEN_TAC THEN LIST_INDUCT_TAC THEN LIST_INDUCT_TAC THEN
+  ASM_SIMP_TAC[LENGTH; CONJUNCT1 LT] THEN
+  INDUCT_TAC THEN ASM_SIMP_TAC[LENGTH; MAP2; EL; HD; TL; LT_SUC]);;
 
 let MAP_EQ_NIL  = prove
  (`!f l. MAP f l = [] <=> l = []`,
@@ -470,6 +521,15 @@ let LAST_APPEND = prove
 let LENGTH_TL = prove
  (`!l. ~(l = []) ==> LENGTH(TL l) = LENGTH l - 1`,
   LIST_INDUCT_TAC THEN REWRITE_TAC[LENGTH; TL; ARITH; SUC_SUB1]);;
+
+let LAST_REVERSE = prove
+ (`!l:A list. ~(l = []) ==> LAST(REVERSE l) = HD l`,
+  LIST_INDUCT_TAC THEN
+  REWRITE_TAC[HD; REVERSE; LAST; LAST_APPEND; NOT_CONS_NIL]);;
+
+let HD_REVERSE = prove
+ (`!l:A list. ~(l = []) ==> HD(REVERSE l) = LAST l`,
+  MESON_TAC[LAST_REVERSE; REVERSE_REVERSE; REVERSE_EQ_EMPTY]);;
 
 let EL_APPEND = prove
  (`!k l m. EL k (APPEND l m) = if k < LENGTH l then EL k l

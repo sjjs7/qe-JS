@@ -3025,13 +3025,6 @@ let REAL_DIFFERENTIABLE_CARATHEODORY_WITHINREAL = prove
 (* Property of being an interval (equivalent to convex or connected).        *)
 (* ------------------------------------------------------------------------- *)
 
-let IS_REALINTERVAL_IS_INTERVAL = prove
- (`!s. is_realinterval s <=> is_interval(IMAGE lift s)`,
-  REWRITE_TAC[IS_INTERVAL_1; is_realinterval] THEN
-  REWRITE_TAC[IMP_CONJ; RIGHT_FORALL_IMP_THM; FORALL_IN_IMAGE] THEN
-  REWRITE_TAC[LIFT_DROP; IN_IMAGE; EXISTS_DROP; UNWIND_THM1] THEN
-  REWRITE_TAC[GSYM FORALL_DROP]);;
-
 let IS_REALINTERVAL_CONVEX = prove
  (`!s. is_realinterval s <=> convex(IMAGE lift s)`,
   REWRITE_TAC[IS_REALINTERVAL_IS_INTERVAL; IS_INTERVAL_CONVEX_1]);;
@@ -4450,7 +4443,7 @@ add_real_differentiation_theorems
     (MATCH_MP HAS_REAL_DERIVATIVE_CHAIN
               HAS_REAL_DERIVATIVE_ACS))));;
 
-let rec REAL_DIFF_CONV =
+let REAL_DIFF_CONV =
   let partfn tm = let l,r = dest_comb tm in mk_pair(lhand l,r)
   and is_deriv = can (term_match [] `(f has_real_derivative f') net`) in
   let rec REAL_DIFF_CONV tm =
