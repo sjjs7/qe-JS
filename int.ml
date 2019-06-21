@@ -185,7 +185,7 @@ let int_pow_th = prove
     ASM_REWRITE_TAC[GSYM int_mul; int_mul_th]]);;
 
 (* ------------------------------------------------------------------------- *)
-(* A couple of theorems peculiar to the integers.                            *)
+(* A few convenient theorems about the integer type.                         *)
 (* ------------------------------------------------------------------------- *)
 
 let INT_IMAGE = prove
@@ -197,6 +197,10 @@ let INT_IMAGE = prove
    [DISJ1_TAC; DISJ2_TAC] THEN
   EXISTS_TAC `n:num` THEN REWRITE_TAC[int_abstr] THEN
   REWRITE_TAC[GSYM int_of_num; int_of_num_th]);;
+
+let FORALL_INT_CASES = prove
+ (`!P:int->bool. (!x. P x) <=> (!n. P(&n)) /\ (!n. P(-- &n))`,
+  MESON_TAC[INT_IMAGE]);;
 
 let INT_LT_DISCRETE = prove
  (`!x y. x < y <=> (x + &1) <= y`,
@@ -364,7 +368,6 @@ let INT_LE_MAX = INT_OF_REAL_THM REAL_LE_MAX;;
 let INT_LE_MIN = INT_OF_REAL_THM REAL_LE_MIN;;
 let INT_LE_MUL = INT_OF_REAL_THM REAL_LE_MUL;;
 let INT_LE_MUL_EQ = INT_OF_REAL_THM REAL_LE_MUL_EQ;;
-let INT_LE_NEG = INT_OF_REAL_THM REAL_LE_NEG;;
 let INT_LE_NEG2 = INT_OF_REAL_THM REAL_LE_NEG2;;
 let INT_LE_NEGL = INT_OF_REAL_THM REAL_LE_NEGL;;
 let INT_LE_NEGR = INT_OF_REAL_THM REAL_LE_NEGR;;
@@ -406,7 +409,6 @@ let INT_LT_MAX = INT_OF_REAL_THM REAL_LT_MAX;;
 let INT_LT_MIN = INT_OF_REAL_THM REAL_LT_MIN;;
 let INT_LT_MUL = INT_OF_REAL_THM REAL_LT_MUL;;
 let INT_LT_MUL_EQ = INT_OF_REAL_THM REAL_LT_MUL_EQ;;
-let INT_LT_NEG = INT_OF_REAL_THM REAL_LT_NEG;;
 let INT_LT_NEG2 = INT_OF_REAL_THM REAL_LT_NEG2;;
 let INT_LT_NEGTOTAL = INT_OF_REAL_THM REAL_LT_NEGTOTAL;;
 let INT_LT_POW2 = INT_OF_REAL_THM REAL_LT_POW2;;
@@ -443,7 +445,6 @@ let INT_MUL_RID = INT_OF_REAL_THM REAL_MUL_RID;;
 let INT_MUL_RNEG = INT_OF_REAL_THM REAL_MUL_RNEG;;
 let INT_MUL_RZERO = INT_OF_REAL_THM REAL_MUL_RZERO;;
 let INT_MUL_SYM = INT_OF_REAL_THM REAL_MUL_SYM;;
-let INT_NEGNEG = INT_OF_REAL_THM REAL_NEGNEG;;
 let INT_NEG_0 = INT_OF_REAL_THM REAL_NEG_0;;
 let INT_NEG_ADD = INT_OF_REAL_THM REAL_NEG_ADD;;
 let INT_NEG_EQ = INT_OF_REAL_THM REAL_NEG_EQ;;
@@ -474,7 +475,7 @@ let INT_OF_NUM_POW = INT_OF_REAL_THM REAL_OF_NUM_POW;;
 let INT_OF_NUM_SUB = INT_OF_REAL_THM REAL_OF_NUM_SUB;;
 let INT_OF_NUM_SUC = INT_OF_REAL_THM REAL_OF_NUM_SUC;;
 let INT_POS = INT_OF_REAL_THM REAL_POS;;
-let INT_POS_NZ = INT_OF_REAL_THM REAL_POS_NZ;;
+let INT_POS_NZ = INT_OF_REAL_THM REAL_LT_IMP_NZ;;
 let INT_POW2_ABS = INT_OF_REAL_THM REAL_POW2_ABS;;
 let INT_POW_1 = INT_OF_REAL_THM REAL_POW_1;;
 let INT_POW_1_LE = INT_OF_REAL_THM REAL_POW_1_LE;;
@@ -536,6 +537,21 @@ let INT_SUB_SUB = INT_OF_REAL_THM REAL_SUB_SUB;;
 let INT_SUB_SUB2 = INT_OF_REAL_THM REAL_SUB_SUB2;;
 let INT_SUB_TRIANGLE = INT_OF_REAL_THM REAL_SUB_TRIANGLE;;
 
+let INT_WLOG_LE = prove
+ (`(!x y:int. P x y <=> P y x) /\ (!x y. x <= y ==> P x y) ==> !x y. P x y`,
+  MESON_TAC[INT_LE_TOTAL]);;
+
+let INT_WLOG_LT = prove
+ (`(!x:int. P x x) /\ (!x y. P x y <=> P y x) /\ (!x y. x < y ==> P x y)
+   ==> !x y. P x y`,
+  MESON_TAC[INT_LT_TOTAL]);;
+
+let INT_WLOG_LE_3 = prove
+ (`!P. (!x y z. P x y z ==> P y x z /\ P x z y) /\
+       (!x y z:int. x <= y /\ y <= z ==> P x y z)
+       ==> !x y z. P x y z`,
+  MESON_TAC[INT_LE_TOTAL]);;
+
 (* ------------------------------------------------------------------------- *)
 (* More useful "image" theorems.                                             *)
 (* ------------------------------------------------------------------------- *)
@@ -561,25 +577,6 @@ let INT_EXISTS_ABS = prove
  (`!P. (?n. P(&n)) <=> (?x:int. P(abs x))`,
   GEN_TAC THEN GEN_REWRITE_TAC I [TAUT `(p <=> q) <=> (~p <=> ~q)`] THEN
   REWRITE_TAC[NOT_EXISTS_THM; INT_FORALL_ABS] THEN MESON_TAC[]);;
-
-(* ------------------------------------------------------------------------- *)
-(* Sometimes handy in number-theoretic applications.                         *)
-(* ------------------------------------------------------------------------- *)
-
-let INT_ABS_MUL_1 = prove
- (`!x y. (abs(x * y) = &1) <=> (abs(x) = &1) /\ (abs(y) = &1)`,
-  REPEAT GEN_TAC THEN REWRITE_TAC[INT_ABS_MUL] THEN
-  MP_TAC(SPEC `y:int` INT_ABS_POS) THEN SPEC_TAC(`abs(y)`,`b:int`) THEN
-  MP_TAC(SPEC `x:int` INT_ABS_POS) THEN SPEC_TAC(`abs(x)`,`a:int`) THEN
-  REWRITE_TAC[GSYM INT_FORALL_POS; INT_OF_NUM_MUL; INT_OF_NUM_EQ; MULT_EQ_1]);;
-
-let INT_WOP = prove
- (`(?x. &0 <= x /\ P x) <=>
-   (?x. &0 <= x /\ P x /\ !y. &0 <= y /\ P y ==> x <= y)`,
-  ONCE_REWRITE_TAC[MESON[] `(?x. P x /\ Q x) <=> ~(!x. P x ==> ~Q x)`] THEN
-  REWRITE_TAC[IMP_CONJ; GSYM INT_FORALL_POS; INT_OF_NUM_LE] THEN
-  REWRITE_TAC[NOT_FORALL_THM] THEN GEN_REWRITE_TAC LAND_CONV [num_WOP] THEN
-  REWRITE_TAC[GSYM NOT_LE; CONTRAPOS_THM]);;
 
 (* ------------------------------------------------------------------------- *)
 (* A few "pseudo definitions".                                               *)
@@ -680,6 +677,32 @@ let INT_LE_TRANS_LT = prove
   REPEAT GEN_TAC THEN EQ_TAC THENL [INT_ARITH_TAC; ALL_TAC] THEN
   DISCH_THEN(MP_TAC o SPEC `y + &1:int`) THEN INT_ARITH_TAC);;
 
+let INT_MUL_EQ_1 = prove
+ (`!x y:int. x * y = &1 <=> x = &1 /\ y = &1 \/ x = --(&1) /\ y = --(&1)`,
+  REPEAT GEN_TAC THEN
+  MP_TAC(ISPEC `x:int` INT_IMAGE) THEN
+  MP_TAC(ISPEC `y:int` INT_IMAGE) THEN
+  REPEAT STRIP_TAC THEN
+  ASM_REWRITE_TAC[INT_MUL_LNEG; INT_MUL_RNEG; INT_NEG_NEG;
+     INT_ARITH `~(--(&n:int) = &1)`; INT_OF_NUM_MUL;
+     INT_ARITH `~(&n:int = -- &1)`; INT_OF_NUM_EQ; INT_NEG_EQ] THEN
+  REWRITE_TAC[MULT_EQ_1]);;
+
+let INT_ABS_MUL_1 = prove
+ (`!x y. abs(x * y) = &1 <=> abs(x) = &1 /\ abs(y) = &1`,
+  REPEAT GEN_TAC THEN REWRITE_TAC[INT_ABS_MUL] THEN
+  MP_TAC(SPEC `y:int` INT_ABS_POS) THEN SPEC_TAC(`abs(y)`,`b:int`) THEN
+  MP_TAC(SPEC `x:int` INT_ABS_POS) THEN SPEC_TAC(`abs(x)`,`a:int`) THEN
+  REWRITE_TAC[GSYM INT_FORALL_POS; INT_OF_NUM_MUL; INT_OF_NUM_EQ; MULT_EQ_1]);;
+
+let INT_WOP = prove
+ (`(?x. &0 <= x /\ P x) <=>
+   (?x. &0 <= x /\ P x /\ !y. &0 <= y /\ P y ==> x <= y)`,
+  ONCE_REWRITE_TAC[MESON[] `(?x. P x /\ Q x) <=> ~(!x. P x ==> ~Q x)`] THEN
+  REWRITE_TAC[IMP_CONJ; GSYM INT_FORALL_POS; INT_OF_NUM_LE] THEN
+  REWRITE_TAC[NOT_FORALL_THM] THEN GEN_REWRITE_TAC LAND_CONV [num_WOP] THEN
+  REWRITE_TAC[GSYM NOT_LE; CONTRAPOS_THM]);;
+
 (* ------------------------------------------------------------------------- *)
 (* Archimedian property for the integers.                                    *)
 (* ------------------------------------------------------------------------- *)
@@ -737,6 +760,28 @@ let INT_DIVISION = prove
  (`!m n. ~(n = &0)
          ==> m = m div n * n + m rem n /\ &0 <= m rem n /\ m rem n < abs n`,
   MESON_TAC[INT_DIVISION_0]);;
+
+let INT_DIVISION_DECOMP = prove
+ (`!m n. m div n * n + m rem n = m`,
+  MP_TAC INT_DIVISION_0 THEN REPEAT(MATCH_MP_TAC MONO_FORALL THEN GEN_TAC) THEN
+  COND_CASES_TAC THEN ASM_SIMP_TAC[] THEN CONV_TAC INT_ARITH);;
+
+let INT_DIV_0 = prove
+ (`!m. m div &0 = &0`,
+  MESON_TAC[INT_DIVISION_0]);;
+
+let INT_REM_0 = prove
+ (`!m. m rem &0 = m`,
+  MESON_TAC[INT_DIVISION_0]);;
+
+let INT_REM_DIV = prove
+ (`!m n. m rem n = m - m div n * n`,
+  REWRITE_TAC[INT_ARITH `a:int = b - c <=> c + a = b`] THEN
+  REWRITE_TAC[INT_DIVISION_DECOMP]);;
+
+let INT_LT_REM = prove
+ (`!x n. &0 < n ==> x rem n < n`,
+  MESON_TAC[INT_DIVISION; INT_LT_REFL; INT_ARITH `&0:int < n ==> abs n = n`]);;
 
 (* ------------------------------------------------------------------------- *)
 (* Arithmetic operations on integers. Essentially a clone of stuff for reals *)
@@ -1019,79 +1064,6 @@ let INT_RING,int_ideal_cofactors =
                   "int_ideal_cofactors: not all terms have type :int");;
 
 (* ------------------------------------------------------------------------- *)
-(* Arithmetic operations also on div and rem, hence the whole lot.           *)
-(* ------------------------------------------------------------------------- *)
-
-let INT_DIVMOD_UNIQ = prove
- (`!m n q r:int. m = q * n + r /\ &0 <= r /\ r < abs n
-                 ==> m div n = q /\ m rem n = r`,
-  REPEAT GEN_TAC THEN STRIP_TAC THEN
-  SUBGOAL_THEN `~(n = &0)` MP_TAC THENL [ASM_INT_ARITH_TAC; ALL_TAC] THEN
-  DISCH_THEN(STRIP_ASSUME_TAC o SPEC `m:int` o MATCH_MP INT_DIVISION) THEN
-  ASM_CASES_TAC `m div n = q` THENL
-   [REPEAT(POP_ASSUM MP_TAC) THEN CONV_TAC INT_RING; ALL_TAC] THEN
-  SUBGOAL_THEN `abs(m rem n - r) < abs n` MP_TAC THENL
-   [ASM_INT_ARITH_TAC; MATCH_MP_TAC(TAUT `~p ==> p ==> q`)] THEN
-  MATCH_MP_TAC(INT_ARITH
-   `&1 * abs n <= abs(q - m div n) * abs n /\
-    abs(m rem n - r) = abs((q - m div n) * n)
-    ==> ~(abs(m rem n - r) < abs n)`) THEN
-  CONJ_TAC THENL
-   [MATCH_MP_TAC INT_LE_RMUL THEN ASM_INT_ARITH_TAC;
-    AP_TERM_TAC THEN REPEAT(POP_ASSUM MP_TAC) THEN CONV_TAC INT_RING]);;
-
-let INT_DIV_CONV,INT_REM_CONV =
-  let pth = prove
-   (`q * n + r = m ==> &0 <= r ==> r < abs n ==> m div n = q /\ m rem n = r`,
-    MESON_TAC[INT_DIVMOD_UNIQ])
-  and m = `m:int` and n = `n:int` and q = `q:int` and r = `r:int`
-  and dtm = `(div)` and mtm = `(rem)` in
-  let emod_num x y =
-    let r = mod_num x y in
-    if r </ Int 0 then r +/ abs_num y else r in
-  let equo_num x y = quo_num (x -/ emod_num x y) y in
-  let INT_DIVMOD_CONV x y =
-    let k = equo_num x y
-    and l = emod_num x y in
-    let th0 = INST [mk_intconst x,m; mk_intconst y,n;
-                    mk_intconst k,q; mk_intconst l,r] pth in
-    let tm0 = lhand(lhand(concl th0)) in
-    let th1 = (LAND_CONV INT_MUL_CONV THENC INT_ADD_CONV) tm0 in
-    let th2 = MP th0 th1 in
-    let tm2 = lhand(concl th2) in
-    let th3 = MP th2 (EQT_ELIM(INT_LE_CONV tm2)) in
-    let tm3 = lhand(concl th3) in
-    MP th3 (EQT_ELIM((RAND_CONV INT_ABS_CONV THENC INT_LT_CONV) tm3)) in
-  (fun tm -> try let l,r = dest_binop dtm tm in
-                 CONJUNCT1(INT_DIVMOD_CONV (dest_intconst l) (dest_intconst r))
-             with Failure _ -> failwith "INT_DIV_CONV"),
-  (fun tm -> try let l,r = dest_binop mtm tm in
-                 CONJUNCT2(INT_DIVMOD_CONV (dest_intconst l) (dest_intconst r))
-             with Failure _ -> failwith "INT_MOD_CONV");;
-
-let INT_RED_CONV =
-  let gconv_net = itlist (uncurry net_of_conv)
-    [`x <= y`,INT_LE_CONV;
-     `x < y`,INT_LT_CONV;
-     `x >= y`,INT_GE_CONV;
-     `x > y`,INT_GT_CONV;
-     `x:int = y`,INT_EQ_CONV;
-     `--x`,CHANGED_CONV INT_NEG_CONV;
-     `abs(x)`,INT_ABS_CONV;
-     `x + y`,INT_ADD_CONV;
-     `x - y`,INT_SUB_CONV;
-     `x * y`,INT_MUL_CONV;
-     `x div y`,INT_DIV_CONV;
-     `x rem y`,INT_REM_CONV;
-     `x pow n`,INT_POW_CONV;
-     `max x y`,INT_MAX_CONV;
-     `min x y`,INT_MIN_CONV]
-    (basic_net()) in
-  REWRITES_CONV gconv_net;;
-
-let INT_REDUCE_CONV = DEPTH_CONV INT_RED_CONV;;
-
-(* ------------------------------------------------------------------------- *)
 (* Set up overloading so we can use same symbols for N, Z and even R.        *)
 (* ------------------------------------------------------------------------- *)
 
@@ -1271,8 +1243,6 @@ let INTEGER_TAC =
 let INTEGER_RULE tm = prove(tm,INTEGER_TAC);;
 
 (* ------------------------------------------------------------------------- *)
-<<<<<<< HEAD
-=======
 (* More div and rem properties.                                              *)
 (* ------------------------------------------------------------------------- *)
 
@@ -1658,7 +1628,6 @@ let INT_RED_CONV =
 let INT_REDUCE_CONV = DEPTH_CONV INT_RED_CONV;;
 
 (* ------------------------------------------------------------------------- *)
->>>>>>> hol/master
 (* Existence of integer gcd, and the Bezout identity.                        *)
 (* ------------------------------------------------------------------------- *)
 
@@ -1816,7 +1785,7 @@ let ARITH_RULE =
     let pths = map (fun v -> SPEC (rand v) INT_POS) nim in
     let ibod = itlist (curry mk_imp o concl) pths bod in
     let gbod = subst (zip gvs nim) ibod in
-    let th2 = INST (zip nim gvs) (INT_ARITH gbod) in 
+    let th2 = INST (zip nim gvs) (INT_ARITH gbod) in
     let th3 = GENL avs (rev_itlist (C MP) pths th2) in
     EQ_MP (SYM th1) th3;;
 
@@ -1902,8 +1871,6 @@ let DIVIDES_LE = prove
    `m <= m * n <=> m * 1 <= m * n`] THEN
   ASM_ARITH_TAC);;
 
-<<<<<<< HEAD
-=======
 let DIVIDES_LE_STRONG = prove
  (`!m n. m divides n ==> 1 <= m /\ m <= n \/ n = 0`,
   REPEAT GEN_TAC THEN ASM_CASES_TAC `m = 0` THEN
@@ -1959,7 +1926,6 @@ let ONE_OR_PRIME = prove
   GEN_TAC THEN REWRITE_TAC[prime] THEN
   ASM_CASES_TAC `p = 1` THEN ASM_REWRITE_TAC[DIVIDES_ONE]);;
 
->>>>>>> hol/master
 (* ------------------------------------------------------------------------- *)
 (* Integer powers of real numbers.                                           *)
 (* ------------------------------------------------------------------------- *)
