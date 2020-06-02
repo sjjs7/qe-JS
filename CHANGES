@@ -8,7 +8,7 @@
   * page: https://github.com/jrh13/hol-light/commits/master         *
   * *****************************************************************
 
-Thu 24th Aug 2017       passim!!!!!!
+Thu 24th Aug 2017       passim
 
 Eliminated a number of duplicated theorems (often exact duplicates,
 otherwise differing at most in their outer universal quantifiers or
