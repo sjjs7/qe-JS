@@ -270,6 +270,7 @@ let parse_preterm =
                 || exists (fun (w,_) -> v = w) (!the_interface) then []
         else [ptm]
     | Constp(_,_) -> []
+    | Quotep(_) -> []
     | Combp(p1,p2) -> union (pfrees p1) (pfrees p2)
     | Absp(p1,p2) -> subtract (pfrees p2) (pfrees p1)
     | Typing(p,_) -> pfrees p in
