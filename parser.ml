@@ -267,22 +267,12 @@ let parse_preterm =
       Varp(v,pty) ->
         if v = "" && pty = dpty then []
         else if can get_const_type v || can num_of_string v
-<<<<<<< HEAD
-                || exists (fun (w,_) -> v = w) (!the_interface) then acc
-        else insert ptm acc
-    | Constp(_,_) -> acc
-    | Quotep(_) -> acc
-    | Combp(p1,p2) -> pfrees p1 (pfrees p2 acc)
-    | Absp(p1,p2) -> subtract (pfrees p2 acc) (pfrees p1 [])
-    | Typing(p,_) -> pfrees p acc in
-=======
                 || exists (fun (w,_) -> v = w) (!the_interface) then []
         else [ptm]
     | Constp(_,_) -> []
     | Combp(p1,p2) -> union (pfrees p1) (pfrees p2)
     | Absp(p1,p2) -> subtract (pfrees p2) (pfrees p1)
     | Typing(p,_) -> pfrees p in
->>>>>>> 34
   let pdest_eq (Combp(Combp(Varp(("="|"<=>"),_),l),r)) = l,r in
   let pmk_let (letbindings,body) =
     let vars,tms = unzip (map pdest_eq letbindings) in
