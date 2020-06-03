@@ -1,9 +1,11 @@
 			     HOL LIGHT QE
 
+
 HOL Light QE is a proof assistant that implements the logic CTT_qe, a
 version of Church's type theory with quotation and evaluation.  CTT_qe
 is presented in the paper "Incorporating Quotation and Evaluation into
 Church's Type Theory" which is available at:
+
 
   https://doi.org/10.1016/j.ic.2018.03.001 (journal version)
   http://imps.mcmaster.ca/doc/qe-in-church.pdf (preprint version)
@@ -13,6 +15,7 @@ HOL Light QE is described in the paper "HOL Light QE" available at:
   http://imps.mcmaster.ca/doc/hol-light-qe.pdf
 
 The root of the system's GitHub code repository is:
+
 
   https://github.com/JacquesCarette/hol-light-qe
   
